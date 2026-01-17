@@ -18,6 +18,7 @@ import authRoutes from './src/routes/authRoutes.js';
 import commentRoutes from './src/routes/commentRoutes.js';
 import communityRoutes from './src/routes/communityRoutes.js';
 import postRoutes from './src/routes/postRoutes.js';
+import slickRoutes from './src/routes/slickRoutes.js';
 import { initSocket } from './src/sockets/index.js';
 
 // Initialize Express app
@@ -73,6 +74,7 @@ app.use('/api/communities', communityRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/slicks', slickRoutes);
 
 // 404 handler
 app.use((req, res) => {

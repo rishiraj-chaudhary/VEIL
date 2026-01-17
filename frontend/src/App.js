@@ -2,12 +2,12 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Login from './components/auth/login';
 import Register from './components/auth/Register';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import SlickFeed from './components/slick/SlickFeed.js';
 import Communities from './pages/Communities';
 import CreatePost from './pages/CreatePost';
 import Feed from './pages/Feed';
 import Home from './pages/Home';
 import PostDetail from './pages/PostDetail';
-
 function App() {
   return (
     <BrowserRouter>
@@ -30,6 +30,11 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/slicks" element={
+  <ProtectedRoute>
+    <SlickFeed />
+  </ProtectedRoute>
+} />
         <Route
           path="/feed"
           element={
