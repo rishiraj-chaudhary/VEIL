@@ -1,11 +1,12 @@
 import Community from '../models/community.js';
 
-
+/* =====================================================
+   CREATE COMMUNITY
+===================================================== */
 export const createCommunity = async (req, res) => {
   try {
     const { name, displayName, description } = req.body;
 
-    // Validation
     if (!name || !displayName) {
       return res.status(400).json({
         success: false,
@@ -13,8 +14,10 @@ export const createCommunity = async (req, res) => {
       });
     }
 
-    // Check if community exists
-    const existingCommunity = await Community.findOne({ name: name.toLowerCase() });
+    const existingCommunity = await Community.findOne({
+      name: name.toLowerCase(),
+    });
+
     if (existingCommunity) {
       return res.status(400).json({
         success: false,
@@ -22,18 +25,23 @@ export const createCommunity = async (req, res) => {
       });
     }
 
-    // Create community
     const community = await Community.create({
       name: name.toLowerCase(),
       displayName,
       description: description || '',
       creator: req.user._id,
+      members: [req.user._id],
+      memberCount: 1,
     });
+
+    const populatedCommunity = await Community.findById(community._id)
+      .populate('creator', 'username')
+      .populate('members', '_id username');
 
     res.status(201).json({
       success: true,
       message: 'Community created successfully',
-      data: { community },
+      data: { community: populatedCommunity },
     });
   } catch (error) {
     console.error('Create community error:', error);
@@ -44,9 +52,9 @@ export const createCommunity = async (req, res) => {
   }
 };
 
-// @route   GET /api/communities
-// @desc    Get all communities
-// @access  Public
+/* =====================================================
+   GET ALL COMMUNITIES
+===================================================== */
 export const getAllCommunities = async (req, res) => {
   try {
     const { sort = '-memberCount', limit = 20, page = 1 } = req.query;
@@ -55,7 +63,8 @@ export const getAllCommunities = async (req, res) => {
       .sort(sort)
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate('creator', 'username');
+      .populate('creator', 'username')
+      .populate('members', '_id username'); // ✅ FIX
 
     const total = await Community.countDocuments({ isActive: true });
 
@@ -80,17 +89,18 @@ export const getAllCommunities = async (req, res) => {
   }
 };
 
-// @route   GET /api/communities/:name
-// @desc    Get community by name
-// @access  Public
+/* =====================================================
+   GET SINGLE COMMUNITY
+===================================================== */
 export const getCommunity = async (req, res) => {
   try {
-    const community = await Community.findOne({ 
+    const community = await Community.findOne({
       name: req.params.name.toLowerCase(),
-      isActive: true 
+      isActive: true,
     })
       .populate('creator', 'username')
-      .populate('moderators', 'username');
+      .populate('moderators', 'username')
+      .populate('members', '_id username'); // ✅ FIX
 
     if (!community) {
       return res.status(404).json({
@@ -112,13 +122,13 @@ export const getCommunity = async (req, res) => {
   }
 };
 
-// @route   POST /api/communities/:name/join
-// @desc    Join a community
-// @access  Private
+/* =====================================================
+   JOIN COMMUNITY
+===================================================== */
 export const joinCommunity = async (req, res) => {
   try {
-    const community = await Community.findOne({ 
-      name: req.params.name.toLowerCase() 
+    const community = await Community.findOne({
+      name: req.params.name.toLowerCase(),
     });
 
     if (!community) {
@@ -128,23 +138,25 @@ export const joinCommunity = async (req, res) => {
       });
     }
 
-    // Check if already a member
-    if (community.members.includes(req.user._id)) {
+    if (community.members.some(id => id.equals(req.user._id))) {
       return res.status(400).json({
         success: false,
         message: 'Already a member',
       });
     }
 
-    // Add member
     community.members.push(req.user._id);
     community.memberCount += 1;
     await community.save();
 
+    const populatedCommunity = await Community.findById(community._id)
+      .populate('creator', 'username')
+      .populate('members', '_id username');
+
     res.status(200).json({
       success: true,
       message: 'Joined community successfully',
-      data: { community },
+      data: { community: populatedCommunity },
     });
   } catch (error) {
     console.error('Join community error:', error);
@@ -155,13 +167,13 @@ export const joinCommunity = async (req, res) => {
   }
 };
 
-// @route   POST /api/communities/:name/leave
-// @desc    Leave a community
-// @access  Private
+/* =====================================================
+   LEAVE COMMUNITY
+===================================================== */
 export const leaveCommunity = async (req, res) => {
   try {
-    const community = await Community.findOne({ 
-      name: req.params.name.toLowerCase() 
+    const community = await Community.findOne({
+      name: req.params.name.toLowerCase(),
     });
 
     if (!community) {
@@ -171,15 +183,13 @@ export const leaveCommunity = async (req, res) => {
       });
     }
 
-    // Check if member
-    if (!community.members.includes(req.user._id)) {
+    if (!community.members.some(id => id.equals(req.user._id))) {
       return res.status(400).json({
         success: false,
         message: 'Not a member',
       });
     }
 
-    // Can't leave if you're the creator
     if (community.creator.equals(req.user._id)) {
       return res.status(400).json({
         success: false,
@@ -187,16 +197,20 @@ export const leaveCommunity = async (req, res) => {
       });
     }
 
-    // Remove member
     community.members = community.members.filter(
       id => !id.equals(req.user._id)
     );
     community.memberCount -= 1;
     await community.save();
 
+    const populatedCommunity = await Community.findById(community._id)
+      .populate('creator', 'username')
+      .populate('members', '_id username');
+
     res.status(200).json({
       success: true,
       message: 'Left community successfully',
+      data: { community: populatedCommunity },
     });
   } catch (error) {
     console.error('Leave community error:', error);

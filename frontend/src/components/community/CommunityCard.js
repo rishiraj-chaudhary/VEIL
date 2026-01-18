@@ -2,7 +2,7 @@ import { useState } from 'react';
 import useAuthStore from '../../store/authStore';
 import useCommunityStore from '../../store/communityStore';
 
-const CommunityCard = ({ community }) => {
+const CommunityCard = ({ community , onJoinLeave }) => {
   const { joinCommunity, leaveCommunity } = useCommunityStore();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
@@ -20,6 +20,7 @@ const CommunityCard = ({ community }) => {
       } else {
         await joinCommunity(community.name);
       }
+      onJoinLeave();
     } catch (error) {
       console.error('Join/Leave error:', error);
     }

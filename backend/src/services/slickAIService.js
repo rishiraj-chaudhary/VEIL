@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Community from '../models/community.js';
 import User from '../models/user.js';
+import grokService from './grokService.js';
 
 class SlickAIService {
   constructor() {
@@ -209,45 +210,42 @@ class SlickAIService {
     }
   }
 
-  // 🎯 Generate personalized slick suggestions using AI
   async generateSlickSuggestions(authorId, targetId, context = '') {
     try {
-      const target = await User.findById(targetId).select('username');
-      
-      // Get some context about their relationship
-      const sharedCommunities = await this.getSharedCommunities(authorId, targetId);
-      
-      const suggestionPrompt = `
-        Generate 3 different anonymous feedback suggestions for someone to send to their friend/peer.
-        
-        Context: They're both in communities like ${sharedCommunities.join(', ')}
-        Additional context: ${context}
-        
-        Create suggestions in different tones:
-        1. Praise/Appreciation (positive feedback)
-        2. Constructive observation (helpful insight)
-        3. Playful tease (light, friendly humor)
-        
-        Return as JSON:
-        {
-          "suggestions": [
-            {
-              "content": "suggestion text",
-              "tone": {"category": "praise", "intensity": 5},
-              "explanation": "why this works"
-            }
-          ]
-        }
-        
-        Keep each suggestion under 200 characters and make them feel genuine.
-      `;
-
-      const aiResponse = await this.callGrokAI(suggestionPrompt, 600);
-      const cleanResponse = aiResponse.replace(/```json|```/g, '').trim();
-      return JSON.parse(cleanResponse);
-
-    } catch (error) {
-      console.error('❌ SlickAI: Suggestion generation error:', error);
+      const prompt = `
+  Generate 3 different anonymous feedback suggestions.
+  
+  Context:
+  - These two users share communities.
+  - Feedback must be respectful, safe, and honest.
+  
+  Create suggestions in different tones:
+  1. Praise/Appreciation
+  2. Constructive observation
+  3. Playful tease
+  
+  Return ONLY valid JSON:
+  {
+    "suggestions": [
+      {
+        "content": "text",
+        "tone": { "category": "praise", "intensity": 5 },
+        "explanation": "why this works"
+      }
+    ]
+  }
+  `;
+  
+      const aiResponse = await grokService.generateSmart(prompt, {
+        temperature: 0.4,
+      });
+  
+      // Parse JSON safely
+      const parsed = JSON.parse(aiResponse);
+  
+      return parsed.suggestions;
+    } catch (err) {
+      console.error('❌ Slick AI (Groq) failed:', err.message);
       return this.fallbackSuggestions();
     }
   }
