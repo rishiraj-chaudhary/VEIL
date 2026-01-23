@@ -7,17 +7,19 @@ const debateTurnSchema = new mongoose.Schema({
     required: [true, 'Debate reference is required'],
     index: true,
   },
+  
   round: {
     type: Number,
     required: [true, 'Round number is required'],
     min: 1,
   },
+  
   turnNumber: {
     type: Number,
     required: [true, 'Turn number is required'],
     min: 1,
   },
-
+  
   // Author
   author: {
     type: mongoose.Schema.Types.ObjectId,
@@ -25,12 +27,13 @@ const debateTurnSchema = new mongoose.Schema({
     required: [true, 'Author is required'],
     index: true,
   },
+  
   side: {
     type: String,
     enum: ['for', 'against'],
     required: true,
   },
-
+  
   // Content
   content: {
     type: String,
@@ -39,11 +42,12 @@ const debateTurnSchema = new mongoose.Schema({
     minlength: [10, 'Content must be at least 10 characters'],
     maxlength: [5000, 'Content cannot exceed 5000 characters'],
   },
+  
   wordCount: {
     type: Number,
     required: true,
   },
-
+  
   // AI Analysis (populated after submission)
   aiAnalysis: {
     claims: [String],
@@ -72,27 +76,64 @@ const debateTurnSchema = new mongoose.Schema({
       min: 0,
       max: 100,
     },
+    
+    // 🆕 NEW: Detailed evidence breakdown
+    evidenceAnalysis: {
+      hasEvidence: {
+        type: Boolean,
+        default: false,
+      },
+      verified: {
+        type: Boolean,
+        default: false,
+      },
+      score: {
+        type: Number,
+        min: 0,
+        max: 100,
+      },
+      indicatorCount: {
+        type: Number,
+        default: 0,
+      },
+      sources: [String],
+    },
+    
     overallQuality: {
       type: Number,
       min: 0,
       max: 100,
     },
+    
+    // 🆕 NEW: Decision trace for explainability (CRITICAL)
+    decisionTrace: {
+      type: [String],
+      default: [],
+    },
+    
+    // 🆕 NEW: Retrieved sources from RAG (Phase 2)
+    retrievedSources: {
+      type: [String],
+      default: [],
+    },
   },
-
+  
   // Timestamps
   submittedAt: {
     type: Date,
     default: Date.now,
   },
+  
   timeTaken: {
     type: Number, // in seconds
   },
-
+  
   // Status
   isEdited: {
     type: Boolean,
     default: false,
   },
+  
   isDeleted: {
     type: Boolean,
     default: false,
@@ -118,10 +159,10 @@ debateTurnSchema.pre('save', function(next) {
 debateTurnSchema.methods.isWithinLimit = async function() {
   const debate = await mongoose.model('Debate').findById(this.debate);
   if (!debate) return false;
-
+  
   const roundConfig = debate.rounds.find(r => r.number === this.round);
   if (!roundConfig) return false;
-
+  
   return this.wordCount <= roundConfig.wordLimit;
 };
 
@@ -142,5 +183,4 @@ debateTurnSchema.statics.getTurnStats = async function(debateId) {
 };
 
 const debateTurn = mongoose.model('debateTurn', debateTurnSchema);
-
 export default debateTurn;
