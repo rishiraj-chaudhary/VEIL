@@ -6,6 +6,7 @@ const Navbar = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { currency } = useSlickStore();
+  
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -22,18 +23,28 @@ const Navbar = () => {
                 VEIL
               </h1>
             </Link>
+            
             <Link 
-  to="/feed" 
-  className="text-gray-300 hover:text-white transition-colors"
->
-  Feed
-</Link>
+              to="/feed" 
+              className="text-gray-300 hover:text-white transition-colors"
+            >
+              Feed
+            </Link>
             
             <Link 
               to="/communities" 
               className="text-gray-300 hover:text-white transition-colors"
             >
               Communities
+            </Link>
+
+            {/* 🎯 NEW: DEBATES LINK */}
+            <Link 
+              to="/debates" 
+              className="text-gray-300 hover:text-white transition-colors flex items-center space-x-1"
+            >
+              <span>⚖️</span>
+              <span>Debates</span>
             </Link>
             
             <Link 
@@ -42,17 +53,18 @@ const Navbar = () => {
             >
               Create Post
             </Link>
+            
             <Link 
-  to="/slicks" 
-  className="text-gray-300 hover:text-white transition-colors flex items-center space-x-1"
->
-  <span>🎭 Slicks</span>
-  {currency.balance > 0 && (
-    <span className="text-xs bg-veil-purple px-2 py-1 rounded-full">
-      {currency.balance}
-    </span>
-  )}
-</Link>
+              to="/slicks" 
+              className="text-gray-300 hover:text-white transition-colors flex items-center space-x-1"
+            >
+              <span>🎭 Slicks</span>
+              {currency.balance > 0 && (
+                <span className="text-xs bg-veil-purple px-2 py-1 rounded-full">
+                  {currency.balance}
+                </span>
+              )}
+            </Link>
           </div>
 
           {/* Right - User menu */}

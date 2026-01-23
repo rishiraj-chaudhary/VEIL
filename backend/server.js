@@ -1,11 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Debug environment loading
-console.log('🔍 GROK_API_KEY loaded:', process.env.GROK_API_KEY ? 'YES ✅' : 'NO ❌');
-console.log('🔍 First 10 chars:', process.env.GROK_API_KEY?.substring(0, 10));
-
-// Now import everything else (AFTER dotenv is configured)
 import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
@@ -19,6 +14,10 @@ import commentRoutes from './src/routes/commentRoutes.js';
 import communityRoutes from './src/routes/communityRoutes.js';
 import postRoutes from './src/routes/postRoutes.js';
 import slickRoutes from './src/routes/slickRoutes.js';
+
+// 🎯 CRITICAL: Import debate routes
+import debateRoutes from './src/routes/debateRoutes.js';
+
 import { initSocket } from './src/sockets/index.js';
 
 // Initialize Express app
@@ -63,7 +62,8 @@ app.get('/', (req, res) => {
     features: {
       oracle: '🔮 AI Assistant Ready',
       shadow: '🌑 Devil\'s Advocate Standby',
-      reveal: '✨ Truth Unveiled'
+      reveal: '✨ Truth Unveiled',
+      debates: '⚖️ Structured Debates' // NEW
     }
   });
 });
@@ -75,6 +75,9 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/slicks', slickRoutes);
+
+// 🎯 CRITICAL: Register debate routes
+app.use('/api/debates', debateRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -104,6 +107,7 @@ server.listen(PORT, () => {
   🌑 SHADOW Bot: Standby
   ✨ Unveiling Truth: Active
   ⚡ Socket.io: Connected
+  ⚖️ Debates: Active
   ═══════════════════════════════════════
   `);
 });
