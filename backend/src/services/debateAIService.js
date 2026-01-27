@@ -1,43 +1,64 @@
 import grokService from './grokService.js';
+import vectorStoreService from './vectorStoreService.js';
 
 /**
- * ENHANCED DEBATE AI SERVICE with RAG
+ * DEBATE AI SERVICE with RAG (Phase 2 - ChromaDB)
  * 
- * KEY UPGRADES:
- * - RAG-powered analysis (retrieves context before reasoning)
- * - Explainable outputs (every decision has justification)
- * - Structured reasoning chains
+ * ENHANCED WITH:
+ * - ChromaDB vector store integration
+ * - Knowledge base retrieval (fallacies, techniques)
+ * - Debate memory (learns from past debates)
  * - Evidence verification
+ * - Explainable outputs with source attribution
  * 
- * This is NOT a chatbot. This is an AI JUDGE.
+ * This is NOT a chatbot. This is an AI JUDGE with MEMORY.
  */
 class DebateAIService {
   constructor() {
-    // TODO Phase 2: Initialize vector store connection
     this.vectorStore = null;
-    this.useRAG = false; // Enable in Phase 2
+    this.useRAG = false;
   }
 
   /**
-   * MAIN ANALYSIS METHOD
-   * Analyzes a debate turn with RAG-powered reasoning
-   * 
-   * @returns {Object} Analysis with explainable outputs
+   * Initialize RAG system
+   */
+  async initializeRAG() {
+    try {
+      console.log('🤖 Initializing Debate AI with RAG...');
+      
+      await vectorStoreService.initialize();
+      this.vectorStore = vectorStoreService;
+      
+      const stats = await vectorStoreService.getStats();
+      this.useRAG = stats.initialized && stats.hasKnowledgeStore;
+      
+      if (this.useRAG) {
+        console.log('✅ RAG enabled for debate analysis');
+        console.log(`   Knowledge items: ${stats.knowledgeCount}`);
+        console.log(`   Memory items: ${stats.memoryCount}`);
+      } else {
+        console.log('⚠️  RAG disabled - running without retrieval');
+      }
+    } catch (error) {
+      console.error('❌ RAG initialization error:', error.message);
+      this.useRAG = false;
+    }
+  }
+
+  /**
+   * MAIN ANALYSIS METHOD with RAG
    */
   async analyzeTurn(content, side, previousTurns = []) {
     try {
       console.log(`🤖 Analyzing turn for side '${side}' (RAG: ${this.useRAG})`);
 
-      // Build context from previous turns
       const context = this.buildTurnContext(previousTurns);
+      const decisionTrace = [];
 
       // ✨ PHASE 2: Retrieve relevant knowledge
       const retrievedKnowledge = this.useRAG 
-        ? await this.retrieveRelevantKnowledge(content, context)
-        : { sources: [], context: '' };
-
-      // Decision trace for explainability
-      const decisionTrace = [];
+        ? await this.retrieveRelevantKnowledge(content, context, decisionTrace)
+        : { sources: [], context: '', knowledgeDocs: [], memoryDocs: [] };
 
       // Run parallel analysis with retrieved context
       const [claims, rebuttals, fallacies, toneScore, clarityScore, evidenceAnalysis] = await Promise.all([
@@ -49,7 +70,7 @@ class DebateAIService {
         this.analyzeEvidenceWithRAG(content, retrievedKnowledge, decisionTrace)
       ]);
 
-      // Calculate overall quality with justification
+      // Calculate overall quality
       const overallQuality = this.calculateOverallQuality({
         toneScore,
         clarityScore,
@@ -65,15 +86,14 @@ class DebateAIService {
         toneScore,
         clarityScore,
         evidenceQuality: evidenceAnalysis.score,
-        evidenceAnalysis, // NEW: Detailed evidence breakdown
+        evidenceAnalysis,
         overallQuality,
-        decisionTrace, // CRITICAL: Explainability
-        retrievedSources: retrievedKnowledge.sources // NEW: What was retrieved
+        decisionTrace,
+        retrievedSources: retrievedKnowledge.sources
       };
 
     } catch (error) {
       console.error('❌ Turn analysis error:', error);
-      // Return neutral scores on error
       return {
         claims: [],
         rebuttals: [],
@@ -86,6 +106,55 @@ class DebateAIService {
         decisionTrace: ['Error during analysis - using default scores'],
         retrievedSources: []
       };
+    }
+  }
+
+  /**
+   * PHASE 2: Retrieve relevant knowledge from ChromaDB
+   */
+  async retrieveRelevantKnowledge(content, context, decisionTrace) {
+    if (!this.useRAG || !this.vectorStore) {
+      return { sources: [], context: '', knowledgeDocs: [], memoryDocs: [] };
+    }
+
+    try {
+      // Retrieve from knowledge base
+      const knowledgeDocs = await this.vectorStore.retrieveKnowledge(content, 3);
+      
+      // Retrieve from debate memory
+      const memoryDocs = await this.vectorStore.retrieveDebateMemory(content, 2);
+
+      const allDocs = [...knowledgeDocs, ...memoryDocs];
+      
+      if (allDocs.length > 0) {
+        decisionTrace.push(`🔍 Retrieved ${allDocs.length} documents (${knowledgeDocs.length} knowledge, ${memoryDocs.length} memory)`);
+      } else {
+        decisionTrace.push('🔍 No relevant documents found');
+      }
+
+      // Build context from retrieved docs
+      const retrievedContext = allDocs
+        .map(doc => doc.content)
+        .join('\n\n');
+
+      const sources = allDocs.map(doc => {
+        if (doc.metadata?.category && doc.metadata?.type) {
+          return `${doc.metadata.category}:${doc.metadata.type}`;
+        }
+        return 'memory';
+      });
+
+      return {
+        sources,
+        context: retrievedContext,
+        knowledgeDocs,
+        memoryDocs
+      };
+
+    } catch (error) {
+      console.error('Knowledge retrieval error:', error);
+      decisionTrace.push('⚠️ Knowledge retrieval failed');
+      return { sources: [], context: '', knowledgeDocs: [], memoryDocs: [] };
     }
   }
 
@@ -103,28 +172,23 @@ class DebateAIService {
       claims: 0.2
     };
 
-    // Tone contribution
     const toneContribution = toneScore * weights.tone;
     score += toneContribution;
     decisionTrace.push(`Tone (${toneScore.toFixed(1)}) × ${weights.tone} = +${toneContribution.toFixed(1)}`);
 
-    // Clarity contribution
     const clarityContribution = clarityScore * weights.clarity;
     score += clarityContribution;
     decisionTrace.push(`Clarity (${clarityScore.toFixed(1)}) × ${weights.clarity} = +${clarityContribution.toFixed(1)}`);
 
-    // Evidence contribution
     const evidenceContribution = evidenceScore * weights.evidence;
     score += evidenceContribution;
     decisionTrace.push(`Evidence (${evidenceScore.toFixed(1)}) × ${weights.evidence} = +${evidenceContribution.toFixed(1)}`);
 
-    // Claims contribution
     const claimScore = Math.min(100, claimCount * 10);
     const claimContribution = claimScore * weights.claims;
     score += claimContribution;
     decisionTrace.push(`Claims (${claimCount} found, score ${claimScore}) × ${weights.claims} = +${claimContribution.toFixed(1)}`);
 
-    // Fallacy penalty
     if (fallacyCount > 0) {
       const penalty = fallacyCount * 5;
       score -= penalty;
@@ -134,40 +198,17 @@ class DebateAIService {
     return Math.round(Math.max(0, Math.min(100, score)));
   }
 
-  /**
-   * Build context from previous turns
-   */
   buildTurnContext(previousTurns) {
     if (previousTurns.length === 0) return '';
-
     return previousTurns
       .map(turn => `[${turn.side.toUpperCase()}]: ${turn.content}`)
       .join('\n\n');
   }
 
-  /**
-   * PHASE 2: Retrieve relevant knowledge from vector store
-   */
-  async retrieveRelevantKnowledge(content, context) {
-    if (!this.useRAG || !this.vectorStore) {
-      return { sources: [], context: '' };
-    }
-
-    // TODO Phase 2: Implement RAG retrieval
-    // 1. Generate embedding for content
-    // 2. Query vector store
-    // 3. Return top-k relevant documents
-    
-    return { sources: [], context: '' };
-  }
-
-  /**
-   * Extract claims with RAG context
-   */
   async extractClaims(content, context, retrievedKnowledge, decisionTrace) {
     try {
       const ragContext = retrievedKnowledge.context 
-        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context}`
+        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
         : '';
 
       const prompt = `Extract main claims from this debate argument. Return ONLY a JSON array of strings.
@@ -192,9 +233,6 @@ Return format: ["claim 1", "claim 2"]`;
     }
   }
 
-  /**
-   * Extract rebuttals with RAG context
-   */
   async extractRebuttals(content, context, retrievedKnowledge, decisionTrace) {
     try {
       if (!context) {
@@ -203,7 +241,7 @@ Return format: ["claim 1", "claim 2"]`;
       }
 
       const ragContext = retrievedKnowledge.context 
-        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context}`
+        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
         : '';
 
       const prompt = `Identify which previous points this argument is rebutting. Return ONLY a JSON array.
@@ -231,13 +269,10 @@ Return format: ["rebuttal to X", "counter to Y"]`;
     }
   }
 
-  /**
-   * Detect logical fallacies with EXPLAINABLE output
-   */
   async detectFallacies(content, retrievedKnowledge, decisionTrace) {
     try {
       const ragContext = retrievedKnowledge.context 
-        ? `\n\nKnown fallacy patterns:\n${retrievedKnowledge.context}`
+        ? `\n\nKnown fallacy patterns:\n${retrievedKnowledge.context.substring(0, 500)}`
         : '';
 
       const prompt = `Analyze for logical fallacies. Return ONLY valid JSON array.
@@ -254,7 +289,6 @@ Return empty array [] if no fallacies.`;
 
       const response = await grokService.generateFast(prompt, { temperature: 0.2 });
 
-      // Aggressive cleaning
       let cleanResponse = response.trim();
       cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '');
       
@@ -294,9 +328,6 @@ Return empty array [] if no fallacies.`;
     }
   }
 
-  /**
-   * Analyze tone with JUSTIFICATION
-   */
   async analyzeTone(content, decisionTrace) {
     try {
       const prompt = `Rate tone on professionalism and respectfulness.
@@ -322,9 +353,6 @@ Return ONLY JSON:
     }
   }
 
-  /**
-   * Analyze clarity with JUSTIFICATION
-   */
   async analyzeClarity(content, decisionTrace) {
     try {
       const prompt = `Rate clarity (structure, readability, coherence).
@@ -350,12 +378,8 @@ Return ONLY JSON:
     }
   }
 
-  /**
-   * Analyze evidence WITH RAG VERIFICATION
-   */
   async analyzeEvidenceWithRAG(content, retrievedKnowledge, decisionTrace) {
     try {
-      // Check for evidence indicators
       const evidenceIndicators = [
         'study', 'research', 'data', 'statistics', 'source',
         'according to', 'shows that', 'evidence', 'proven',
@@ -368,17 +392,22 @@ Return ONLY JSON:
       ).length;
 
       const hasEvidence = indicatorCount > 0;
-
-      // Base score on indicators
       let score = Math.min(100, 30 + (indicatorCount * 15));
 
       // PHASE 2: Verify against retrieved knowledge
       let verified = false;
-      if (this.useRAG && retrievedKnowledge.sources.length > 0) {
-        // TODO: Implement verification logic
-        verified = true;
-        score += 10; // Bonus for verified claims
-        decisionTrace.push(`Evidence verified against ${retrievedKnowledge.sources.length} sources`);
+      if (this.useRAG && retrievedKnowledge.knowledgeDocs.length > 0) {
+        const hasStrongEvidence = retrievedKnowledge.knowledgeDocs.some(
+          doc => doc.metadata?.type === 'strong_evidence'
+        );
+        
+        if (hasStrongEvidence) {
+          verified = true;
+          score += 10;
+          decisionTrace.push(`✓ Evidence patterns match knowledge base`);
+        } else {
+          decisionTrace.push(`⚠️ Evidence not strongly supported by knowledge base`);
+        }
       }
 
       if (hasEvidence) {
@@ -409,9 +438,6 @@ Return ONLY JSON:
     }
   }
 
-  /**
-   * Generate debate summary
-   */
   async generateDebateSummary(debateId, forTurns, againstTurns) {
     try {
       const forContent = forTurns.map(t => t.content).join('\n\n');
@@ -437,20 +463,20 @@ Include: 1) Main arguments, 2) Strongest points, 3) Weaknesses`;
   }
 
   /**
-   * Check if service is ready
+   * Store turn in debate memory (ChromaDB)
    */
-  isReady() {
-    return grokService.isReady();
+  async storeInMemory(turn, debate) {
+    if (this.useRAG && this.vectorStore) {
+      try {
+        await this.vectorStore.addToMemory(turn, debate);
+      } catch (error) {
+        console.error('Store in memory error:', error.message);
+      }
+    }
   }
 
-  /**
-   * PHASE 2: Initialize RAG
-   */
-  async initializeRAG(vectorStoreConfig) {
-    // TODO Phase 2: Connect to vector store
-    this.vectorStore = null; // Placeholder
-    this.useRAG = false;
-    console.log('📊 RAG initialization pending (Phase 2)');
+  isReady() {
+    return grokService.isReady();
   }
 }
 

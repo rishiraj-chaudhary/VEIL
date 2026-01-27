@@ -1,8 +1,6 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 import compression from 'compression';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import express from 'express';
 import helmet from 'helmet';
 import { createServer } from 'http';
@@ -14,6 +12,8 @@ import commentRoutes from './src/routes/commentRoutes.js';
 import communityRoutes from './src/routes/communityRoutes.js';
 import postRoutes from './src/routes/postRoutes.js';
 import slickRoutes from './src/routes/slickRoutes.js';
+import debateAIService from './src/services/debateAIService.js';
+dotenv.config();
 
 // 🎯 CRITICAL: Import debate routes
 import debateRoutes from './src/routes/debateRoutes.js';
@@ -32,6 +32,15 @@ initSocket(server);
 
 // Connect to MongoDB
 connectDB();
+(async () => {
+  try {
+    console.log('\n📊 Initializing RAG System...');
+    await debateAIService.initializeRAG();
+    console.log('✅ RAG System ready\n');
+  } catch (error) {
+    console.error('⚠️  RAG initialization failed (non-blocking):', error.message);
+  }
+})();
 
 // Middleware
 app.use(helmet());

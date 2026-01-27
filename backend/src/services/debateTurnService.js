@@ -1,7 +1,6 @@
 import Debate from '../models/debate.js';
 import DebateTurn from '../models/debateTurn.js';
 import debateAIService from './debateAIService.js';
-
 class DebateTurnService {
   /**
    * Submit a turn in the debate
@@ -65,9 +64,20 @@ class DebateTurnService {
       await turn.populate('author', 'username karma');
 
       // Run AI analysis asynchronously
-      this.analyzeDebateTurn(turn._id, debate._id).catch(error => {
-        console.error('AI analysis error (non-blocking):', error);
-      });
+      // Run AI analysis asynchronously
+        this.analyzeDebateTurn(turn._id, debate._id).catch(async (error) => {
+          console.error('❌ AI analysis error (non-blocking):', error);
+          
+          // Mark turn with error state
+          try {
+            await DebateTurn.findByIdAndUpdate(turn._id, {
+              'aiAnalysis.decisionTrace': ['AI analysis failed - please retry'],
+              'aiAnalysis.error': error.message
+            });
+          } catch (updateError) {
+            console.error('Failed to mark error:', updateError);
+          }
+        });
 
       // Update debate state
       await this.advanceDebate(debate, participant.side);
@@ -192,35 +202,37 @@ class DebateTurnService {
       if (!turn) {
         throw new Error('Turn not found');
       }
-
-      // Get previous turns for context
+  
+      const debate = await Debate.findById(debateId);
+      if (!debate) {
+        throw new Error('Debate not found');
+      }
+  
       const previousTurns = await DebateTurn.find({
         debate: debateId,
-        turnNumber: { $lt: turn.turnNumber },
-        isDeleted: false
-      })
-        .sort({ turnNumber: 1 })
-        .limit(5); // Last 5 turns for context
-
-      // Run AI analysis
+        turnNumber: { $lt: turn.turnNumber }
+      }).sort({ turnNumber: 1 }).limit(5);
+  
       const analysis = await debateAIService.analyzeTurn(
         turn.content,
         turn.side,
         previousTurns
       );
-
-      // Update turn with analysis
+  
       turn.aiAnalysis = analysis;
       await turn.save();
-
+  
+      // 🆕 PHASE 2: Store in debate memory for RAG
+      await debateAIService.storeInMemory(turn, debate);
+  
       console.log(`🤖 AI analysis complete for turn ${turnId}`);
       return { success: true, analysis };
+  
     } catch (error) {
       console.error('❌ Analyze turn error:', error);
       return { success: false, error: error.message };
     }
   }
-
   /**
    * Score debate (called when debate completes)
    */
