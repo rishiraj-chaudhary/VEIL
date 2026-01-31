@@ -1,4 +1,6 @@
 import express from 'express';
+import { getLiveInsights } from '../controllers/assistantController.js';
+
 import {
     cancelDebate,
     createDebate,
@@ -37,6 +39,8 @@ const router = express.Router();
 // Public routes
 router.get('/', getDebates); // Get all debates (with filters)
 router.get('/:id', getDebate); // Get single debate
+// Live assistant
+router.post('/:debateId/live-insights', authenticate, getLiveInsights);
 
 // Protected routes
 router.post('/', authenticate, createDebate); // Create debate

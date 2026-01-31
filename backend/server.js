@@ -6,19 +6,30 @@ import helmet from 'helmet';
 import { createServer } from 'http';
 import morgan from 'morgan';
 import connectDB from './src/config/database.js';
+
+// 🆕 MODELS FIRST - Register Mongoose schemas
+import './src/models/debate.js';
+import './src/models/DebateMemory.js';
+import './src/models/debateTurn.js';
+import './src/models/KnowledgeItem.js';
+import './src/models/user.js';
+
+// Routes
 import aiRoutes from './src/routes/aiRoutes.js';
 import authRoutes from './src/routes/authRoutes.js';
 import commentRoutes from './src/routes/commentRoutes.js';
 import communityRoutes from './src/routes/communityRoutes.js';
+import debateRoutes from './src/routes/debateRoutes.js';
 import postRoutes from './src/routes/postRoutes.js';
 import slickRoutes from './src/routes/slickRoutes.js';
+
+// Services
 import debateAIService from './src/services/debateAIService.js';
-dotenv.config();
 
-// 🎯 CRITICAL: Import debate routes
-import debateRoutes from './src/routes/debateRoutes.js';
-
+// Socket
 import { initSocket } from './src/sockets/index.js';
+
+dotenv.config();
 
 // Initialize Express app
 const app = express();
@@ -32,6 +43,8 @@ initSocket(server);
 
 // Connect to MongoDB
 connectDB();
+
+// Initialize RAG System (after DB connection)
 (async () => {
   try {
     console.log('\n📊 Initializing RAG System...');
@@ -72,7 +85,7 @@ app.get('/', (req, res) => {
       oracle: '🔮 AI Assistant Ready',
       shadow: '🌑 Devil\'s Advocate Standby',
       reveal: '✨ Truth Unveiled',
-      debates: '⚖️ Structured Debates' // NEW
+      debates: '⚖️ Structured Debates'
     }
   });
 });
@@ -84,8 +97,6 @@ app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/slicks', slickRoutes);
-
-// 🎯 CRITICAL: Register debate routes
 app.use('/api/debates', debateRoutes);
 
 // 404 handler

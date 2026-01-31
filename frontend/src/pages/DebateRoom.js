@@ -1,27 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
+import LiveAssistantPanel from '../components/debate/LiveAssistantPanel.js';
+import { useLiveAssistant } from '../hooks/useLiveAssistant';
 import {
-    joinDebateRoom,
-    leaveDebateRoom,
-    onDebateCancelled,
-    onDebateCompleted,
-    onDebateStarted,
-    onDebateState,
-    onParticipantJoined,
-    onParticipantReady,
-    onRoundAdvanced,
-    onTurnSubmitted,
-    onViewerCount,
-    onVoteCast,
-    removeAllListeners,
+  joinDebateRoom,
+  leaveDebateRoom,
+  onDebateCancelled,
+  onDebateCompleted,
+  onDebateStarted,
+  onDebateState,
+  onParticipantJoined,
+  onParticipantReady,
+  onRoundAdvanced,
+  onTurnSubmitted,
+  onViewerCount,
+  onVoteCast,
+  removeAllListeners,
 } from '../services/debateSocket';
 import useAuthStore from '../store/authStore';
 import useDebateStore from '../store/debateStore';
 
 const DebateRoom = () => {
-  const { id } = useParams();
+  const { id: debateId } = useParams();
   const navigate = useNavigate();
+  
   const { user } = useAuthStore();
   
   const {
@@ -41,25 +44,27 @@ const DebateRoom = () => {
     loading
   } = useDebateStore();
 
-  const [selectedSide, setSelectedSide] = useState(null);
   const [turnContent, setTurnContent] = useState('');
   const [canSubmit, setCanSubmit] = useState({ canSubmit: false, reason: '' });
   const [selectedVote, setSelectedVote] = useState({ side: null, confidence: 3 });
   const [showScore, setShowScore] = useState(false);
 
-  // ==================== INITIALIZATION ====================
-  
+  // Get participant info
+  const myParticipant = currentDebate?.participants?.find(
+    p => p.user._id === user?.id
+  );
+
+  // Initialize live assistant
+  const { insights, isAnalyzing, analyzeDraft, clearInsights } = 
+    useLiveAssistant(debateId, myParticipant?.side);
+
   useEffect(() => {
-    // Fetch initial data
-    fetchDebate(id);
-    fetchTurns(id);
+    fetchDebate(debateId);
+    fetchTurns(debateId);
+    joinDebateRoom(debateId);
 
-    // Join socket room
-    joinDebateRoom(id);
-
-    // Setup socket listeners
-    onViewerCount(({ viewerCount }) => {
-      setViewerCount(viewerCount);
+    onViewerCount(({ viewerCount: count }) => {
+      setViewerCount(count);
     });
 
     onDebateState((state) => {
@@ -87,50 +92,51 @@ const DebateRoom = () => {
 
     onParticipantJoined(({ participant }) => {
       console.log('👤 Participant joined:', participant);
-      fetchDebate(id);
+      fetchDebate(debateId);
     });
 
     onParticipantReady(({ username }) => {
       console.log('✅ Participant ready:', username);
-      fetchDebate(id);
+      fetchDebate(debateId);
     });
 
-    onVoteCast(() => {
-      // Refresh votes could be implemented here
-    });
+    onVoteCast(() => {});
 
     onDebateCancelled(() => {
       alert('Debate has been cancelled');
       navigate('/debates');
     });
 
-    // Cleanup
     return () => {
-      leaveDebateRoom(id);
+      leaveDebateRoom(debateId);
       removeAllListeners();
     };
-  }, [id]);
+  }, [debateId, fetchDebate, fetchTurns, setViewerCount, updateDebateState, addTurn, navigate]);
 
-  // Check if user can submit turn
+  const handleContentChange = (e) => {
+    const content = e.target.value;
+    setTurnContent(content);
+    
+    if (user && content.length >= 20) {
+      analyzeDraft(content, user.id);
+    }
+  };
+
   useEffect(() => {
     if (currentDebate?.status === 'active') {
-      canSubmitTurn(id).then(setCanSubmit);
+      canSubmitTurn(debateId).then(setCanSubmit);
     }
-  }, [currentDebate, turns]);
-
-  // ==================== HANDLERS ====================
+  }, [currentDebate, turns, debateId, canSubmitTurn]);
 
   const handleJoinSide = async (side) => {
-    const result = await joinDebate(id, side);
-    if (result.success) {
-      setSelectedSide(side);
-    } else {
+    const result = await joinDebate(debateId, side);
+    if (!result.success) {
       alert(result.error);
     }
   };
 
   const handleMarkReady = async () => {
-    const result = await markReady(id);
+    const result = await markReady(debateId);
     if (!result.success) {
       alert(result.error);
     }
@@ -154,7 +160,7 @@ const DebateRoom = () => {
       return;
     }
 
-    const result = await submitTurn(id, turnContent);
+    const result = await submitTurn(debateId, turnContent);
     if (!result.success) {
       alert(result.error);
     }
@@ -167,7 +173,7 @@ const DebateRoom = () => {
     }
 
     const result = await voteOnRound(
-      id,
+      debateId,
       currentDebate.currentRound,
       selectedVote.side,
       selectedVote.confidence
@@ -181,13 +187,7 @@ const DebateRoom = () => {
     }
   };
 
-  // ==================== HELPERS ====================
-
   const isParticipant = currentDebate?.participants?.some(
-    p => p.user._id === user?.id
-  );
-
-  const myParticipant = currentDebate?.participants?.find(
     p => p.user._id === user?.id
   );
 
@@ -207,8 +207,6 @@ const DebateRoom = () => {
     r => r.number === currentDebate.currentRound
   );
 
-  // ==================== LOADING STATE ====================
-
   if (loading || !currentDebate) {
     return (
       <div className="min-h-screen bg-veil-dark">
@@ -220,14 +218,11 @@ const DebateRoom = () => {
     );
   }
 
-  // ==================== RENDER ====================
-
   return (
     <div className="min-h-screen bg-veil-dark">
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* ==================== HEADER ==================== */}
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
@@ -251,14 +246,12 @@ const DebateRoom = () => {
               )}
             </div>
 
-            {/* Viewer Count */}
             <div className="flex items-center space-x-2 text-sm text-gray-400">
               <span>👁️</span>
               <span>{viewerCount} viewing</span>
             </div>
           </div>
 
-          {/* Participants */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-green-900/10 border border-green-700/50 rounded-lg p-4">
               <div className="text-sm text-green-400 mb-2">✓ FOR</div>
@@ -297,7 +290,6 @@ const DebateRoom = () => {
             </div>
           </div>
 
-          {/* Current Turn Indicator */}
           {currentDebate.status === 'active' && currentDebate.currentTurn && (
             <div className="mt-4 p-3 bg-veil-purple/10 border border-veil-purple/30 rounded-lg">
               <div className="text-sm text-veil-purple">
@@ -309,9 +301,7 @@ const DebateRoom = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* ==================== MAIN CONTENT ==================== */}
           <div className="lg:col-span-2 space-y-6">
-            {/* PENDING STATE - Join */}
             {currentDebate.status === 'pending' && !isParticipant && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Join Debate</h2>
@@ -337,7 +327,6 @@ const DebateRoom = () => {
               </div>
             )}
 
-            {/* PENDING STATE - Ready Up */}
             {currentDebate.status === 'pending' && isParticipant && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Waiting for Debate to Start</h2>
@@ -358,7 +347,6 @@ const DebateRoom = () => {
               </div>
             )}
 
-            {/* TURNS DISPLAY */}
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Arguments</h2>
               
@@ -398,7 +386,6 @@ const DebateRoom = () => {
                         {turn.content}
                       </p>
 
-                      {/* AI Analysis (if available) */}
                       {turn.aiAnalysis && (
                         <div className="mt-3 pt-3 border-t border-slate-700">
                           <div className="text-xs text-gray-400 space-y-1">
@@ -407,6 +394,25 @@ const DebateRoom = () => {
                             )}
                             {turn.aiAnalysis.clarityScore && (
                               <div>Clarity: {turn.aiAnalysis.clarityScore}/100</div>
+                            )}
+                            {turn.aiAnalysis.factCheck && (
+                              <div className="flex items-center gap-2 mt-2 p-2 rounded bg-slate-900/50">
+                                {turn.aiAnalysis.factCheck.verified ? (
+                                  <>
+                                    <span className="text-green-400 text-sm">✓</span>
+                                    <span className="text-green-400 text-xs">
+                                      Claims verified ({turn.aiAnalysis.factCheck.overallConfidence}% confidence)
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-yellow-400 text-sm">⚠️</span>
+                                    <span className="text-yellow-400 text-xs">
+                                      {turn.aiAnalysis.factCheck.flags?.length || 0} unverified claim(s)
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -417,7 +423,6 @@ const DebateRoom = () => {
               )}
             </div>
 
-            {/* TURN SUBMISSION FORM */}
             {currentDebate.status === 'active' && canSubmit.canSubmit && (
               <div className="bg-slate-800 rounded-lg border border-veil-purple p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Your Turn</h2>
@@ -437,7 +442,7 @@ const DebateRoom = () => {
                     
                     <textarea
                       value={turnContent}
-                      onChange={(e) => setTurnContent(e.target.value)}
+                      onChange={handleContentChange}
                       className="w-full bg-slate-900 text-white rounded-lg p-3 min-h-[200px] border border-slate-700 focus:border-veil-purple focus:outline-none"
                       placeholder="Present your argument..."
                       required
@@ -455,17 +460,22 @@ const DebateRoom = () => {
               </div>
             )}
 
-            {/* COMPLETED STATE */}
+            {/* 🔥 FIXED: Winner safety check */}
             {currentDebate.status === 'completed' && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Debate Concluded</h2>
                 
                 <div className="text-center py-6">
                   <div className="text-3xl mb-2">
-                    {currentDebate.winner === 'draw' ? '🤝' : '🏆'}
+                    {!currentDebate.winner ? '⏳' : currentDebate.winner === 'draw' ? '🤝' : '🏆'}
                   </div>
                   <div className="text-2xl font-bold text-veil-purple mb-2">
-                    {currentDebate.winner === 'draw' ? 'Draw' : `${currentDebate.winner.toUpperCase()} wins!`}
+                    {!currentDebate.winner 
+                      ? 'Calculating results...' 
+                      : currentDebate.winner === 'draw' 
+                        ? 'Draw' 
+                        : `${currentDebate.winner.toUpperCase()} wins!`
+                    }
                   </div>
                   {currentDebate.finalScores && (
                     <div className="text-gray-400">
@@ -474,19 +484,19 @@ const DebateRoom = () => {
                   )}
                 </div>
 
-                <button
-                  onClick={() => setShowScore(!showScore)}
-                  className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                >
-                  {showScore ? 'Hide' : 'View'} Detailed Score
-                </button>
+                {currentDebate.winner && (
+                  <button
+                    onClick={() => setShowScore(!showScore)}
+                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  >
+                    {showScore ? 'Hide' : 'View'} Detailed Score
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          {/* ==================== SIDEBAR ==================== */}
           <div className="space-y-6">
-            {/* Voting Panel (for audience) */}
             {currentDebate.status === 'active' && !isParticipant && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">
@@ -543,7 +553,6 @@ const DebateRoom = () => {
               </div>
             )}
 
-            {/* Round Info */}
             {currentDebate.rounds && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Rounds</h3>
@@ -579,6 +588,12 @@ const DebateRoom = () => {
           </div>
         </div>
       </div>
+
+      <LiveAssistantPanel
+        insights={insights}
+        isAnalyzing={isAnalyzing}
+        onDismiss={clearInsights}
+      />
     </div>
   );
 };

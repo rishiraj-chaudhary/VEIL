@@ -2,34 +2,28 @@ import DebateMemory from '../models/DebateMemory.js';
 import KnowledgeItem from '../models/KnowledgeItem.js';
 
 /**
- * MONGODB VECTOR STORE SERVICE
+ * UNIFIED VECTOR STORE SERVICE (Phase 1)
  * 
- * Uses MongoDB for persistent vector storage
- * No external dependencies needed!
+ * Single entry point for all RAG retrieval
+ * Supports: knowledge, debate memory, community memory, user memory
  */
 class VectorStoreService {
   constructor() {
     this.isInitialized = false;
   }
 
-  /**
-   * Initialize vector stores
-   */
   async initialize() {
     try {
       console.log('📊 Initializing MongoDB Vector Store...');
 
-      // Check if knowledge base exists
       const count = await KnowledgeItem.countDocuments();
       
       if (count === 0) {
-        // Seed knowledge base
         await this.seedKnowledgeBase();
       } else {
         console.log(`📚 Loaded existing knowledge base (${count} items)`);
       }
 
-      // Get memory count
       const memoryCount = await DebateMemory.countDocuments();
       console.log(`🧠 Debate memory: ${memoryCount} items`);
 
@@ -43,7 +37,83 @@ class VectorStoreService {
   }
 
   /**
-   * Generate simple embedding from text
+   * ✨ UNIFIED RETRIEVAL INTERFACE (Phase 1)
+   * 
+   * Single method to retrieve context from multiple sources
+   */
+  async retrieveContext(query, options = {}) {
+    const {
+      sources = ['knowledge', 'debate'],
+      topK = 5,
+      debateId = null,
+      communityId = null,
+      userId = null,
+      filters = {}
+    } = options;
+
+    const context = {
+      knowledge: [],
+      debateMemory: [],
+      communityMemory: [],
+      userMemory: [],
+      metadata: {
+        query,
+        sources: sources,
+        totalResults: 0,
+        timestamp: new Date()
+      }
+    };
+
+    try {
+      // Retrieve from knowledge base
+      if (sources.includes('knowledge')) {
+        context.knowledge = await this.retrieveKnowledge(query, topK);
+      }
+
+      // Retrieve from debate memory
+      if (sources.includes('debate')) {
+        context.debateMemory = await this.retrieveDebateMemory(
+          query, 
+          Math.min(topK, 3),
+          { debateId, ...filters }
+        );
+      }
+
+      // Future: Community memory
+      if (sources.includes('community') && communityId) {
+        context.communityMemory = await this.retrieveCommunityMemory(
+          query, 
+          communityId, 
+          topK
+        );
+      }
+
+      // Future: User memory
+      if (sources.includes('user') && userId) {
+        context.userMemory = await this.retrieveUserMemory(
+          query, 
+          userId, 
+          topK
+        );
+      }
+
+      // Calculate total results
+      context.metadata.totalResults = 
+        context.knowledge.length + 
+        context.debateMemory.length +
+        context.communityMemory.length +
+        context.userMemory.length;
+
+      return context;
+
+    } catch (error) {
+      console.error('Unified retrieval error:', error.message);
+      return context;
+    }
+  }
+
+  /**
+   * Generate embedding
    */
   generateEmbedding(text) {
     const words = text.toLowerCase().split(/\s+/);
@@ -55,14 +125,10 @@ class VectorStoreService {
       embedding[position] += 1;
     });
 
-    // Normalize
     const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
     return embedding.map(val => magnitude > 0 ? val / magnitude : 0);
   }
 
-  /**
-   * Simple hash function
-   */
   simpleHash(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
@@ -73,9 +139,6 @@ class VectorStoreService {
     return Math.abs(hash);
   }
 
-  /**
-   * Calculate cosine similarity
-   */
   cosineSimilarity(vecA, vecB) {
     let dotProduct = 0;
     let magA = 0;
@@ -94,9 +157,6 @@ class VectorStoreService {
     return dotProduct / (magA * magB);
   }
 
-  /**
-   * Seed knowledge base
-   */
   async seedKnowledgeBase() {
     const knowledgeItems = [
       {
@@ -180,9 +240,6 @@ class VectorStoreService {
     }
   }
 
-  /**
-   * Retrieve relevant knowledge
-   */
   async retrieveKnowledge(query, topK = 3) {
     if (!this.isInitialized) {
       return [];
@@ -190,17 +247,13 @@ class VectorStoreService {
 
     try {
       const queryEmbedding = this.generateEmbedding(query);
-
-      // Get all knowledge items
       const items = await KnowledgeItem.find().lean();
 
-      // Calculate similarities
       const results = items.map(item => ({
         ...item,
         similarity: this.cosineSimilarity(queryEmbedding, item.embedding)
       }));
 
-      // Sort by similarity and take top K
       results.sort((a, b) => b.similarity - a.similarity);
       const topResults = results.slice(0, topK);
 
@@ -219,35 +272,29 @@ class VectorStoreService {
     }
   }
 
-  /**
-   * Retrieve debate memory
-   */
-  async retrieveDebateMemory(query, topK = 2) {
+  async retrieveDebateMemory(query, topK = 2, filters = {}) {
     if (!this.isInitialized) {
       return [];
     }
 
     try {
-      const count = await DebateMemory.countDocuments();
+      const count = await DebateMemory.countDocuments(filters);
       if (count === 0) {
         return [];
       }
 
       const queryEmbedding = this.generateEmbedding(query);
 
-      // Get recent memory items (last 50)
-      const items = await DebateMemory.find()
+      const items = await DebateMemory.find(filters)
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
 
-      // Calculate similarities
       const results = items.map(item => ({
         ...item,
         similarity: this.cosineSimilarity(queryEmbedding, item.embedding)
       }));
 
-      // Sort by similarity and take top K
       results.sort((a, b) => b.similarity - a.similarity);
       const topResults = results.slice(0, topK);
 
@@ -264,15 +311,27 @@ class VectorStoreService {
   }
 
   /**
-   * Add turn to memory
+   * FUTURE: Community memory retrieval
    */
+  async retrieveCommunityMemory(query, communityId, topK = 3) {
+    // TODO: Implement community-specific memory
+    return [];
+  }
+
+  /**
+   * FUTURE: User memory retrieval
+   */
+  async retrieveUserMemory(query, userId, topK = 3) {
+    // TODO: Implement user-specific memory
+    return [];
+  }
+
   async addToMemory(turn, debate) {
     if (!this.isInitialized) {
       return;
     }
 
     try {
-      // Check if already exists
       const exists = await DebateMemory.findOne({ turnId: turn._id });
       if (exists) {
         return;
@@ -300,9 +359,6 @@ class VectorStoreService {
     }
   }
 
-  /**
-   * Get stats
-   */
   async getStats() {
     try {
       const knowledgeCount = await KnowledgeItem.countDocuments();

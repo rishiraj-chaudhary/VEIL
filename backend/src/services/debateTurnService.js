@@ -196,22 +196,22 @@ class DebateTurnService {
   /**
    * Analyze debate turn with AI
    */
-  async analyzeDebateTurn(turnId, debateId) {
+  async analyzeDebateTurn(turnId) {
     try {
-      const turn = await DebateTurn.findById(turnId);
+      const turn = await DebateTurn.findById(turnId)
+        .populate('author', 'username')
+        .populate('debate');
+  
       if (!turn) {
         throw new Error('Turn not found');
       }
   
-      const debate = await Debate.findById(debateId);
-      if (!debate) {
-        throw new Error('Debate not found');
-      }
-  
+      const debate = turn.debate;
       const previousTurns = await DebateTurn.find({
-        debate: debateId,
-        turnNumber: { $lt: turn.turnNumber }
-      }).sort({ turnNumber: 1 }).limit(5);
+        debate: debate._id,
+        turnNumber: { $lt: turn.turnNumber },
+        isDeleted: false
+      }).sort({ turnNumber: 1 });
   
       const analysis = await debateAIService.analyzeTurn(
         turn.content,
@@ -219,18 +219,45 @@ class DebateTurnService {
         previousTurns
       );
   
+      // 🐛 DEBUG LOGGING - ADD THIS
+      console.log('📊 Analysis received:');
+      console.log('  Fallacies type:', typeof analysis.fallacies);
+      console.log('  Fallacies value:', analysis.fallacies);
+      console.log('  Is array:', Array.isArray(analysis.fallacies));
+  
+      // Ensure fallacies is an array
+      if (typeof analysis.fallacies === 'string') {
+        console.log('⚠️ Fallacies is a string! Attempting to parse...');
+        try {
+          analysis.fallacies = JSON.parse(analysis.fallacies);
+        } catch (e) {
+          console.error('❌ Failed to parse fallacies string');
+          analysis.fallacies = [];
+        }
+      }
+  
+      if (!Array.isArray(analysis.fallacies)) {
+        console.log('⚠️ Fallacies is not an array! Converting to array...');
+        analysis.fallacies = [];
+      }
+      console.log('🔍 BEFORE SAVE:');
+      console.log('  analysis.fallacies:', analysis.fallacies);
+      console.log('  Type:', typeof analysis.fallacies);
+      console.log('  Is Array:', Array.isArray(analysis.fallacies));
+      console.log('  Stringified:', JSON.stringify(analysis.fallacies));
+  
       turn.aiAnalysis = analysis;
       await turn.save();
   
-      // 🆕 PHASE 2: Store in debate memory for RAG
+      // Store in memory
       await debateAIService.storeInMemory(turn, debate);
   
       console.log(`🤖 AI analysis complete for turn ${turnId}`);
-      return { success: true, analysis };
+      return analysis;
   
     } catch (error) {
       console.error('❌ Analyze turn error:', error);
-      return { success: false, error: error.message };
+      throw error;
     }
   }
   /**

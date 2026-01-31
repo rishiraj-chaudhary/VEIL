@@ -203,6 +203,7 @@ debateSchema.statics.getDefaultRounds = function() {
   ];
 };
 
-const debate = mongoose.model('debate', debateSchema);
+// 🔥 CRITICAL FIX: Use capital 'Debate' to match import name
+const Debate = mongoose.model('Debate', debateSchema);
 
-export default debate;
+export default Debate;

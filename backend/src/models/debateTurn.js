@@ -1,139 +1,105 @@
 import mongoose from 'mongoose';
 
 const debateTurnSchema = new mongoose.Schema({
+  // Basic Info
   debate: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Debate',
-    required: [true, 'Debate reference is required'],
-    index: true,
+    required: true,
   },
-  
   round: {
     type: Number,
-    required: [true, 'Round number is required'],
-    min: 1,
+    required: true,
   },
-  
   turnNumber: {
     type: Number,
-    required: [true, 'Turn number is required'],
-    min: 1,
+    required: true,
   },
-  
-  // Author
   author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Author is required'],
-    index: true,
+    required: true,
   },
-  
   side: {
     type: String,
     enum: ['for', 'against'],
     required: true,
   },
-  
+
   // Content
   content: {
     type: String,
-    required: [true, 'Content is required'],
+    required: [true, 'Turn content is required'],
     trim: true,
     minlength: [10, 'Content must be at least 10 characters'],
-    maxlength: [5000, 'Content cannot exceed 5000 characters'],
   },
-  
   wordCount: {
     type: Number,
     required: true,
   },
-  
+
   // AI Analysis (populated after submission)
   aiAnalysis: {
     claims: [String],
     rebuttals: [String],
+    
+    // 🔥 CRITICAL FIX: Fallacies as array of objects, not strings!
     fallacies: [{
-      type: String,
-      explanation: String,
+      type: {
+        type: String,
+        required: true
+      },
+      explanation: {
+        type: String,
+        required: true
+      },
       severity: {
         type: Number,
-        min: 1,
-        max: 10,
-      },
-    }],
-    toneScore: {
-      type: Number,
-      min: 0,
-      max: 100,
-    },
-    clarityScore: {
-      type: Number,
-      min: 0,
-      max: 100,
-    },
-    evidenceQuality: {
-      type: Number,
-      min: 0,
-      max: 100,
-    },
-    
-    // 🆕 NEW: Detailed evidence breakdown
-    evidenceAnalysis: {
-      hasEvidence: {
-        type: Boolean,
-        default: false,
-      },
-      verified: {
-        type: Boolean,
-        default: false,
-      },
-      score: {
-        type: Number,
+        required: true,
         min: 0,
-        max: 100,
-      },
-      indicatorCount: {
-        type: Number,
-        default: 0,
-      },
-      sources: [String],
+        max: 10
+      }
+    }],
+    
+    toneScore: Number,
+    clarityScore: Number,
+    evidenceQuality: Number,
+    
+    evidenceAnalysis: {
+      hasEvidence: Boolean,
+      verified: Boolean,
+      score: Number,
+      indicatorCount: Number,
+      sources: [String]
     },
     
-    overallQuality: {
-      type: Number,
-      min: 0,
-      max: 100,
-    },
+    overallQuality: Number,
+    decisionTrace: [String],
+    retrievedSources: [String],
     
-    // 🆕 NEW: Decision trace for explainability (CRITICAL)
-    decisionTrace: {
-      type: [String],
-      default: [],
-    },
-    
-    // 🆕 NEW: Retrieved sources from RAG (Phase 2)
-    retrievedSources: {
-      type: [String],
-      default: [],
-    },
+    // 🆕 PHASE 3: Fact-checking
+    factCheck: {
+      overallConfidence: Number,
+      verified: Boolean,
+      flags: [{
+        claim: String,
+        reason: String
+      }],
+      checks: [{
+        claim: String,
+        supported: Boolean,
+        confidence: Number,
+        level: String,
+        reasoning: String
+      }]
+    }
   },
-  
-  // Timestamps
+
+  // Metadata
   submittedAt: {
     type: Date,
     default: Date.now,
   },
-  
-  timeTaken: {
-    type: Number, // in seconds
-  },
-  
-  // Status
-  isEdited: {
-    type: Boolean,
-    default: false,
-  },
-  
   isDeleted: {
     type: Boolean,
     default: false,
@@ -142,45 +108,11 @@ const debateTurnSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Compound index for efficient queries
+// Indexes
 debateTurnSchema.index({ debate: 1, turnNumber: 1 });
-debateTurnSchema.index({ debate: 1, round: 1 });
-debateTurnSchema.index({ author: 1, submittedAt: -1 });
+debateTurnSchema.index({ author: 1, createdAt: -1 });
+debateTurnSchema.index({ debate: 1, side: 1, round: 1 });
 
-// Pre-save hook to calculate word count
-debateTurnSchema.pre('save', function(next) {
-  if (this.isModified('content')) {
-    this.wordCount = this.content.trim().split(/\s+/).length;
-  }
-  next();
-});
+const DebateTurn = mongoose.model('DebateTurn', debateTurnSchema);
 
-// Method to check if within word limit
-debateTurnSchema.methods.isWithinLimit = async function() {
-  const debate = await mongoose.model('Debate').findById(this.debate);
-  if (!debate) return false;
-  
-  const roundConfig = debate.rounds.find(r => r.number === this.round);
-  if (!roundConfig) return false;
-  
-  return this.wordCount <= roundConfig.wordLimit;
-};
-
-// Static method to get turn statistics
-debateTurnSchema.statics.getTurnStats = async function(debateId) {
-  return this.aggregate([
-    { $match: { debate: mongoose.Types.ObjectId(debateId), isDeleted: false } },
-    {
-      $group: {
-        _id: '$side',
-        totalTurns: { $sum: 1 },
-        avgWordCount: { $avg: '$wordCount' },
-        avgToneScore: { $avg: '$aiAnalysis.toneScore' },
-        avgClarityScore: { $avg: '$aiAnalysis.clarityScore' },
-      }
-    }
-  ]);
-};
-
-const debateTurn = mongoose.model('debateTurn', debateTurnSchema);
-export default debateTurn;
+export default DebateTurn;

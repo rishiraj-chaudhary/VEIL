@@ -1,7 +1,8 @@
 import { Server } from 'socket.io';
+import { initLiveAssistant } from './assistantSocket.js';
 import { initDebateSocket } from './debateSocket.js';
-
 let io;
+
 
 export const initSocket = (server) => {
   io = new Server(server, {
@@ -79,6 +80,7 @@ export const initSocket = (server) => {
      INITIALIZE DEBATE SOCKETS (NEW)
   ===================================================== */
   initDebateSocket(io);
+  initLiveAssistant(io);
 
   return io;
 };
@@ -112,6 +114,7 @@ export const emitNewComment = (postId, comment) => {
 
 // Re-export debate socket functions
 export {
-    emitDebateCancelled, emitDebateCompleted, emitDebateStarted, emitParticipantJoined,
-    emitParticipantReady, emitReactionAdded, emitRoundAdvanced, emitTurnSubmitted, emitVoteCast, getActiveDebates, getViewerCount
+  emitDebateCancelled, emitDebateCompleted, emitDebateStarted, emitParticipantJoined,
+  emitParticipantReady, emitReactionAdded, emitRoundAdvanced, emitTurnSubmitted, emitVoteCast, getActiveDebates, getViewerCount
 } from './debateSocket.js';
+

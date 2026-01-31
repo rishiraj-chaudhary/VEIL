@@ -1,6 +1,6 @@
+import factCheckService from './factCheckService.js';
 import grokService from './grokService.js';
 import vectorStoreService from './vectorStoreService.js';
-
 /**
  * DEBATE AI SERVICE with RAG (Phase 2 - ChromaDB)
  * 
@@ -69,6 +69,23 @@ class DebateAIService {
         this.analyzeClarity(content, decisionTrace),
         this.analyzeEvidenceWithRAG(content, retrievedKnowledge, decisionTrace)
       ]);
+      let factCheckResult = null;
+      if (this.useRAG) {
+        try {
+          factCheckResult = await factCheckService.checkText(content, {
+            sources: ['knowledge'],
+            topK: 3
+          });
+
+          if (factCheckResult.flags.length > 0) {
+            decisionTrace.push(`⚠️ ${factCheckResult.flags.length} claim(s) lack supporting patterns`);
+          } else if (factCheckResult.checks.length > 0) {
+            decisionTrace.push(`✓ Claims match knowledge patterns (${factCheckResult.overallConfidence}% confidence)`);
+          }
+        } catch (error) {
+          console.error('Fact check error:', error.message);
+        }
+      }
 
       // Calculate overall quality
       const overallQuality = this.calculateOverallQuality({
@@ -89,7 +106,8 @@ class DebateAIService {
         evidenceAnalysis,
         overallQuality,
         decisionTrace,
-        retrievedSources: retrievedKnowledge.sources
+        retrievedSources: retrievedKnowledge.sources,
+        factCheck: factCheckResult
       };
 
     } catch (error) {
@@ -274,34 +292,60 @@ Return format: ["rebuttal to X", "counter to Y"]`;
       const ragContext = retrievedKnowledge.context 
         ? `\n\nKnown fallacy patterns:\n${retrievedKnowledge.context.substring(0, 500)}`
         : '';
-
+  
       const prompt = `Analyze for logical fallacies. Return ONLY valid JSON array.
-
-Argument:
-${content}${ragContext}
-
-Return format (no markdown, no explanation):
-[{"type":"ad hominem","explanation":"attacks person not argument","severity":7}]
-
-Common fallacies: ad hominem, straw man, false dilemma, slippery slope, appeal to emotion, appeal to authority, hasty generalization, circular reasoning
-
-Return empty array [] if no fallacies.`;
-
+  
+  Argument:
+  ${content}${ragContext}
+  
+  Return format (no markdown, no explanation):
+  [{"type":"ad hominem","explanation":"attacks person not argument","severity":7}]
+  
+  Common fallacies: ad hominem, straw man, false dilemma, slippery slope, appeal to emotion, appeal to authority, hasty generalization, circular reasoning
+  
+  Return empty array [] if no fallacies.`;
+  
       const response = await grokService.generateFast(prompt, { temperature: 0.2 });
-
+  
+      // IMPROVED JSON cleaning
       let cleanResponse = response.trim();
+      
+      // Remove markdown code blocks
       cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '');
       
+      // Remove literal newlines and extra whitespace
+      cleanResponse = cleanResponse.replace(/\\n/g, ' ').replace(/\n/g, ' ');
+      
+      // Replace single quotes with double quotes
+      cleanResponse = cleanResponse.replace(/'/g, '"');
+      
+      // Remove extra spaces
+      cleanResponse = cleanResponse.replace(/\s+/g, ' ').trim();
+      
+      // Extract JSON array
       const firstBracket = cleanResponse.indexOf('[');
       const lastBracket = cleanResponse.lastIndexOf(']');
       
-      if (firstBracket !== -1 && lastBracket !== -1) {
-        cleanResponse = cleanResponse.substring(firstBracket, lastBracket + 1);
+      if (firstBracket === -1 || lastBracket === -1) {
+        decisionTrace.push('No fallacies detected');
+        return [];
       }
       
-      const fallacies = JSON.parse(cleanResponse);
-
+      cleanResponse = cleanResponse.substring(firstBracket, lastBracket + 1);
+      
+      // Parse JSON
+      let fallacies;
+      try {
+        fallacies = JSON.parse(cleanResponse);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError.message);
+        console.error('Attempted to parse:', cleanResponse);
+        decisionTrace.push('Fallacy detection failed - JSON parse error');
+        return [];
+      }
+  
       if (!Array.isArray(fallacies)) {
+        console.error('Fallacies is not an array:', typeof fallacies);
         decisionTrace.push('Fallacy detection returned invalid format');
         return [];
       }
@@ -313,7 +357,7 @@ Return empty array [] if no fallacies.`;
         typeof f.explanation === 'string' &&
         typeof f.severity === 'number'
       ).slice(0, 3);
-
+  
       if (validFallacies.length > 0) {
         decisionTrace.push(`Detected ${validFallacies.length} fallacies: ${validFallacies.map(f => f.type).join(', ')}`);
       } else {
