@@ -818,7 +818,7 @@ Return ONLY valid JSON (no markdown):
   }
 
   groupByTone(slicks) {
-    const groups = { praise: 0, tease: 0, constructive: 0, observation: 0 };
+    const groups = { praise: 0, txease: 0, constructive: 0, observation: 0 };
     slicks.forEach(slick => {
       if (groups.hasOwnProperty(slick.tone.category)) {
         groups[slick.tone.category]++;

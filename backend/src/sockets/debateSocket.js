@@ -145,6 +145,11 @@ export const emitDebateStarted = (io, debateId, debate) => {
   console.log(`🎉 Emitted debate started: ${debateId}`);
 };
 
+export const emitAnalysisComplete = (io, debateId, turnId) => {
+  io.to(`debate_${debateId}`).emit('analysis-complete', { turnId });
+  console.log('📊 Emitted analysis complete:', turnId);
+};
+
 /**
  * Emit when new turn is submitted
  */

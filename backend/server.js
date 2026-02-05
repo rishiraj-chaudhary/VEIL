@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import { createServer } from 'http';
 import morgan from 'morgan';
 import connectDB from './src/config/database.js';
+import aiCoachRoutes from './src/routes/aiCoachRoutes.js';
+import knowledgeGraphRoutes from './src/routes/knowledgeGraphRoutes.js';
 
 // 🆕 MODELS FIRST - Register Mongoose schemas
 import './src/models/debate.js';
@@ -98,6 +100,8 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/slicks', slickRoutes);
 app.use('/api/debates', debateRoutes);
+app.use('/api/knowledge-graph', knowledgeGraphRoutes);
+app.use('/api/coach', aiCoachRoutes);
 
 // 404 handler
 app.use((req, res) => {

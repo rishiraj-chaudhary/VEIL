@@ -23,6 +23,18 @@ const Navbar = () => {
                 VEIL
               </h1>
             </Link>
+            <Link
+            to="/coach"
+            className="text-gray-300 hover:text-veil-purple transition-colors"
+          >
+            🎓 AI Coach
+          </Link>
+            <Link
+              to="/knowledge-graph"
+              className="text-gray-300 hover:text-veil-purple transition-colors"
+            >
+              📊 Knowledge Graph
+            </Link>
             
             <Link 
               to="/feed" 

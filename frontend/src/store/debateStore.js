@@ -202,9 +202,22 @@ const useDebateStore = create((set, get) => ({
   },
 
   addTurn: (turn) => {
-    set((state) => ({
-      turns: [...state.turns, turn]
-    }));
+    set((state) => {
+      // Check if turn already exists
+      const exists = state.turns.some(t => t._id === turn._id);
+      if (exists) {
+        // Update existing turn
+        return {
+          turns: state.turns.map(t => 
+            t._id === turn._id ? turn : t
+          )
+        };
+      }
+      // Add new turn
+      return {
+        turns: [...state.turns, turn]
+      };
+    });
   },
 
   // ==================== UTILITIES ====================

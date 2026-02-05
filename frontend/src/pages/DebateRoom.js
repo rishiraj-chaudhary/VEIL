@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
+import AnalysisPanel from '../components/debate/AnalysisPanel';
+import ClaimStats from '../components/debate/ClaimStats';
 import LiveAssistantPanel from '../components/debate/LiveAssistantPanel.js';
 import { useLiveAssistant } from '../hooks/useLiveAssistant';
 import {
+  getDebateSocket,
   joinDebateRoom,
   leaveDebateRoom,
   onDebateCancelled,
@@ -16,7 +19,7 @@ import {
   onTurnSubmitted,
   onViewerCount,
   onVoteCast,
-  removeAllListeners,
+  removeAllListeners
 } from '../services/debateSocket';
 import useAuthStore from '../store/authStore';
 import useDebateStore from '../store/debateStore';
@@ -81,6 +84,17 @@ const DebateRoom = () => {
       setTurnContent('');
     });
 
+    // ✅ FIXED: Listen for analysis complete
+    const analysisCompleteHandler = ({ turnId }) => {
+      console.log('📊 Analysis complete for turn:', turnId);
+      setTimeout(() => {
+        fetchTurns(debateId);
+      }, 500);
+    };
+    
+    const socket = getDebateSocket();
+    socket.on('analysis-complete', analysisCompleteHandler);
+
     onRoundAdvanced(({ currentRound }) => {
       updateDebateState({ currentRound });
     });
@@ -106,9 +120,10 @@ const DebateRoom = () => {
       alert('Debate has been cancelled');
       navigate('/debates');
     });
-
+    
     return () => {
       leaveDebateRoom(debateId);
+      socket.off('analysis-complete', analysisCompleteHandler);
       removeAllListeners();
     };
   }, [debateId, fetchDebate, fetchTurns, setViewerCount, updateDebateState, addTurn, navigate]);
@@ -121,6 +136,18 @@ const DebateRoom = () => {
       analyzeDraft(content, user.id);
     }
   };
+
+  // Debug logging
+  useEffect(() => {
+    console.log('📊 Turns data:', turns);
+    turns.forEach((turn, i) => {
+      console.log(`Turn ${i+1}:`, {
+        content: turn.content.substring(0, 30),
+        hasAnalysis: !!turn.aiAnalysis,
+        analysis: turn.aiAnalysis
+      });
+    });
+  }, [turns]);
 
   useEffect(() => {
     if (currentDebate?.status === 'active') {
@@ -217,12 +244,13 @@ const DebateRoom = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="min-h-screen bg-veil-dark">
       <Navbar />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Debate Header */}
         <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 mb-6">
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
@@ -252,6 +280,7 @@ const DebateRoom = () => {
             </div>
           </div>
 
+          {/* Participants */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-green-900/10 border border-green-700/50 rounded-lg p-4">
               <div className="text-sm text-green-400 mb-2">✓ FOR</div>
@@ -290,6 +319,7 @@ const DebateRoom = () => {
             </div>
           </div>
 
+          {/* Current Turn Indicator */}
           {currentDebate.status === 'active' && currentDebate.currentTurn && (
             <div className="mt-4 p-3 bg-veil-purple/10 border border-veil-purple/30 rounded-lg">
               <div className="text-sm text-veil-purple">
@@ -302,6 +332,7 @@ const DebateRoom = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Join Debate */}
             {currentDebate.status === 'pending' && !isParticipant && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Join Debate</h2>
@@ -327,6 +358,7 @@ const DebateRoom = () => {
               </div>
             )}
 
+            {/* Waiting Room */}
             {currentDebate.status === 'pending' && isParticipant && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Waiting for Debate to Start</h2>
@@ -347,6 +379,7 @@ const DebateRoom = () => {
               </div>
             )}
 
+            {/* Arguments List */}
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Arguments</h2>
               
@@ -385,36 +418,21 @@ const DebateRoom = () => {
                       <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
                         {turn.content}
                       </p>
+                      {turn.aiAnalysis?.claims && turn.aiAnalysis.claims.length > 0 && (
+                      <div className="mb-3 space-y-2">
+                        <div className="text-xs font-semibold text-purple-400 mb-2">
+                          📊 Claims in Knowledge Graph:
+                        </div>
+                        {turn.aiAnalysis.claims.map((claim, idx) => (
+                          <ClaimStats key={idx} claimText={claim} compact={true} />
+                        ))}
+                      </div>
+                    )}
 
+                      {/* AI Analysis */}
                       {turn.aiAnalysis && (
                         <div className="mt-3 pt-3 border-t border-slate-700">
-                          <div className="text-xs text-gray-400 space-y-1">
-                            {turn.aiAnalysis.toneScore && (
-                              <div>Tone: {turn.aiAnalysis.toneScore}/100</div>
-                            )}
-                            {turn.aiAnalysis.clarityScore && (
-                              <div>Clarity: {turn.aiAnalysis.clarityScore}/100</div>
-                            )}
-                            {turn.aiAnalysis.factCheck && (
-                              <div className="flex items-center gap-2 mt-2 p-2 rounded bg-slate-900/50">
-                                {turn.aiAnalysis.factCheck.verified ? (
-                                  <>
-                                    <span className="text-green-400 text-sm">✓</span>
-                                    <span className="text-green-400 text-xs">
-                                      Claims verified ({turn.aiAnalysis.factCheck.overallConfidence}% confidence)
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="text-yellow-400 text-sm">⚠️</span>
-                                    <span className="text-yellow-400 text-xs">
-                                      {turn.aiAnalysis.factCheck.flags?.length || 0} unverified claim(s)
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <AnalysisPanel aiAnalysis={turn.aiAnalysis} />
                         </div>
                       )}
                     </div>
@@ -423,6 +441,7 @@ const DebateRoom = () => {
               )}
             </div>
 
+            {/* Submit Turn Form */}
             {currentDebate.status === 'active' && canSubmit.canSubmit && (
               <div className="bg-slate-800 rounded-lg border border-veil-purple p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Your Turn</h2>
@@ -460,7 +479,7 @@ const DebateRoom = () => {
               </div>
             )}
 
-            {/* 🔥 FIXED: Winner safety check */}
+            {/* Debate Results */}
             {currentDebate.status === 'completed' && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Debate Concluded</h2>
@@ -496,7 +515,9 @@ const DebateRoom = () => {
             )}
           </div>
 
+          {/* Sidebar */}
           <div className="space-y-6">
+            {/* Voting */}
             {currentDebate.status === 'active' && !isParticipant && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">
@@ -553,6 +574,7 @@ const DebateRoom = () => {
               </div>
             )}
 
+            {/* Rounds Info */}
             {currentDebate.rounds && (
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Rounds</h3>
@@ -579,7 +601,7 @@ const DebateRoom = () => {
                         {currentDebate.currentRound === round.number && (
                           <span className="text-veil-purple text-xl">●</span>
                         )}
-                      </div>
+                      </div> 
                     </div>
                   ))}
                 </div>

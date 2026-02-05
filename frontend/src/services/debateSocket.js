@@ -42,6 +42,21 @@ export const disconnectDebateSocket = () => {
     socket = null;
   }
 };
+// ==================== ANALYSIS EVENTS ====================
+
+export const emitAnalysisComplete = (io, debateId, turnId) => {
+  io.to(`debate:${debateId}`).emit('analysis-complete', { turnId });  
+  console.log('📊 Emitted analysis complete:', turnId);
+};
+export const onAnalysisComplete = (callback) => {
+  const socket = getDebateSocket();
+  socket.on('analysis-complete', callback);
+};
+
+export const offAnalysisComplete = (callback) => {
+  const socket = getDebateSocket();
+  socket.off('analysis-complete', callback);
+};
 
 // ==================== DEBATE ROOM ====================
 

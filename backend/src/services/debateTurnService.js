@@ -1,5 +1,6 @@
 import Debate from '../models/debate.js';
 import DebateTurn from '../models/debateTurn.js';
+import aiCoachService from './aiCoachService.js';
 import debateAIService from './debateAIService.js';
 class DebateTurnService {
   /**
@@ -144,34 +145,49 @@ class DebateTurnService {
   /**
    * Get all turns for a debate
    */
-  async getDebateTurns(debateId, options = {}) {
-    try {
-      const { round, side, includeAI = false } = options;
+  // UPDATED getDebateTurns for backend/src/services/debateTurnService.js
 
-      const filter = { debate: debateId, isDeleted: false };
-      
-      if (round) filter.round = round;
-      if (side) filter.side = side;
+async getDebateTurns(debateId, options = {}) {
+  try {
+    const { round, side, includeAI = true } = options;
 
-      const turns = await DebateTurn.find(filter)
-        .sort({ turnNumber: 1 })
-        .populate('author', 'username karma');
+    const query = {
+      debate: debateId,
+      isDeleted: false
+    };
 
-      // Optionally exclude AI analysis for lighter payloads
-      const turnsData = turns.map(turn => {
-        const turnObj = turn.toObject();
-        if (!includeAI) {
-          delete turnObj.aiAnalysis;
-        }
-        return turnObj;
-      });
+    if (round) query.round = round;
+    if (side) query.side = side;
 
-      return { success: true, turns: turnsData };
-    } catch (error) {
-      console.error('❌ Get turns error:', error);
-      return { success: false, error: error.message };
+    // ✅ CRITICAL: Use .lean() to get ALL fields including aiAnalysis
+    const turns = await DebateTurn.find(query)
+      .populate('author', 'username')
+      .sort({ turnNumber: 1 })
+      .lean(); // ← This ensures aiAnalysis is included!
+
+    console.log(`📊 Fetched ${turns.length} turns for debate ${debateId}`);
+    
+    // Debug first turn
+    if (turns.length > 0) {
+      console.log('✅ First turn has aiAnalysis:', !!turns[0].aiAnalysis);
+      if (turns[0].aiAnalysis) {
+        console.log('   - Has toneScore:', !!turns[0].aiAnalysis.toneScore);
+        console.log('   - Has decisionTrace:', !!turns[0].aiAnalysis.decisionTrace);
+      }
     }
+
+    return {
+      success: true,
+      turns
+    };
+  } catch (error) {
+    console.error('Get debate turns error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
+}
 
   /**
    * Get a specific turn with full details
@@ -248,10 +264,31 @@ class DebateTurnService {
   
       turn.aiAnalysis = analysis;
       await turn.save();
-  
+      await debateAIService.processClaimsForGraph(
+        analysis.claims,
+        turn,
+        debate,
+        analysis.overallQuality
+      );
       // Store in memory
       await debateAIService.storeInMemory(turn, debate);
-  
+      try {
+        await aiCoachService.updatePerformanceAfterTurn(turn.author._id || turn.author, turn);
+        console.log('📊 Performance updated for user');
+      } catch (error) {
+        console.error('Performance update error (non-blocking):', error);
+      }
+      try {
+        const { getIO, emitAnalysisComplete } = await import('../sockets/index.js');
+        const io = getIO();
+        emitAnalysisComplete(
+          io,
+          turn.debate.toString(),
+          turn._id.toString()
+        );
+      } catch (error) {
+        console.log('⚠️ Socket emit skipped (socket not available)');
+      }
       console.log(`🤖 AI analysis complete for turn ${turnId}`);
       return analysis;
   

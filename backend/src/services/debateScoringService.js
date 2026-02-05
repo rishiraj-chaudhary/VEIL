@@ -2,6 +2,7 @@ import Debate from '../models/debate.js';
 import DebateScore from '../models/debateScore.js';
 import DebateTurn from '../models/debateTurn.js';
 import DebateVote from '../models/debateVote.js';
+import aiCoachService from './aiCoachService.js';
 import debateAIService from './debateAIService.js';
 
 class DebateScoringService {
@@ -43,15 +44,28 @@ class DebateScoringService {
       const insights = await this.generateInsights(debateId, forTurns, againstTurns);
 
       // Create score document
-      const scoreDoc = await DebateScore.create({
+      const scoreDoc = new DebateScore({
         debate: debateId,
         scores: {
-          for: forScores,
-          against: againstScores
+          for: {
+            argumentQuality: forScores.argumentQuality || 50,
+            rebuttalEffectiveness: forScores.rebuttalEffectiveness || 50,
+            conductClarity: forScores.conductClarity || 50,
+            audienceSupport: forScores.audienceSupport || 50
+          },
+          against: {
+            argumentQuality: againstScores.argumentQuality || 50,
+            rebuttalEffectiveness: againstScores.rebuttalEffectiveness || 50,
+            conductClarity: againstScores.conductClarity || 50,
+            audienceSupport: againstScores.audienceSupport || 50
+          }
         },
         roundScores,
         insights
       });
+      
+      // Save to trigger pre-save hook that calculates winner
+      await scoreDoc.save();
 
       // Update debate with results
       debate.winner = scoreDoc.winner;
@@ -60,6 +74,16 @@ class DebateScoringService {
         against: scoreDoc.scores.against.total
       };
       await debate.save();
+
+      // ✨ NEW: Update AI Coach performance for both participants
+      try {
+        for (const participant of debate.participants) {
+          await aiCoachService.updatePerformanceAfterDebate(participant.user._id || participant.user, debate);
+          console.log(`📊 Debate performance updated for user ${participant.user}`);
+        }
+      } catch (error) {
+        console.error('⚠️ Performance update error (non-blocking):', error);
+      }
 
       console.log(`✅ Scoring complete: Winner is '${scoreDoc.winner}'`);
 
@@ -106,7 +130,7 @@ class DebateScoringService {
 
       // Combine multiple factors
       const claimCount = (ai.claims?.length || 0) * 5; // Bonus for claims
-      const evidenceScore = ai.evidenceQuality || 50;
+      const evidenceScore = ai.evidenceScore || 50;
       const clarityScore = ai.clarityScore || 50;
       const overallScore = ai.overallQuality || 50;
 
