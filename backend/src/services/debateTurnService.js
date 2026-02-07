@@ -105,41 +105,124 @@ class DebateTurnService {
    * Advance debate to next turn
    */
   async advanceDebate(debate, currentSide) {
-    // Increment total turns
-    debate.totalTurns += 1;
-
-    // Get opponent's side
-    const nextSide = currentSide === 'for' ? 'against' : 'for';
-    const nextParticipant = debate.getParticipantBySide(nextSide);
-
-    // Check if round is complete (both sides have spoken)
-    if (currentSide === 'against') {
-      // Round complete, check if debate is complete
-      if (debate.currentRound >= debate.rounds.length) {
-        // Debate complete
-        debate.status = 'completed';
-        debate.completedAt = new Date();
-        debate.currentTurn = null;
+    try {
+      console.log('\n🔄 ========== ADVANCING DEBATE ==========');
+      console.log('Debate ID:', debate._id);
+      console.log('Current round:', debate.currentRound, '/ Total rounds:', debate.rounds.length);
+      console.log('Side that just submitted:', currentSide);
+  
+      // Count turns in current round
+      const turnsThisRound = await DebateTurn.countDocuments({
+        debate: debate._id,
+        round: debate.currentRound
+      });
+  
+      console.log('Turns submitted in round', debate.currentRound, ':', turnsThisRound);
+  
+      // Check if round is complete (both sides have submitted)
+      if (turnsThisRound >= 2) {
+        console.log('✅ Round', debate.currentRound, 'complete! Both sides submitted.');
         
-        await debate.save();
+        // Move to next round
+        debate.currentRound += 1;
+        console.log('➡️  Moving to round:', debate.currentRound);
+  
+        // Check if all rounds are complete
+        if (debate.currentRound > debate.rounds.length) {
+          console.log('\n🏁 ========== ALL ROUNDS COMPLETE ==========');
+          
+          debate.status = 'completed';
+          debate.completedAt = new Date();
+          
+          // ✅ SAVE FIRST so calculateFinalScore can see status='completed'
+          await debate.save();
+          console.log('✅ Debate status saved as completed');
         
-        // Trigger scoring
-        this.scoreDebate(debate._id).catch(error => {
-          console.error('Scoring error (non-blocking):', error);
-        });
+          // Calculate final scores
+          try {
+            const { default: debateScoringService } = await import('./debateScoringService.js');
+            const finalScore = await debateScoringService.calculateFinalScore(debate._id);
         
-        console.log(`🏁 Debate ${debate._id} completed`);
-        return;
+            console.log('📊 Final Scores:');
+            console.log('  FOR side:', finalScore.forSide?.totalScore || 0);
+            console.log('  AGAINST side:', finalScore.againstSide?.totalScore || 0);
+        
+            // Determine winner
+            const forScore = finalScore.forSide?.totalScore || 0;
+            const againstScore = finalScore.againstSide?.totalScore || 0;
+        
+            if (forScore > againstScore) {
+              debate.winner = 'for';
+              console.log('🏆 Winner: FOR');
+            } else if (againstScore > forScore) {
+              debate.winner = 'against';
+              console.log('🏆 Winner: AGAINST');
+            } else {
+              debate.winner = 'draw';
+              console.log('🤝 Result: DRAW');
+            }
+        
+            // Save winner
+            await debate.save();
+        
+            // Update user performances
+            console.log('📊 Updating user performances...');
+            for (const participant of debate.participants) {
+              try {
+                await aiCoachService.updatePerformanceAfterDebate(participant.user, debate);
+                console.log(`  ✅ Updated performance for ${participant.user}`);
+              } catch (error) {
+                console.error(`  ❌ Failed to update performance for ${participant.user}:`, error.message);
+              }
+            }
+        
+          } catch (error) {
+            console.error('❌ Error calculating final score:', error);
+            debate.winner = 'draw';
+            await debate.save();
+          }
+        
+          // Emit socket event
+          try {
+            const { getIO } = await import('../sockets/index.js');
+            const io = getIO();
+            if (io) {
+              io.to(`debate_${debate._id}`).emit('debate:completed', {
+                debateId: debate._id,
+                winner: debate.winner,
+                status: 'completed'
+              });
+              console.log('📡 Emitted debate:completed event');
+            }
+          } catch (err) {
+            console.error('❌ Socket emit error:', err);
+          }
+        
+          console.log('========================================\n');
+          return debate;
+        }
       }
-
-      // Move to next round
-      debate.currentRound += 1;
+  
+      // ✅ FIX: Set next turn to the USER ID, not the side string
+      const nextSide = currentSide === 'for' ? 'against' : 'for';
+      const nextParticipant = debate.participants.find(p => p.side === nextSide);
+      
+      if (nextParticipant) {
+        debate.currentTurn = nextParticipant.user;
+        console.log('Next turn: User', nextParticipant.user, '(', nextSide, 'side)');
+      } else {
+        console.error('❌ Could not find participant for side:', nextSide);
+      }
+  
+      await debate.save();
+      console.log('========================================\n');
+  
+      return debate;
+  
+    } catch (error) {
+      console.error('❌ Error advancing debate:', error);
+      throw error;
     }
-
-    // Set next turn
-    debate.currentTurn = nextParticipant.user;
-    
-    await debate.save();
   }
 
   /**

@@ -9,6 +9,7 @@ import CreatePost from './pages/CreatePost';
 import Feed from './pages/Feed';
 import Home from './pages/Home';
 import KnowledgeGraphDashboard from './pages/KnowledgeGraphDashboard';
+import Leaderboard from './pages/Leaderboard';
 import PostDetail from './pages/PostDetail';
 
 // 🎯 NEW: Import Debate Pages
@@ -24,6 +25,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/knowledge-graph" element={<KnowledgeGraphDashboard />} />
         <Route path="/coach" element={<CoachDashboard />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
         <Route
           path="/"
           element={

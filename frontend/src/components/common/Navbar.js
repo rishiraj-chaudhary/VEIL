@@ -24,6 +24,12 @@ const Navbar = () => {
               </h1>
             </Link>
             <Link
+            to="/leaderboard"
+            className="text-gray-300 hover:text-white transition"
+          >
+            🏆 Leaderboard
+          </Link>
+            <Link
             to="/coach"
             className="text-gray-300 hover:text-veil-purple transition-colors"
           >

@@ -1,6 +1,5 @@
 import express from 'express';
 import { getLiveInsights } from '../controllers/assistantController.js';
-
 import {
     cancelDebate,
     createDebate,
@@ -29,13 +28,35 @@ import {
     voteOnRound,
 } from '../controllers/debateVoteController.js';
 import { authenticate } from '../middleware/auth.js';
+import debateScoringService from '../services/debateScoringService.js';
 
 const router = express.Router();
 
 /* =====================================================
    DEBATE ROUTES
 ===================================================== */
-
+router.get('/:debateId/score', async (req, res) => {
+    try {
+      const { debateId } = req.params;
+      
+      console.log('📊 Fetching detailed score for debate:', debateId);
+      
+      const score = await debateScoringService.calculateFinalScore(debateId);
+      
+      res.json({
+        success: true,
+        data: score
+      });
+      
+    } catch (error) {
+      console.error('❌ Get score error:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+  
 // Public routes
 router.get('/', getDebates); // Get all debates (with filters)
 router.get('/:id', getDebate); // Get single debate

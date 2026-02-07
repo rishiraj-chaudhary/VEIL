@@ -131,6 +131,176 @@ export const getAIStatus = async (req, res) => {
 };
 
 /**
+ * Get category leaders (Tone, Clarity, Evidence, Logic)
+ */
+export const getCategoryLeaders = async (req, res) => {
+  try {
+    const { category = 'tone' } = req.query;
+
+    const validCategories = ['tone', 'clarity', 'evidence', 'logic'];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category. Must be: tone, clarity, evidence, or logic'
+      });
+    }
+
+    const leaders = await UserPerformance.getCategoryLeaders(category, 5);
+
+    res.json({
+      success: true,
+      data: {
+        category,
+        leaders: leaders.map((perf, index) => {
+          let score;
+          if (category === 'tone') score = Math.round(perf.qualityMetrics.avgToneScore);
+          else if (category === 'clarity') score = Math.round(perf.qualityMetrics.avgClarityScore);
+          else if (category === 'evidence') score = Math.round(perf.qualityMetrics.avgEvidenceScore);
+          else score = Math.round((1 - perf.fallacyStats.fallacyRate) * 100);
+
+          return {
+            rank: index + 1,
+            username: perf.user?.username || 'Unknown',
+            score,
+            totalDebates: perf.stats.totalDebates
+          };
+        })
+      }
+    });
+
+  } catch (error) {
+    console.error('Get category leaders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get category leaders'
+    });
+  }
+};
+
+/**
+ * Get user's rank position
+ */
+export const getUserRankPosition = async (req, res) => {
+  try {
+    const userId = req.query.userId || req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    const performance = await UserPerformance.findOne({ user: userId });
+
+    if (!performance) {
+      return res.json({
+        success: true,
+        data: {
+          qualified: false,
+          message: 'Complete at least 3 debates to qualify for rankings'
+        }
+      });
+    }
+
+    if (performance.stats.totalDebates < 3) {
+      return res.json({
+        success: true,
+        data: {
+          qualified: false,
+          debatesNeeded: 3 - performance.stats.totalDebates,
+          message: `Complete ${3 - performance.stats.totalDebates} more debate(s) to qualify`
+        }
+      });
+    }
+
+    const rankPosition = await UserPerformance.getUserRankPosition(userId);
+
+    res.json({
+      success: true,
+      data: {
+        qualified: true,
+        ...rankPosition,
+        tier: performance.rank,
+        winRate: Math.round(performance.stats.winRate)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user rank position error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get rank position'
+    });
+  }
+};
+
+/**
+ * Get all leaderboards (combined view)
+ */
+export const getAllLeaderboards = async (req, res) => {
+  try {
+    const [overall, improvers, tone, clarity, evidence, logic] = await Promise.all([
+      UserPerformance.getLeaderboard(10, 'winRate'),
+      UserPerformance.getTopImprovers(10),
+      UserPerformance.getCategoryLeaders('tone', 5),
+      UserPerformance.getCategoryLeaders('clarity', 5),
+      UserPerformance.getCategoryLeaders('evidence', 5),
+      UserPerformance.getCategoryLeaders('logic', 5)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        overall: overall.map((p, i) => ({
+          rank: i + 1,
+          username: p.user?.username,
+          winRate: Math.round(p.stats.winRate),
+          totalDebates: p.stats.totalDebates,
+          tier: p.rank
+        })),
+        improvers: improvers.map((p, i) => ({
+          rank: i + 1,
+          username: p.user?.username,
+          growth: p.improvement.overallGrowth,
+          velocity: p.improvement.velocity
+        })),
+        categoryLeaders: {
+          tone: tone.map((p, i) => ({
+            rank: i + 1,
+            username: p.user?.username,
+            score: Math.round(p.qualityMetrics.avgToneScore)
+          })),
+          clarity: clarity.map((p, i) => ({
+            rank: i + 1,
+            username: p.user?.username,
+            score: Math.round(p.qualityMetrics.avgClarityScore)
+          })),
+          evidence: evidence.map((p, i) => ({
+            rank: i + 1,
+            username: p.user?.username,
+            score: Math.round(p.qualityMetrics.avgEvidenceScore)
+          })),
+          logic: logic.map((p, i) => ({
+            rank: i + 1,
+            username: p.user?.username,
+            score: Math.round((1 - p.fallacyStats.fallacyRate) * 100)
+          }))
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get all leaderboards error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get leaderboards'
+    });
+  }
+};
+
+
+/**
  * Build context for Oracle AI
  */
 /**

@@ -29,13 +29,20 @@ class DebateScoringService {
         isDeleted: false
       }).sort({ turnNumber: 1 });
 
+      console.log(`📊 Found ${turns.length} turns for scoring`);
+
       // Separate by side
       const forTurns = turns.filter(t => t.side === 'for');
       const againstTurns = turns.filter(t => t.side === 'against');
 
+      console.log(`📊 FOR turns: ${forTurns.length}, AGAINST turns: ${againstTurns.length}`);
+
       // Calculate component scores
       const forScores = await this.calculateSideScores(debateId, forTurns, 'for');
       const againstScores = await this.calculateSideScores(debateId, againstTurns, 'against');
+
+      console.log('📊 FOR scores:', forScores);
+      console.log('📊 AGAINST scores:', againstScores);
 
       // Calculate round-by-round scores
       const roundScores = await this.calculateRoundScores(turns, debate.rounds.length);
@@ -43,29 +50,40 @@ class DebateScoringService {
       // Generate AI insights
       const insights = await this.generateInsights(debateId, forTurns, againstTurns);
 
-      // Create score document
+      // Create score document with GUARANTEED non-zero scores
       const scoreDoc = new DebateScore({
         debate: debateId,
         scores: {
           for: {
-            argumentQuality: forScores.argumentQuality || 50,
-            rebuttalEffectiveness: forScores.rebuttalEffectiveness || 50,
-            conductClarity: forScores.conductClarity || 50,
+            argumentQuality: forScores.argumentQuality || 60,
+            rebuttalEffectiveness: forScores.rebuttalEffectiveness || 60,
+            conductClarity: forScores.conductClarity || 60,
             audienceSupport: forScores.audienceSupport || 50
           },
           against: {
-            argumentQuality: againstScores.argumentQuality || 50,
-            rebuttalEffectiveness: againstScores.rebuttalEffectiveness || 50,
-            conductClarity: againstScores.conductClarity || 50,
+            argumentQuality: againstScores.argumentQuality || 60,
+            rebuttalEffectiveness: againstScores.rebuttalEffectiveness || 60,
+            conductClarity: againstScores.conductClarity || 60,
             audienceSupport: againstScores.audienceSupport || 50
           }
         },
         roundScores,
         insights
       });
+
+      console.log('📊 Score document before save:', {
+        forTotal: scoreDoc.scores.for.total,
+        againstTotal: scoreDoc.scores.against.total
+      });
       
       // Save to trigger pre-save hook that calculates winner
       await scoreDoc.save();
+
+      console.log('📊 Score document after save:', {
+        winner: scoreDoc.winner,
+        forTotal: scoreDoc.scores.for.total,
+        againstTotal: scoreDoc.scores.against.total
+      });
 
       // Update debate with results
       debate.winner = scoreDoc.winner;
@@ -75,7 +93,7 @@ class DebateScoringService {
       };
       await debate.save();
 
-      // ✨ NEW: Update AI Coach performance for both participants
+      // ✨ Update AI Coach performance for both participants
       try {
         for (const participant of debate.participants) {
           await aiCoachService.updatePerformanceAfterDebate(participant.user._id || participant.user, debate);
@@ -98,17 +116,23 @@ class DebateScoringService {
    * Calculate scores for one side
    */
   async calculateSideScores(debateId, turns, side) {
+    console.log(`📊 Calculating scores for ${side} side (${turns.length} turns)`);
+
     // 1. Argument Quality (40%)
     const argumentQuality = this.calculateArgumentQuality(turns);
+    console.log(`   - Argument Quality: ${argumentQuality}`);
 
     // 2. Rebuttal Effectiveness (25%)
     const rebuttalEffectiveness = this.calculateRebuttalEffectiveness(turns);
+    console.log(`   - Rebuttal Effectiveness: ${rebuttalEffectiveness}`);
 
     // 3. Conduct & Clarity (15%)
     const conductClarity = this.calculateConductClarity(turns);
+    console.log(`   - Conduct & Clarity: ${conductClarity}`);
 
     // 4. Audience Support (20%)
     const audienceSupport = await this.calculateAudienceSupport(debateId, side);
+    console.log(`   - Audience Support: ${audienceSupport}`);
 
     return {
       argumentQuality,
@@ -121,43 +145,96 @@ class DebateScoringService {
   /**
    * Calculate argument quality from AI analysis
    */
-  calculateArgumentQuality(turns) {
-    if (turns.length === 0) return 0;
+  /**
+ * Calculate argument quality from AI analysis
+ */
+calculateArgumentQuality(turns) {
+  if (turns.length === 0) return 60; // Default if no turns
 
-    const scores = turns.map(turn => {
-      const ai = turn.aiAnalysis;
-      if (!ai) return 50; // Default if no AI analysis
+  const scores = turns.map(turn => {
+    const ai = turn.aiAnalysis;
+    if (!ai) {
+      console.log(`⚠️ Turn ${turn._id} has no AI analysis, using default score`);
+      return 60; // Increased default
+    }
 
-      // Combine multiple factors
-      const claimCount = (ai.claims?.length || 0) * 5; // Bonus for claims
-      const evidenceScore = ai.evidenceScore || 50;
-      const clarityScore = ai.clarityScore || 50;
-      const overallScore = ai.overallQuality || 50;
+    // Check what fields are available
+    const hasDecisionTrace = !!ai.decisionTrace;
+    const hasOverallQuality = ai.overallQuality !== undefined;
 
-      return Math.min(100, (
-        overallScore * 0.4 +
-        evidenceScore * 0.3 +
-        clarityScore * 0.2 +
-        claimCount * 0.1
-      ));
+    console.log(`📊 Turn ${turn._id} AI analysis:`, {
+      hasDecisionTrace,
+      hasOverallQuality,
+      claimCount: ai.claims?.length || 0,
+      evidenceScore: ai.evidenceScore,
+      clarityScore: ai.clarityScore,
+      decisionTraceType: typeof ai.decisionTrace
     });
 
-    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-  }
+    // Use direct scores if available
+    let overallScore = 60;
+    let evidenceScore = 60;
+    let clarityScore = 60;
+
+    // Try to use overallQuality first
+    if (hasOverallQuality && typeof ai.overallQuality === 'number') {
+      overallScore = ai.overallQuality;
+    }
+
+    // Try to use direct score fields
+    if (ai.evidenceScore !== undefined && typeof ai.evidenceScore === 'number') {
+      evidenceScore = ai.evidenceScore;
+    }
+    
+    if (ai.clarityScore !== undefined && typeof ai.clarityScore === 'number') {
+      clarityScore = ai.clarityScore;
+    }
+
+    // ONLY parse decisionTrace if it's actually a string
+    if (hasDecisionTrace && typeof ai.decisionTrace === 'string') {
+      const trace = ai.decisionTrace;
+      
+      // Extract scores from text
+      const overallMatch = trace.match(/Overall.*?(\d+)/i);
+      const evidenceMatch = trace.match(/Evidence.*?(\d+)/i);
+      const clarityMatch = trace.match(/Clarity.*?(\d+)/i);
+      
+      if (overallMatch && !hasOverallQuality) overallScore = Number(overallMatch[1]);
+      if (evidenceMatch && ai.evidenceScore === undefined) evidenceScore = Number(evidenceMatch[1]);
+      if (clarityMatch && ai.clarityScore === undefined) clarityScore = Number(clarityMatch[1]);
+    }
+
+    // Combine multiple factors
+    const claimCount = (ai.claims?.length || 0) * 3; // Bonus for claims
+    const finalScore = Math.min(100, (
+      overallScore * 0.4 +
+      evidenceScore * 0.3 +
+      clarityScore * 0.2 +
+      claimCount
+    ));
+
+    console.log(`   Final argument quality score: ${finalScore}`);
+    return finalScore;
+  });
+
+  const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  console.log(`📊 Average argument quality: ${avgScore}`);
+  return avgScore;
+}
 
   /**
    * Calculate rebuttal effectiveness
    */
   calculateRebuttalEffectiveness(turns) {
-    if (turns.length === 0) return 0;
+    if (turns.length === 0) return 60; // Default if no turns
 
     const scores = turns.map(turn => {
       const ai = turn.aiAnalysis;
-      if (!ai || !ai.rebuttals) return 50;
+      if (!ai || !ai.rebuttals) return 60; // Increased default
 
       // More rebuttals = better
       const rebuttalCount = ai.rebuttals.length;
-      const baseScore = Math.min(100, 40 + (rebuttalCount * 15));
+      const baseScore = Math.min(100, 50 + (rebuttalCount * 12));
 
       return baseScore;
     });
@@ -168,22 +245,51 @@ class DebateScoringService {
   /**
    * Calculate conduct and clarity
    */
-  calculateConductClarity(turns) {
-    if (turns.length === 0) return 0;
+  // FIX for debateScoringService.js - calculateConductClarity method
+// Problem: ai.decisionTrace is an OBJECT, not a string, so you can't use .match() on it
 
-    const scores = turns.map(turn => {
+calculateConductClarity(turns) {
+  console.log('📊 Calculating Conduct & Clarity scores...');
+  
+  const toneScores = turns
+    .map(turn => {
       const ai = turn.aiAnalysis;
-      if (!ai) return 50;
+      if (!ai) return null;
+      
+      // FIX: Convert decisionTrace to string if it's an object
+      let decisionTraceText = '';
+      if (typeof ai.decisionTrace === 'string') {
+        decisionTraceText = ai.decisionTrace;
+      } else if (typeof ai.decisionTrace === 'object' && ai.decisionTrace !== null) {
+        // Convert object to JSON string for pattern matching
+        decisionTraceText = JSON.stringify(ai.decisionTrace);
+      }
+      
+      // Check for negative tone indicators
+      const hasNegativeTone = decisionTraceText.match(
+        /rude|aggressive|disrespectful|personal attack|insult/i
+      );
+      
+      return ai.toneScore || (hasNegativeTone ? 40 : 70);
+    })
+    .filter(score => score !== null);
 
-      const toneScore = ai.toneScore || 50;
-      const clarityScore = ai.clarityScore || 50;
-      const fallacyPenalty = (ai.fallacies?.length || 0) * 5; // Penalty for fallacies
+  const avgTone = toneScores.length > 0
+    ? toneScores.reduce((sum, score) => sum + score, 0) / toneScores.length
+    : 70;
 
-      return Math.max(0, (toneScore * 0.5 + clarityScore * 0.5) - fallacyPenalty);
-    });
+  const clarityScores = turns
+    .map(turn => turn.aiAnalysis?.clarityScore)
+    .filter(score => score !== undefined && score !== null);
 
-    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-  }
+  const avgClarity = clarityScores.length > 0
+    ? clarityScores.reduce((sum, score) => sum + score, 0) / clarityScores.length
+    : 70;
+
+  console.log(`   Tone: ${avgTone.toFixed(1)}, Clarity: ${avgClarity.toFixed(1)}`);
+  
+  return Math.round((avgTone + avgClarity) / 2);
+}
 
   /**
    * Calculate audience support from votes
@@ -210,10 +316,32 @@ class DebateScoringService {
       const forTurn = roundTurns.find(t => t.side === 'for');
       const againstTurn = roundTurns.find(t => t.side === 'against');
 
+      // Extract scores with fallbacks
+      let forScore = 60;
+      let againstScore = 60;
+
+      if (forTurn?.aiAnalysis) {
+        if (forTurn.aiAnalysis.overallQuality !== undefined) {
+          forScore = forTurn.aiAnalysis.overallQuality;
+        } else if (forTurn.aiAnalysis.decisionTrace) {
+          const match = forTurn.aiAnalysis.decisionTrace.match(/Overall.*?(\d+)/i);
+          if (match) forScore = Number(match[1]);
+        }
+      }
+
+      if (againstTurn?.aiAnalysis) {
+        if (againstTurn.aiAnalysis.overallQuality !== undefined) {
+          againstScore = againstTurn.aiAnalysis.overallQuality;
+        } else if (againstTurn.aiAnalysis.decisionTrace) {
+          const match = againstTurn.aiAnalysis.decisionTrace.match(/Overall.*?(\d+)/i);
+          if (match) againstScore = Number(match[1]);
+        }
+      }
+
       roundScores.push({
         round,
-        for: forTurn?.aiAnalysis?.overallQuality || 50,
-        against: againstTurn?.aiAnalysis?.overallQuality || 50
+        for: forScore,
+        against: againstScore
       });
     }
 
@@ -268,8 +396,25 @@ class DebateScoringService {
     if (turns.length === 0) return 'No arguments submitted';
 
     const strongest = turns.reduce((best, turn) => {
-      const score = turn.aiAnalysis?.overallQuality || 0;
-      const bestScore = best.aiAnalysis?.overallQuality || 0;
+      let score = 60;
+      let bestScore = 60;
+
+      // Get score from current turn
+      if (turn.aiAnalysis?.overallQuality !== undefined) {
+        score = turn.aiAnalysis.overallQuality;
+      } else if (turn.aiAnalysis?.decisionTrace) {
+        const match = turn.aiAnalysis.decisionTrace.match(/Overall.*?(\d+)/i);
+        if (match) score = Number(match[1]);
+      }
+
+      // Get score from best turn
+      if (best.aiAnalysis?.overallQuality !== undefined) {
+        bestScore = best.aiAnalysis.overallQuality;
+      } else if (best.aiAnalysis?.decisionTrace) {
+        const match = best.aiAnalysis.decisionTrace.match(/Overall.*?(\d+)/i);
+        if (match) bestScore = Number(match[1]);
+      }
+
       return score > bestScore ? turn : best;
     }, turns[0]);
 
@@ -308,7 +453,15 @@ class DebateScoringService {
     const moments = [];
 
     allTurns.forEach(turn => {
-      const quality = turn.aiAnalysis?.overallQuality || 0;
+      let quality = 60;
+
+      if (turn.aiAnalysis?.overallQuality !== undefined) {
+        quality = turn.aiAnalysis.overallQuality;
+      } else if (turn.aiAnalysis?.decisionTrace) {
+        const match = turn.aiAnalysis.decisionTrace.match(/Overall.*?(\d+)/i);
+        if (match) quality = Number(match[1]);
+      }
+
       const fallacies = turn.aiAnalysis?.fallacies?.length || 0;
 
       // High quality turn

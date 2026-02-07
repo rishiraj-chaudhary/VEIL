@@ -51,6 +51,8 @@ const DebateRoom = () => {
   const [canSubmit, setCanSubmit] = useState({ canSubmit: false, reason: '' });
   const [selectedVote, setSelectedVote] = useState({ side: null, confidence: 3 });
   const [showScore, setShowScore] = useState(false);
+  const [detailedScore, setDetailedScore] = useState(null);
+  const [loadingScore, setLoadingScore] = useState(false);
 
   // Get participant info
   const myParticipant = currentDebate?.participants?.find(
@@ -60,6 +62,34 @@ const DebateRoom = () => {
   // Initialize live assistant
   const { insights, isAnalyzing, analyzeDraft, clearInsights } = 
     useLiveAssistant(debateId, myParticipant?.side);
+
+  // Fetch detailed score
+  const fetchDetailedScore = async () => {
+    if (!debateId) return;
+    
+    try {
+      setLoadingScore(true);
+      const response = await fetch(`http://localhost:5001/api/debates/${debateId}/score`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setDetailedScore(data.data);
+      } else {
+        console.error('Failed to fetch score:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching score:', error);
+    } finally {
+      setLoadingScore(false);
+    }
+  };
+
+  // Auto-fetch score when debate completes
+  useEffect(() => {
+    if (currentDebate?.status === 'completed' && !detailedScore) {
+      fetchDetailedScore();
+    }
+  }, [currentDebate?.status, detailedScore, debateId]);
 
   useEffect(() => {
     fetchDebate(debateId);
@@ -101,7 +131,8 @@ const DebateRoom = () => {
 
     onDebateCompleted(({ winner, finalScores }) => {
       updateDebateState({ status: 'completed', winner, finalScores });
-      setShowScore(true);
+      setShowScore(false);
+      fetchDetailedScore(); // Fetch score when debate completes
     });
 
     onParticipantJoined(({ participant }) => {
@@ -504,12 +535,93 @@ const DebateRoom = () => {
                 </div>
 
                 {currentDebate.winner && (
-                  <button
-                    onClick={() => setShowScore(!showScore)}
-                    className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-                  >
-                    {showScore ? 'Hide' : 'View'} Detailed Score
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        if (!detailedScore) {
+                          fetchDetailedScore();
+                        }
+                        setShowScore(!showScore);
+                      }}
+                      disabled={loadingScore}
+                      className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {loadingScore ? 'Loading...' : showScore ? 'Hide' : 'View'} Detailed Score
+                    </button>
+
+                    {showScore && detailedScore && (
+                      <div className="mt-4 p-4 bg-slate-900 rounded-lg border border-slate-600">
+                        <h3 className="text-lg font-semibold text-white mb-4">📊 Score Breakdown</h3>
+                        
+                        {/* Overall Scores */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-green-900/20 border border-green-700/50 p-3 rounded">
+                            <div className="text-xs text-green-400 mb-1">FOR Side</div>
+                            <div className="text-2xl font-bold text-green-400">
+                              {detailedScore.forSide?.totalScore?.toFixed(1) || 0}
+                            </div>
+                          </div>
+                          <div className="bg-red-900/20 border border-red-700/50 p-3 rounded">
+                            <div className="text-xs text-red-400 mb-1">AGAINST Side</div>
+                            <div className="text-2xl font-bold text-red-400">
+                              {detailedScore.againstSide?.totalScore?.toFixed(1) || 0}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Detailed Metrics */}
+                        <div className="space-y-3">
+                          <div className="bg-slate-800 p-3 rounded">
+                            <div className="text-xs text-gray-400 mb-2">Tone Quality</div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-green-400">
+                                FOR: {detailedScore.forSide?.avgTone?.toFixed(1) || 0}
+                              </div>
+                              <div className="text-red-400">
+                                AGAINST: {detailedScore.againstSide?.avgTone?.toFixed(1) || 0}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-800 p-3 rounded">
+                            <div className="text-xs text-gray-400 mb-2">Clarity</div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-green-400">
+                                FOR: {detailedScore.forSide?.avgClarity?.toFixed(1) || 0}
+                              </div>
+                              <div className="text-red-400">
+                                AGAINST: {detailedScore.againstSide?.avgClarity?.toFixed(1) || 0}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-800 p-3 rounded">
+                            <div className="text-xs text-gray-400 mb-2">Evidence</div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-green-400">
+                                FOR: {detailedScore.forSide?.avgEvidence?.toFixed(1) || 0}
+                              </div>
+                              <div className="text-red-400">
+                                AGAINST: {detailedScore.againstSide?.avgEvidence?.toFixed(1) || 0}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-800 p-3 rounded">
+                            <div className="text-xs text-gray-400 mb-2">Fallacy Penalty</div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-green-400">
+                                FOR: -{detailedScore.forSide?.fallacyPenalty?.toFixed(1) || 0}
+                              </div>
+                              <div className="text-red-400">
+                                AGAINST: -{detailedScore.againstSide?.fallacyPenalty?.toFixed(1) || 0}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

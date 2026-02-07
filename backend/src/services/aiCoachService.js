@@ -109,6 +109,11 @@ class AICoachService {
         performance.stats.winRate = (performance.stats.wins / totalOutcomes) * 100;
       }
 
+      // Update rank tier
+      if (typeof performance.updateRankTier === 'function') {
+        performance.updateRankTier();
+      }
+
       await performance.save();
 
       // Check for achievements
@@ -121,8 +126,12 @@ class AICoachService {
 
       // Take snapshot every 5 debates
       if (performance.stats.totalDebates % 5 === 0) {
-        await performance.addSnapshot('milestone');
+        if (typeof performance.addSnapshot === 'function') {
+          await performance.addSnapshot('milestone');
+        }
       }
+
+      console.log(`🏆 User ${userId} updated - Rank: ${performance.rank}, Win Rate: ${Math.round(performance.stats.winRate)}%`);
 
       return performance;
 
@@ -325,7 +334,9 @@ class AICoachService {
 
       // Add tips to performance
       for (const tip of tips) {
-        await performance.addCoachingTip(tip);
+        if (typeof performance.addCoachingTip === 'function') {
+          await performance.addCoachingTip(tip);
+        }
       }
 
       console.log(`💡 Generated ${tips.length} coaching tips for user ${userId}`);
@@ -404,9 +415,11 @@ class AICoachService {
 
       // Award new achievements
       for (const achievement of achievements) {
-        const awarded = await performance.awardAchievement(achievement);
-        if (awarded) {
-          console.log(`🏅 Achievement unlocked: ${achievement.name}`);
+        if (typeof performance.awardAchievement === 'function') {
+          const awarded = await performance.awardAchievement(achievement);
+          if (awarded) {
+            console.log(`🏅 Achievement unlocked: ${achievement.name}`);
+          }
         }
       }
 
@@ -418,21 +431,18 @@ class AICoachService {
   /**
    * Get user's performance summary
    */
-  /**
- * Get user's performance summary
- */
   async getPerformanceSummary(userId) {
     try {
       console.log('🔍 DEBUG: Looking for userId:', userId);
       
       const performance = await UserPerformance.findOne({ user: userId })
         .populate('user', 'username');
-  
+
       console.log('🔍 DEBUG: Performance found:', !!performance);
       if (performance) {
         console.log('🔍 DEBUG: totalTurns:', performance.stats?.totalTurns);
       }
-  
+
       if (!performance || !performance.stats || performance.stats.totalTurns < 1) {
         console.log('❌ DEBUG: Returning hasData: false');
         return {
@@ -440,7 +450,7 @@ class AICoachService {
           message: 'Start debating to track your progress!'
         };
       }
-  
+
       console.log('✅ DEBUG: Returning hasData: true with data!');
       return {
         hasData: true,
@@ -456,7 +466,7 @@ class AICoachService {
         coachingTips: performance.coachingTips.filter(t => !t.dismissed),
         styleProfile: performance.styleProfile
       };
-  
+
     } catch (error) {
       console.error('❌ Error getting performance summary:', error);
       throw error;

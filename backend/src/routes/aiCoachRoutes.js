@@ -13,5 +13,9 @@ router.get('/achievements', aiCoachController.getAchievements);
 router.get('/leaderboard', aiCoachController.getLeaderboard);
 router.get('/improvers', aiCoachController.getTopImprovers);
 router.get('/comparison', aiCoachController.getComparison);
+//leader board routes
+router.get('/leaderboard/all', aiCoachController.getAllLeaderboards);
+router.get('/leaderboard/category', aiCoachController.getCategoryLeaders);
+router.get('/rank/position', aiCoachController.getUserRankPosition);
 
 export default router;

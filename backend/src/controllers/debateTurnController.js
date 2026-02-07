@@ -1,5 +1,4 @@
 import debateTurnService from '../services/debateTurnService.js';
-import { emitDebateCompleted, emitRoundAdvanced, emitTurnSubmitted, getIO } from '../sockets/index.js';
 
 /* =====================================================
    SUBMIT TURN
@@ -8,74 +7,51 @@ export const submitTurn = async (req, res) => {
   try {
     const { debateId } = req.params;
     const { content } = req.body;
+    const userId = req.user.id;
 
-    // Validation
-    if (!content || content.trim().length < 10) {
-      return res.status(400).json({
-        success: false,
-        message: 'Content must be at least 10 characters'
-      });
-    }
-
-    // Check if user can submit
-    const canSubmit = await debateTurnService.canSubmitTurn(
+    console.log('📝 Turn submission:', {
       debateId,
-      req.user._id
-    );
-
-    if (!canSubmit.canSubmit) {
-      return res.status(403).json({
-        success: false,
-        message: canSubmit.reason
-      });
-    }
-
-    const result = await debateTurnService.submitTurn(
-      debateId,
-      req.user._id,
-      content
-    );
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    // ✨ EMIT SOCKET EVENTS
-    const io = getIO();
-    
-    // Emit turn submitted
-    emitTurnSubmitted(io, debateId, {
-      turn: result.turn,
-      nextTurn: result.nextTurn,
-      currentRound: result.debate.currentRound
+      userId,
+      contentLength: content?.length
     });
 
-    // If round advanced, emit round event
-    if (result.roundAdvanced) {
-      emitRoundAdvanced(io, debateId, {
-        currentRound: result.debate.currentRound
+    // Submit turn
+    const result = await debateTurnService.submitTurn(debateId, userId, content);
+
+    // Emit turn submitted event
+    const io = (await import('../sockets/index.js')).getIO();
+    if (io) {
+      io.to(`debate_${debateId}`).emit('turn:submitted', {
+        turn: result.turn,
+        debate: result.debate
       });
+      console.log('📡 Emitted turn:submitted event');
     }
 
-    // If debate completed, emit completion event
+    // Check if debate is now complete
     if (result.debate.status === 'completed') {
-      emitDebateCompleted(io, debateId, {
-        winner: result.debate.winner,
-        finalScores: result.debate.finalScores
-      });
+      console.log('🏁 Debate just completed!');
+      
+      if (io) {
+        io.to(`debate_${debateId}`).emit('debate:completed', {
+          debateId: result.debate._id,
+          winner: result.debate.winner,
+          status: 'completed'
+        });
+        console.log('📡 Emitted debate:completed event');
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: 'Turn submitted successfully',
       data: {
         turn: result.turn,
-        debate: result.debate,
-        nextTurn: result.nextTurn
+        debate: result.debate
       }
     });
+
   } catch (error) {
-    console.error('Submit turn error:', error);
+    console.error('❌ Submit turn error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to submit turn'
