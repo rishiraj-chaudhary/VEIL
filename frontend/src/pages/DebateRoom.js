@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
-import AnalysisPanel from '../components/debate/AnalysisPanel';
 import ClaimStats from '../components/debate/ClaimStats';
 import LiveAssistantPanel from '../components/debate/LiveAssistantPanel.js';
+import VerdictExplainer from '../components/debate/VerdictExplainer';
 import { useLiveAssistant } from '../hooks/useLiveAssistant';
 import {
   getDebateSocket,
@@ -53,6 +53,7 @@ const DebateRoom = () => {
   const [showScore, setShowScore] = useState(false);
   const [detailedScore, setDetailedScore] = useState(null);
   const [loadingScore, setLoadingScore] = useState(false);
+  const [expandedTurns, setExpandedTurns] = useState(new Set()); // Track expanded verdict explanations
 
   // Get participant info
   const myParticipant = currentDebate?.participants?.find(
@@ -62,6 +63,17 @@ const DebateRoom = () => {
   // Initialize live assistant
   const { insights, isAnalyzing, analyzeDraft, clearInsights } = 
     useLiveAssistant(debateId, myParticipant?.side);
+
+  // Toggle turn explanation expansion
+  const toggleTurnExpanded = (turnId) => {
+    const newExpanded = new Set(expandedTurns);
+    if (newExpanded.has(turnId)) {
+      newExpanded.delete(turnId);
+    } else {
+      newExpanded.add(turnId);
+    }
+    setExpandedTurns(newExpanded);
+  };
 
   // Fetch detailed score
   const fetchDetailedScore = async () => {
@@ -132,7 +144,7 @@ const DebateRoom = () => {
     onDebateCompleted(({ winner, finalScores }) => {
       updateDebateState({ status: 'completed', winner, finalScores });
       setShowScore(false);
-      fetchDetailedScore(); // Fetch score when debate completes
+      fetchDetailedScore();
     });
 
     onParticipantJoined(({ participant }) => {
@@ -167,18 +179,6 @@ const DebateRoom = () => {
       analyzeDraft(content, user.id);
     }
   };
-
-  // Debug logging
-  useEffect(() => {
-    console.log('📊 Turns data:', turns);
-    turns.forEach((turn, i) => {
-      console.log(`Turn ${i+1}:`, {
-        content: turn.content.substring(0, 30),
-        hasAnalysis: !!turn.aiAnalysis,
-        analysis: turn.aiAnalysis
-      });
-    });
-  }, [turns]);
 
   useEffect(() => {
     if (currentDebate?.status === 'active') {
@@ -419,51 +419,83 @@ const DebateRoom = () => {
                   No arguments yet. Debate will begin once both participants are ready.
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {turns.map((turn) => (
                     <div
                       key={turn._id}
-                      className={`p-4 rounded-lg border ${
+                      className={`rounded-lg border ${
                         turn.side === 'for'
                           ? 'bg-green-900/10 border-green-700/50'
                           : 'bg-red-900/10 border-red-700/50'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <span className={turn.side === 'for' ? 'text-green-400' : 'text-red-400'}>
-                            {turn.side === 'for' ? '✓' : '✗'}
-                          </span>
-                          <span className="font-semibold text-white">
-                            {turn.author?.username}
-                          </span>
+                      {/* Turn Header */}
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={turn.side === 'for' ? 'text-green-400' : 'text-red-400'}>
+                              {turn.side === 'for' ? '✓' : '✗'}
+                            </span>
+                            <span className="font-semibold text-white">
+                              {turn.author?.username}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              Round {turn.round} • Turn {turn.turnNumber}
+                            </span>
+                          </div>
                           <span className="text-xs text-gray-500">
-                            Round {turn.round} • Turn {turn.turnNumber}
+                            {turn.wordCount} words
                           </span>
                         </div>
-                        <span className="text-xs text-gray-500">
-                          {turn.wordCount} words
-                        </span>
-                      </div>
-                      
-                      <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">
-                        {turn.content}
-                      </p>
-                      {turn.aiAnalysis?.claims && turn.aiAnalysis.claims.length > 0 && (
-                      <div className="mb-3 space-y-2">
-                        <div className="text-xs font-semibold text-purple-400 mb-2">
-                          📊 Claims in Knowledge Graph:
-                        </div>
-                        {turn.aiAnalysis.claims.map((claim, idx) => (
-                          <ClaimStats key={idx} claimText={claim} compact={true} />
-                        ))}
-                      </div>
-                    )}
+                        
+                        <p className="text-gray-200 whitespace-pre-wrap leading-relaxed mb-3">
+                          {turn.content}
+                        </p>
 
-                      {/* AI Analysis */}
-                      {turn.aiAnalysis && (
-                        <div className="mt-3 pt-3 border-t border-slate-700">
-                          <AnalysisPanel aiAnalysis={turn.aiAnalysis} />
+                        {/* Claims in Knowledge Graph */}
+                        {turn.aiAnalysis?.claims && turn.aiAnalysis.claims.length > 0 && (
+                          <div className="mb-3 space-y-2">
+                            <div className="text-xs font-semibold text-purple-400 mb-2">
+                              📊 Claims in Knowledge Graph:
+                            </div>
+                            {turn.aiAnalysis.claims.map((claim, idx) => (
+                              <ClaimStats key={idx} claimText={claim} compact={true} />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Quick Score Display */}
+                        {turn.aiAnalysis && (
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
+                            <div className="flex items-center space-x-4 text-sm">
+                              <div className="text-gray-400">
+                                Quality: <span className="text-white font-semibold">{turn.aiAnalysis.overallQuality}/100</span>
+                              </div>
+                              <div className="text-gray-400">
+                                Tone: <span className="text-white font-semibold">{turn.aiAnalysis.toneScore}</span>
+                              </div>
+                              <div className="text-gray-400">
+                                Clarity: <span className="text-white font-semibold">{turn.aiAnalysis.clarityScore}</span>
+                              </div>
+                              <div className="text-gray-400">
+                                Evidence: <span className="text-white font-semibold">{turn.aiAnalysis.evidenceQuality}</span>
+                              </div>
+                            </div>
+                            
+                            <button
+                              onClick={() => toggleTurnExpanded(turn._id)}
+                              className="text-purple-400 hover:text-purple-300 text-sm font-semibold transition-colors"
+                            >
+                              {expandedTurns.has(turn._id) ? '▼ Hide Analysis' : '▶ View Detailed Analysis'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ✅ NEW: Enhanced Verdict Explainer */}
+                      {expandedTurns.has(turn._id) && turn.aiAnalysis && (
+                        <div className="border-t border-slate-700/50 p-4 bg-slate-900/50">
+                          <VerdictExplainer turn={turn} />
                         </div>
                       )}
                     </div>

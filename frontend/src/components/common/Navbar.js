@@ -23,6 +23,15 @@ const Navbar = () => {
                 VEIL
               </h1>
             </Link>
+            <Link to="/ai-usage" className="nav-link">
+              💰 AI Usage
+            </Link>
+            <Link
+            to="/persona"
+            className="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            📸 Persona
+          </Link>
             <Link
             to="/leaderboard"
             className="text-gray-300 hover:text-white transition"

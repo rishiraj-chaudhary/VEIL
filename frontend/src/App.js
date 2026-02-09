@@ -3,6 +3,7 @@ import Login from './components/auth/login';
 import Register from './components/auth/Register';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import SlickFeed from './components/slick/SlickFeed.js';
+import AIUsageDashboard from './pages/AIUsageDashboard';
 import CoachDashboard from './pages/CoachDashboard';
 import Communities from './pages/Communities';
 import CreatePost from './pages/CreatePost';
@@ -10,6 +11,7 @@ import Feed from './pages/Feed';
 import Home from './pages/Home';
 import KnowledgeGraphDashboard from './pages/KnowledgeGraphDashboard';
 import Leaderboard from './pages/Leaderboard';
+import PersonaDriftDashboard from './pages/PersonaDriftDashboard';
 import PostDetail from './pages/PostDetail';
 
 // 🎯 NEW: Import Debate Pages
@@ -26,6 +28,13 @@ function App() {
         <Route path="/knowledge-graph" element={<KnowledgeGraphDashboard />} />
         <Route path="/coach" element={<CoachDashboard />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/ai-usage" element={<AIUsageDashboard />} />
+        <Route path="/persona" element={
+    <ProtectedRoute>
+      <PersonaDriftDashboard />
+    </ProtectedRoute>
+  } 
+/>
         <Route
           path="/"
           element={
