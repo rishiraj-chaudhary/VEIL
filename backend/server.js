@@ -7,13 +7,16 @@ import { createServer } from 'http';
 import morgan from 'morgan';
 import connectDB from './src/config/database.js';
 import aiCoachRoutes from './src/routes/aiCoachRoutes.js';
+import aiUsageRoutes from './src/routes/aiUsageRoutes.js';
 import knowledgeGraphRoutes from './src/routes/knowledgeGraphRoutes.js';
+import personaRoutes from './src/routes/personaRoutes.js';
 
 // 🆕 MODELS FIRST - Register Mongoose schemas
 import './src/models/debate.js';
 import './src/models/DebateMemory.js';
 import './src/models/debateTurn.js';
 import './src/models/KnowledgeItem.js';
+import './src/models/PersonaSnapshot.js'; // 🆕 Add PersonaSnapshot model
 import './src/models/user.js';
 
 // Routes
@@ -27,6 +30,7 @@ import slickRoutes from './src/routes/slickRoutes.js';
 
 // Services
 import debateAIService from './src/services/debateAIService.js';
+import { personaScheduler } from './src/services/personaScheduler.js'; // 🆕 Import scheduler
 
 // Socket
 import { initSocket } from './src/sockets/index.js';
@@ -73,7 +77,8 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'VEIL Backend is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    personaScheduler: personaScheduler.getStatus() // 🆕 Include scheduler status
   });
 });
 
@@ -87,7 +92,8 @@ app.get('/', (req, res) => {
       oracle: '🔮 AI Assistant Ready',
       shadow: '🌑 Devil\'s Advocate Standby',
       reveal: '✨ Truth Unveiled',
-      debates: '⚖️ Structured Debates'
+      debates: '⚖️ Structured Debates',
+      personaDrift: '📸 Persona Evolution Tracking' // 🆕 New feature
     }
   });
 });
@@ -102,6 +108,8 @@ app.use('/api/slicks', slickRoutes);
 app.use('/api/debates', debateRoutes);
 app.use('/api/knowledge-graph', knowledgeGraphRoutes);
 app.use('/api/coach', aiCoachRoutes);
+app.use('/api/persona', personaRoutes); // 🆕 Persona drift routes
+app.use('/api/ai-usage', aiUsageRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -132,8 +140,35 @@ server.listen(PORT, () => {
   ✨ Unveiling Truth: Active
   ⚡ Socket.io: Connected
   ⚖️ Debates: Active
+  📸 Persona Drift: Enabled
   ═══════════════════════════════════════
   `);
+
+  // 🆕 START PERSONA SCHEDULER
+  try {
+    personaScheduler.start();
+  } catch (error) {
+    console.error('⚠️ Failed to start persona scheduler:', error);
+  }
+});
+
+// 🆕 GRACEFUL SHUTDOWN
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  personaScheduler.stop();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  personaScheduler.stop();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });
 
 export default app;

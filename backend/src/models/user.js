@@ -22,7 +22,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
-    select: false, // Don't return password by default
+    select: false,
   },
   karma: {
     type: Number,
@@ -35,31 +35,36 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
   },
-}, {
-  timestamps: true, // Adds createdAt and updatedAt
-});
-
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
+  
+  // ✅ ADD THESE TWO FIELDS:
+  subscription: {
+    tier: { type: String, enum: ['free', 'pro', 'team', 'enterprise'], default: 'free' },
+    startDate: Date,
+    endDate: Date,
+    status: { type: String, enum: ['active', 'cancelled', 'expired'], default: 'active' }
+  },
+  
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
   }
   
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+}, {
+  timestamps: true,
 });
 
-// Method to compare passwords
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Method to get public profile (without sensitive data)
 userSchema.methods.getPublicProfile = function() {
   return {
     id: this._id,
@@ -70,6 +75,7 @@ userSchema.methods.getPublicProfile = function() {
   };
 };
 
-const User = mongoose.model('User', userSchema);
+// ✅ FIX: Prevent model overwrite error
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 export default User;

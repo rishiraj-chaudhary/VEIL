@@ -1,3 +1,5 @@
+import User from '../models/User.js';
+import debateAIService from '../services/debateAIService.js';
 import debateScoringService from '../services/debateScoringService.js';
 import debateService from '../services/debateService.js';
 import { emitDebateCancelled, emitDebateStarted, emitParticipantJoined, emitParticipantReady, getIO } from '../sockets/index.js';
@@ -303,7 +305,7 @@ export const getDebateStats = async (req, res) => {
 };
 
 /* =====================================================
-   GET DEBATE SCORE
+   ✅ UPDATED: GET DEBATE SCORE (with cost tracking)
 ===================================================== */
 export const getDebateScore = async (req, res) => {
   try {
@@ -324,6 +326,151 @@ export const getDebateScore = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch score'
+    });
+  }
+};
+
+/* =====================================================
+   ✅ NEW: SUBMIT TURN (with AI cost tracking)
+===================================================== */
+export const submitTurn = async (req, res) => {
+  try {
+    const { id: debateId } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id;
+
+    // Validation
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Turn content is required'
+      });
+    }
+
+    // Submit turn through debate service
+    const result = await debateService.submitTurn(debateId, userId, content);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    // ✅ Get user tier for AI cost tracking
+    const user = await User.findById(userId);
+    const userTier = user?.subscription?.tier || 'free';
+
+    // ✅ Analyze turn with AI (with cost tracking)
+    const aiAnalysis = await debateAIService.analyzeTurn(
+      content,
+      result.turn.side,
+      result.previousTurns || [],
+      userId,      // ✅ Track who made the request
+      debateId,    // ✅ Track which debate
+      userTier     // ✅ User's subscription tier
+    );
+
+    // Update turn with AI analysis
+    result.turn.aiAnalysis = aiAnalysis;
+    await result.turn.save();
+
+    // Process claims for knowledge graph
+    if (aiAnalysis.claims && aiAnalysis.claims.length > 0) {
+      await debateAIService.processClaimsForGraph(
+        aiAnalysis.claims,
+        result.turn,
+        result.debate,
+        aiAnalysis.overallQuality
+      );
+    }
+
+    // Store turn in debate memory (RAG)
+    await debateAIService.storeInMemory(result.turn, result.debate);
+
+    // ✨ EMIT SOCKET EVENTS
+    const io = getIO();
+    if (io) {
+      io.to(`debate-${debateId}`).emit('turn-submitted', {
+        turn: result.turn
+      });
+
+      // Emit analysis complete
+      setTimeout(() => {
+        io.to(`debate-${debateId}`).emit('analysis-complete', {
+          turnId: result.turn._id
+        });
+      }, 500);
+    }
+
+    res.json({
+      success: true,
+      message: 'Turn submitted successfully',
+      data: result.turn
+    });
+
+  } catch (error) {
+    console.error('Submit turn error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit turn',
+      error: error.message
+    });
+  }
+};
+
+/* =====================================================
+   ✅ NEW: COMPLETE DEBATE (with AI cost tracking)
+===================================================== */
+export const completeDebate = async (req, res) => {
+  try {
+    const { id: debateId } = req.params;
+    const userId = req.user?._id;
+
+    const result = await debateService.completeDebate(debateId);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    // ✅ Get user tier for AI summary generation
+    const user = await User.findById(userId);
+    const userTier = user?.subscription?.tier || 'free';
+
+    // ✅ Generate AI summary with cost tracking
+    const aiSummary = await debateAIService.generateDebateSummary(
+      debateId,
+      result.forTurns || [],
+      result.againstTurns || [],
+      userId,      // ✅ Track summary generation
+      userTier     // ✅ User tier
+    );
+
+    // Update debate with summary
+    result.debate.aiSummary = aiSummary;
+    await result.debate.save();
+
+    // ✨ EMIT SOCKET EVENT
+    const io = getIO();
+    if (io) {
+      io.to(`debate-${debateId}`).emit('debate-completed', {
+        winner: result.winner,
+        finalScores: result.finalScores
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Debate completed',
+      data: {
+        debate: result.debate,
+        score: result.score
+      }
+    });
+
+  } catch (error) {
+    console.error('Complete debate error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete debate',
+      error: error.message
     });
   }
 };

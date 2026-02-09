@@ -2,6 +2,8 @@ import Debate from '../models/debate.js';
 import DebateTurn from '../models/debateTurn.js';
 import aiCoachService from './aiCoachService.js';
 import debateAIService from './debateAIService.js';
+import { personaDriftService } from './personaDriftService.js';
+
 class DebateTurnService {
   /**
    * Submit a turn in the debate
@@ -65,20 +67,23 @@ class DebateTurnService {
       await turn.populate('author', 'username karma');
 
       // Run AI analysis asynchronously
-      // Run AI analysis asynchronously
-        this.analyzeDebateTurn(turn._id, debate._id).catch(async (error) => {
-          console.error('❌ AI analysis error (non-blocking):', error);
-          
-          // Mark turn with error state
-          try {
-            await DebateTurn.findByIdAndUpdate(turn._id, {
-              'aiAnalysis.decisionTrace': ['AI analysis failed - please retry'],
-              'aiAnalysis.error': error.message
-            });
-          } catch (updateError) {
-            console.error('Failed to mark error:', updateError);
-          }
-        });
+      this.analyzeDebateTurn(turn._id, debate._id).catch(async (error) => {
+        console.error('❌ AI analysis error (non-blocking):', error);
+        
+        // Mark turn with error state
+        try {
+          await DebateTurn.findByIdAndUpdate(turn._id, {
+            'aiAnalysis.decisionTrace': ['AI analysis failed - please retry'],
+            'aiAnalysis.error': error.message
+          });
+        } catch (updateError) {
+          console.error('Failed to mark error:', updateError);
+        }
+      });
+
+      // 🆕 TRIGGER PERSONA SNAPSHOT CHECK (non-blocking)
+      personaDriftService.triggerIfNeeded(userId, 'debate_count')
+        .catch(err => console.error('Background persona snapshot error:', err));
 
       // Update debate state
       await this.advanceDebate(debate, participant.side);
@@ -228,49 +233,47 @@ class DebateTurnService {
   /**
    * Get all turns for a debate
    */
-  // UPDATED getDebateTurns for backend/src/services/debateTurnService.js
+  async getDebateTurns(debateId, options = {}) {
+    try {
+      const { round, side, includeAI = true } = options;
 
-async getDebateTurns(debateId, options = {}) {
-  try {
-    const { round, side, includeAI = true } = options;
+      const query = {
+        debate: debateId,
+        isDeleted: false
+      };
 
-    const query = {
-      debate: debateId,
-      isDeleted: false
-    };
+      if (round) query.round = round;
+      if (side) query.side = side;
 
-    if (round) query.round = round;
-    if (side) query.side = side;
+      // ✅ CRITICAL: Use .lean() to get ALL fields including aiAnalysis
+      const turns = await DebateTurn.find(query)
+        .populate('author', 'username')
+        .sort({ turnNumber: 1 })
+        .lean(); // ← This ensures aiAnalysis is included!
 
-    // ✅ CRITICAL: Use .lean() to get ALL fields including aiAnalysis
-    const turns = await DebateTurn.find(query)
-      .populate('author', 'username')
-      .sort({ turnNumber: 1 })
-      .lean(); // ← This ensures aiAnalysis is included!
-
-    console.log(`📊 Fetched ${turns.length} turns for debate ${debateId}`);
-    
-    // Debug first turn
-    if (turns.length > 0) {
-      console.log('✅ First turn has aiAnalysis:', !!turns[0].aiAnalysis);
-      if (turns[0].aiAnalysis) {
-        console.log('   - Has toneScore:', !!turns[0].aiAnalysis.toneScore);
-        console.log('   - Has decisionTrace:', !!turns[0].aiAnalysis.decisionTrace);
+      console.log(`📊 Fetched ${turns.length} turns for debate ${debateId}`);
+      
+      // Debug first turn
+      if (turns.length > 0) {
+        console.log('✅ First turn has aiAnalysis:', !!turns[0].aiAnalysis);
+        if (turns[0].aiAnalysis) {
+          console.log('   - Has toneScore:', !!turns[0].aiAnalysis.toneScore);
+          console.log('   - Has decisionTrace:', !!turns[0].aiAnalysis.decisionTrace);
+        }
       }
-    }
 
-    return {
-      success: true,
-      turns
-    };
-  } catch (error) {
-    console.error('Get debate turns error:', error);
-    return {
-      success: false,
-      error: error.message
-    };
+      return {
+        success: true,
+        turns
+      };
+    } catch (error) {
+      console.error('Get debate turns error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
-}
 
   /**
    * Get a specific turn with full details
@@ -318,7 +321,7 @@ async getDebateTurns(debateId, options = {}) {
         previousTurns
       );
   
-      // 🐛 DEBUG LOGGING - ADD THIS
+      // 🐛 DEBUG LOGGING
       console.log('📊 Analysis received:');
       console.log('  Fallacies type:', typeof analysis.fallacies);
       console.log('  Fallacies value:', analysis.fallacies);
@@ -339,6 +342,7 @@ async getDebateTurns(debateId, options = {}) {
         console.log('⚠️ Fallacies is not an array! Converting to array...');
         analysis.fallacies = [];
       }
+
       console.log('🔍 BEFORE SAVE:');
       console.log('  analysis.fallacies:', analysis.fallacies);
       console.log('  Type:', typeof analysis.fallacies);
@@ -347,20 +351,24 @@ async getDebateTurns(debateId, options = {}) {
   
       turn.aiAnalysis = analysis;
       await turn.save();
+
       await debateAIService.processClaimsForGraph(
         analysis.claims,
         turn,
         debate,
         analysis.overallQuality
       );
+
       // Store in memory
       await debateAIService.storeInMemory(turn, debate);
+
       try {
         await aiCoachService.updatePerformanceAfterTurn(turn.author._id || turn.author, turn);
         console.log('📊 Performance updated for user');
       } catch (error) {
         console.error('Performance update error (non-blocking):', error);
       }
+
       try {
         const { getIO, emitAnalysisComplete } = await import('../sockets/index.js');
         const io = getIO();
@@ -372,6 +380,7 @@ async getDebateTurns(debateId, options = {}) {
       } catch (error) {
         console.log('⚠️ Socket emit skipped (socket not available)');
       }
+
       console.log(`🤖 AI analysis complete for turn ${turnId}`);
       return analysis;
   
@@ -380,11 +389,11 @@ async getDebateTurns(debateId, options = {}) {
       throw error;
     }
   }
+
   /**
    * Score debate (called when debate completes)
    */
   async scoreDebate(debateId) {
-    // Import scoring service here to avoid circular dependency
     const { default: debateScoringService } = await import('./debateScoringService.js');
     return debateScoringService.calculateFinalScore(debateId);
   }

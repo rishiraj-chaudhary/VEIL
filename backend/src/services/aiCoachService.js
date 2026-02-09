@@ -1,4 +1,5 @@
 import UserPerformance from '../models/UserPerformance.js';
+import { personaDriftService } from './personaDriftService.js';
 
 /**
  * AI DEBATE COACH SERVICE
@@ -129,6 +130,21 @@ class AICoachService {
         if (typeof performance.addSnapshot === 'function') {
           await performance.addSnapshot('milestone');
         }
+      }
+
+      // 🆕 CHECK FOR PERSONA SNAPSHOT (non-blocking)
+      const shouldSnapshot = await personaDriftService.shouldTriggerSnapshot(
+        userId,
+        'debate_count'
+      );
+
+      if (shouldSnapshot) {
+        console.log(`📸 Performance milestone reached - creating persona snapshot for user ${userId}`);
+        
+        personaDriftService.createSnapshot(userId, {
+          snapshotType: 'automatic',
+          trigger: 'debate_count'
+        }).catch(err => console.error('Snapshot creation error:', err));
       }
 
       console.log(`🏆 User ${userId} updated - Rank: ${performance.rank}, Win Rate: ${Math.round(performance.stats.winRate)}%`);

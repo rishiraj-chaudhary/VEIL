@@ -1,4 +1,5 @@
 import axios from 'axios';
+import AICostService from './aiCostService.js';
 
 class GrokService {
   constructor() {
@@ -38,7 +39,7 @@ class GrokService {
    * Generate response using fast model
    */
   async generateFast(prompt, context = {}) {
-    this.initialize(); // Initialize on first use
+    this.initialize();
     return this.generate(prompt, context, this.fastModel, 500);
   }
 
@@ -46,17 +47,20 @@ class GrokService {
    * Generate response using smart model
    */
   async generateSmart(prompt, context = {}) {
-    this.initialize(); // Initialize on first use
+    this.initialize();
     return this.generate(prompt, context, this.smartModel, 800);
   }
 
   /**
-   * Core generation method
+   * Core generation method with AI cost tracking
    */
   async generate(prompt, context = {}, model, maxTokens) {
     if (!this.enabled) {
       throw new Error('Grok API not configured. Please set GROK_API_KEY in .env');
     }
+
+    const startTime = Date.now();
+    let usage = null;
 
     try {
       const messages = this.buildMessages(prompt, context);
@@ -83,11 +87,55 @@ class GrokService {
       );
 
       const aiResponse = response.data.choices[0].message.content;
-      console.log(`✅ Grok response generated (${response.data.usage.total_tokens} tokens)`);
+      const responseTime = Date.now() - startTime;
+      
+      // Extract token usage from response
+      usage = response.data.usage || {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0
+      };
+      
+      console.log(`✅ Grok response generated (${usage.total_tokens} tokens)`);
+      
+      // ✅ Track AI usage if userId is provided
+      if (context.userId) {
+        await AICostService.trackUsage({
+          userId: context.userId,
+          operation: context.operation || 'other',
+          model: model,
+          promptTokens: usage.prompt_tokens,
+          completionTokens: usage.completion_tokens,
+          responseTime,
+          cached: false,
+          debateId: context.debateId || null,
+          turnId: context.turnId || null,
+          error: null
+        });
+      }
       
       return aiResponse;
+      
     } catch (error) {
+      const responseTime = Date.now() - startTime;
+      
       console.error('❌ Grok API error:', error.response?.data || error.message);
+      
+      // ✅ Track failed request
+      if (context.userId) {
+        await AICostService.trackUsage({
+          userId: context.userId,
+          operation: context.operation || 'other',
+          model: model,
+          promptTokens: 0,
+          completionTokens: 0,
+          responseTime,
+          cached: false,
+          debateId: context.debateId || null,
+          turnId: context.turnId || null,
+          error: error.response?.data?.error?.message || error.message
+        });
+      }
       
       if (error.response?.status === 401) {
         throw new Error('Invalid Grok API key');
@@ -102,12 +150,45 @@ class GrokService {
   }
 
   /**
+   * ✅ NEW: Generate with automatic model selection based on budget
+   */
+  async generateWithBudget(prompt, context = {}) {
+    this.initialize();
+    
+    // Get user tier (default to 'free' if not provided)
+    const userTier = context.userTier || 'free';
+    
+    // Get recommended model based on budget
+    const recommendation = await AICostService.getRecommendedModel(
+      context.userId,
+      userTier,
+      context.preferredModel || this.smartModel
+    );
+    
+    console.log(`💰 Budget check: ${recommendation.reason} → using ${recommendation.model}`);
+    
+    // Use recommended model
+    const model = recommendation.model;
+    const maxTokens = model === this.fastModel ? 500 : 800;
+    
+    // Add budget info to context for logging
+    context.budgetReason = recommendation.reason;
+    context.budgetInfo = recommendation.budget;
+    
+    return this.generate(prompt, context, model, maxTokens);
+  }
+
+  /**
+   * ✅ NEW: Check if user can make AI request
+   */
+  async canUserMakeRequest(userId, userTier = 'free') {
+    return await AICostService.canUserMakeRequest(userId, userTier);
+  }
+
+  /**
    * Build messages array for chat completion
    */
-  /**
- * Build messages array for chat completion
- */
-buildMessages(userPrompt, context) {
+  buildMessages(userPrompt, context) {
     const messages = [];
   
     // System message with context
@@ -172,11 +253,12 @@ buildMessages(userPrompt, context) {
   
     return messages;
   }
+
   /**
    * Check if service is ready
    */
   isReady() {
-    this.initialize(); // Initialize on check
+    this.initialize();
     return this.enabled;
   }
 

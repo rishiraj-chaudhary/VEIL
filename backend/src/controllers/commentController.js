@@ -1,5 +1,6 @@
 import Comment from '../models/comment.js';
 import Post from '../models/post.js';
+import { personaDriftService } from '../services/personaDriftService.js';
 import { emitNewComment } from '../sockets/index.js';
 
 // @route   POST /api/comments
@@ -55,6 +56,10 @@ export const createComment = async (req, res) => {
     // Populate author
     await comment.populate('author', 'username karma');
     emitNewComment(postId, comment);
+
+    // 🆕 TRIGGER PERSONA SNAPSHOT CHECK (non-blocking)
+    personaDriftService.triggerIfNeeded(req.user._id, 'time_interval')
+      .catch(err => console.error('Background persona snapshot error:', err));
 
     res.status(201).json({
       success: true,
