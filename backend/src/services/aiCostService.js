@@ -1,226 +1,183 @@
 import AIUsage from '../models/AIUsage.js';
 
-/**
- * AI COST GOVERNANCE SERVICE
- * 
- * Tracks AI usage, calculates costs, and enforces budgets
- */
 class AICostService {
-  
-  // Pricing per 1M tokens (update these based on actual pricing)
-  static PRICING = {
+  // Daily budgets per tier (in USD)
+  static DAILY_BUDGETS = {
+    free: 0.25,      // $0.25/day
+    pro: 2.00,       // $2/day
+    team: 10.00,     // $10/day
+    enterprise: 100.00 // $100/day
+  };
+
+  // Groq pricing (per million tokens)
+  static GROQ_PRICING = {
     'llama-3.3-70b-versatile': {
-      input: 0.59,    // $0.59 per 1M input tokens
-      output: 0.79    // $0.79 per 1M output tokens
+      input: 0.59,
+      output: 0.79
     },
     'llama-3.1-70b-versatile': {
       input: 0.59,
       output: 0.79
     },
-    'claude-3-5-sonnet-20241022': {
-      input: 3.00,    // $3.00 per 1M input tokens
-      output: 15.00   // $15.00 per 1M output tokens
-    },
-    'gpt-4o': {
-      input: 2.50,
-      output: 10.00
-    },
-    'cached': {
-      input: 0,
-      output: 0
+    'llama-3.1-8b-instant': {
+      input: 0.05,
+      output: 0.08
     }
   };
-  
-  // Daily budget per user tier (in USD)
-  static DAILY_BUDGETS = {
-    free: 0.25,        // $0.25/day = ~$7.50/month
-    pro: 2.00,         // $2.00/day = ~$60/month
-    team: 10.00,       // $10.00/day = ~$300/month
-    enterprise: 100.00 // $100/day = ~$3000/month
-  };
-  
+
   /**
-   * Calculate cost for a given token usage
+   * Calculate cost for a Groq API call
    */
   static calculateCost(model, promptTokens, completionTokens) {
-    const pricing = this.PRICING[model];
+    const pricing = this.GROQ_PRICING[model];
     
     if (!pricing) {
-      console.warn(`⚠️ Unknown model pricing: ${model}`);
-      return 0;
+      console.warn(`⚠️ Unknown model: ${model}, using default pricing`);
+      return ((promptTokens * 0.59) + (completionTokens * 0.79)) / 1000000;
     }
     
-    const inputCost = (promptTokens / 1_000_000) * pricing.input;
-    const outputCost = (completionTokens / 1_000_000) * pricing.output;
+    const inputCost = (promptTokens * pricing.input) / 1000000;
+    const outputCost = (completionTokens * pricing.output) / 1000000;
     
     return inputCost + outputCost;
   }
-  
+
   /**
-   * Track an AI usage event
+   * Track AI usage
    */
   static async trackUsage({
     userId,
+    debateId = null,
     operation,
     model,
     promptTokens,
     completionTokens,
-    responseTime,
+    responseTime = 0,
     cached = false,
-    debateId = null,
-    turnId = null,
-    error = null
+    success = true,
+    errorMessage = null
   }) {
     try {
       const totalTokens = promptTokens + completionTokens;
       const estimatedCost = cached ? 0 : this.calculateCost(model, promptTokens, completionTokens);
-      
+
       const usage = await AIUsage.create({
         user: userId,
+        debate: debateId,
         operation,
-        model: cached ? 'cached' : model,
+        model,
         promptTokens,
         completionTokens,
         totalTokens,
         estimatedCost,
         responseTime,
         cached,
-        debate: debateId,
-        turn: turnId,
-        error,
-        success: !error
+        success,
+        errorMessage
       });
-      
-      console.log(`💰 AI Usage tracked: ${operation} | ${model} | ${totalTokens} tokens | $${estimatedCost.toFixed(4)}`);
-      
+
+      console.log(
+        `💰 AI Usage tracked: ${operation} | ${model} | ${totalTokens} tokens | $${estimatedCost.toFixed(6)}${cached ? ' (cached)' : ''}`
+      );
+
       return usage;
-      
     } catch (error) {
-      console.error('❌ Error tracking AI usage:', error);
-      // Don't throw - tracking failures shouldn't break the app
+      console.error('❌ Failed to track AI usage:', error);
       return null;
     }
   }
-  
+
   /**
-   * Check if user can make AI request (budget check)
+   * Check if user can make AI request
    */
   static async canUserMakeRequest(userId, userTier = 'free') {
     try {
-      const budget = await AIUsage.checkUserBudget(
-        userId,
-        this.DAILY_BUDGETS[userTier]
-      );
-      
+      const dailyBudget = this.DAILY_BUDGETS[userTier];
+      const budgetStatus = await AIUsage.checkUserBudget(userId, dailyBudget);
+
       return {
-        allowed: !budget.exceeded,
-        budget
+        allowed: !budgetStatus.exceeded,
+        budget: budgetStatus
       };
-      
     } catch (error) {
-      console.error('Error checking user budget:', error);
-      // On error, allow the request (fail open)
-      return { allowed: true, budget: null };
+      console.error('❌ Failed to check budget:', error);
+      return { allowed: true, budget: null }; // Fail open
     }
   }
-  
+
   /**
-   * Get recommended model based on budget
-   */
-  static async getRecommendedModel(userId, userTier = 'free', preferredModel = 'llama-3.3-70b-versatile') {
-    const { allowed, budget } = await this.canUserMakeRequest(userId, userTier);
-    
-    if (!allowed) {
-      // Budget exceeded - use cheapest model
-      return {
-        model: 'llama-3.3-70b-versatile',
-        reason: 'budget_exceeded',
-        budget
-      };
-    }
-    
-    // Check budget percentage
-    if (budget.percentUsed > 80) {
-      // Over 80% - switch to cheap model
-      return {
-        model: 'llama-3.3-70b-versatile',
-        reason: 'budget_warning',
-        budget
-      };
-    }
-    
-    if (budget.percentUsed > 50) {
-      // Over 50% - use medium model
-      return {
-        model: 'llama-3.3-70b-versatile',
-        reason: 'budget_moderate',
-        budget
-      };
-    }
-    
-    // Under 50% - use preferred model
-    return {
-      model: preferredModel,
-      reason: 'budget_ok',
-      budget
-    };
-  }
-  
-  /**
-   * Get user usage stats
+   * Get user's AI usage statistics
    */
   static async getUserStats(userId, startDate = null, endDate = null) {
-    const stats = await AIUsage.getUserStats(userId, startDate, endDate);
-    const dailyUsage = await AIUsage.getDailyUsage(userId, 30);
-    const breakdown = await AIUsage.getOperationBreakdown(userId, startDate, endDate);
-    
-    return {
-      summary: stats,
-      daily: dailyUsage,
-      byOperation: breakdown
-    };
-  }
-  
-  /**
-   * Get platform-wide stats (admin only)
-   */
-  static async getPlatformStats(startDate = null, endDate = null) {
-    const match = {};
-    
-    if (startDate || endDate) {
-      match.createdAt = {};
-      if (startDate) match.createdAt.$gte = new Date(startDate);
-      if (endDate) match.createdAt.$lte = new Date(endDate);
-    }
-    
-    const stats = await AIUsage.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: null,
-          totalCalls: { $sum: 1 },
-          totalTokens: { $sum: '$totalTokens' },
-          totalCost: { $sum: '$estimatedCost' },
-          uniqueUsers: { $addToSet: '$user' },
-          cachedCalls: { $sum: { $cond: ['$cached', 1, 0] } },
-          avgResponseTime: { $avg: '$responseTime' }
-        }
+    try {
+      const match = { user: userId };
+      
+      if (startDate || endDate) {
+        match.createdAt = {};
+        if (startDate) match.createdAt.$gte = new Date(startDate);
+        if (endDate) match.createdAt.$lte = new Date(endDate);
       }
-    ]);
-    
-    const result = stats[0] || {
-      totalCalls: 0,
-      totalTokens: 0,
-      totalCost: 0,
-      uniqueUsers: [],
-      cachedCalls: 0,
-      avgResponseTime: 0
-    };
-    
-    result.uniqueUserCount = result.uniqueUsers.length;
-    delete result.uniqueUsers;
-    
-    return result;
+
+      const summary = await AIUsage.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: null,
+            totalCalls: { $sum: 1 },
+            totalTokens: { $sum: '$totalTokens' },
+            totalCost: { $sum: '$estimatedCost' },
+            cachedCalls: {
+              $sum: { $cond: ['$cached', 1, 0] }
+            },
+            avgResponseTime: { $avg: '$responseTime' },
+            byOperation: {
+              $push: {
+                operation: '$operation',
+                tokens: '$totalTokens',
+                cost: '$estimatedCost'
+              }
+            }
+          }
+        }
+      ]);
+
+      const daily = await AIUsage.getDailyUsage(userId, 30);
+      const byOperation = await AIUsage.getOperationBreakdown(userId, startDate, endDate);
+
+      return {
+        summary: summary[0] || {
+          totalCalls: 0,
+          totalTokens: 0,
+          totalCost: 0,
+          cachedCalls: 0,
+          avgResponseTime: 0,
+          byOperation: []
+        },
+        daily,
+        byOperation
+      };
+    } catch (error) {
+      console.error('❌ Failed to get user stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Select appropriate model based on budget
+   */
+  static selectModelForBudget(userTier, budgetStatus) {
+    // If budget exceeded, use cheapest model
+    if (budgetStatus.exceeded) {
+      return 'llama-3.1-8b-instant';
+    }
+
+    // If approaching budget limit (>80%), use cheaper model
+    if (budgetStatus.percentUsed > 80) {
+      return 'llama-3.1-70b-versatile';
+    }
+
+    // Default: use best model
+    return 'llama-3.3-70b-versatile';
   }
 }
 

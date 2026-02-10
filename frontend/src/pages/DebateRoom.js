@@ -414,7 +414,7 @@ const DebateRoom = () => {
             <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Arguments</h2>
               
-              {turns.length === 0 ? (
+              {(turns?.length ?? 0) === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   No arguments yet. Debate will begin once both participants are ready.
                 </div>

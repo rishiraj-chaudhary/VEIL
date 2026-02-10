@@ -1,168 +1,184 @@
+import User from '../models/user.js';
 import debateTurnService from '../services/debateTurnService.js';
+import { getIO } from '../sockets/index.js';
 
-/* =====================================================
-   SUBMIT TURN
-===================================================== */
+/**
+ * ✅ SUBMIT TURN (with AI cost tracking)
+ */
 export const submitTurn = async (req, res) => {
   try {
     const { debateId } = req.params;
     const { content } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
-    console.log('📝 Turn submission:', {
+    console.log(`📝 Turn submitted by user: ${userId} for debate: ${debateId}`);
+
+    // Validation
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Turn content is required'
+      });
+    }
+
+    // ✅ Get user tier for AI cost tracking
+    const user = await User.findById(userId);
+    const userTier = user?.subscription?.tier || 'free';
+
+    console.log(`💰 User: ${user.username} (tier: ${userTier})`);
+    console.log(`🤖 Submitting turn with AI tracking...`);
+
+    // Submit turn through service (this creates the turn and runs AI analysis)
+    const result = await debateTurnService.submitDebateTurn(
       debateId,
       userId,
-      contentLength: content?.length
-    });
+      content,
+      userTier  // ✅ Pass user tier for AI tracking
+    );
 
-    // Submit turn
-    const result = await debateTurnService.submitTurn(debateId, userId, content);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
 
-    // Emit turn submitted event
-    const io = (await import('../sockets/index.js')).getIO();
+    console.log(`✅ Turn submitted successfully with AI analysis`);
+
+    // ✨ EMIT SOCKET EVENT
+    const io = getIO();
     if (io) {
-      io.to(`debate_${debateId}`).emit('turn:submitted', {
-        turn: result.turn,
-        debate: result.debate
+      io.to(`debate-${debateId}`).emit('turn-submitted', {
+        turn: result.turn
       });
-      console.log('📡 Emitted turn:submitted event');
-    }
 
-    // Check if debate is now complete
-    if (result.debate.status === 'completed') {
-      console.log('🏁 Debate just completed!');
-      
-      if (io) {
-        io.to(`debate_${debateId}`).emit('debate:completed', {
-          debateId: result.debate._id,
-          winner: result.debate.winner,
-          status: 'completed'
+      // Emit analysis complete
+      setTimeout(() => {
+        io.to(`debate-${debateId}`).emit('analysis-complete', {
+          turnId: result.turn._id
         });
-        console.log('📡 Emitted debate:completed event');
-      }
+      }, 500);
     }
 
-    res.status(201).json({
+    res.json({
       success: true,
-      data: {
-        turn: result.turn,
-        debate: result.debate
-      }
+      message: 'Turn submitted successfully',
+      data: result.turn
     });
 
   } catch (error) {
     console.error('❌ Submit turn error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to submit turn'
+      message: 'Failed to submit turn',
+      error: error.message
     });
   }
 };
 
-/* =====================================================
-   GET DEBATE TURNS
-===================================================== */
+/**
+ * Get all turns for a debate
+ */
 export const getDebateTurns = async (req, res) => {
   try {
     const { debateId } = req.params;
-    const { round, side, includeAI } = req.query;
-
-    const result = await debateTurnService.getDebateTurns(debateId, {
-      round: round ? parseInt(round) : undefined,
-      side,
-      includeAI: includeAI === 'true'
-    });
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    res.status(200).json({
-      success: true,
-      data: { turns: result.turns }
-    });
-  } catch (error) {
-    console.error('Get turns error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch turns'
-    });
-  }
-};
-
-/* =====================================================
-   GET TURNS BY ROUND
-===================================================== */
-export const getTurnsByRound = async (req, res) => {
-  try {
-    const { debateId } = req.params;
-
-    const result = await debateTurnService.getTurnsByRound(debateId);
-
-    if (!result.success) {
-      return res.status(400).json(result);
-    }
-
-    res.status(200).json({
-      success: true,
-      data: { rounds: result.rounds }
-    });
-  } catch (error) {
-    console.error('Get turns by round error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch turns'
-    });
-  }
-};
-
-/* =====================================================
-   GET SINGLE TURN
-===================================================== */
-export const getTurn = async (req, res) => {
-  try {
-    const { turnId } = req.params;
-
-    const result = await debateTurnService.getTurn(turnId);
-
+    
+    const result = await debateTurnService.getDebateTurns(debateId);
+    
     if (!result.success) {
       return res.status(404).json(result);
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      data: { turn: result.turn }
+      data: result.turns
     });
+
   } catch (error) {
-    console.error('Get turn error:', error);
+    console.error('❌ Get turns error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch turn'
+      message: 'Failed to fetch turns',
+      error: error.message
     });
   }
 };
 
-/* =====================================================
-   CHECK IF USER CAN SUBMIT
-===================================================== */
+/**
+ * Get single turn
+ */
+export const getTurn = async (req, res) => {
+  try {
+    const { turnId } = req.params;
+    
+    const result = await debateTurnService.getTurn(turnId);
+    
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    res.json({
+      success: true,
+      data: result.turn
+    });
+
+  } catch (error) {
+    console.error('❌ Get turn error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch turn',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get turns by round
+ */
+export const getTurnsByRound = async (req, res) => {
+  try {
+    const { debateId } = req.params;
+    const { round } = req.query;
+    
+    const result = await debateTurnService.getTurnsByRound(debateId, parseInt(round));
+    
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    res.json({
+      success: true,
+      data: result.turns
+    });
+
+  } catch (error) {
+    console.error('❌ Get turns by round error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch turns',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Check if user can submit turn
+ */
 export const canSubmitTurn = async (req, res) => {
   try {
     const { debateId } = req.params;
-
-    const result = await debateTurnService.canSubmitTurn(
-      debateId,
-      req.user._id
-    );
-
-    res.status(200).json({
+    const userId = req.user._id;
+    
+    const result = await debateTurnService.canSubmitTurn(debateId, userId);
+    
+    res.json({
       success: true,
       data: result
     });
+
   } catch (error) {
-    console.error('Can submit error:', error);
+    console.error('❌ Check turn eligibility error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to check submission eligibility'
+      message: 'Failed to check eligibility',
+      error: error.message
     });
   }
 };

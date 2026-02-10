@@ -52,6 +52,5 @@ class AIUsageService {
   }
 }
 
-// ✅ FIX: Create instance first, then export
 const aiUsageService = new AIUsageService();
 export default aiUsageService;

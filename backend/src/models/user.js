@@ -36,14 +36,23 @@ const userSchema = new mongoose.Schema({
     type: Date,
   },
   
-  // ✅ ADD THESE TWO FIELDS:
+  // ✅ NEW: Subscription field for AI cost governance
   subscription: {
-    tier: { type: String, enum: ['free', 'pro', 'team', 'enterprise'], default: 'free' },
+    tier: {
+      type: String,
+      enum: ['free', 'pro', 'team', 'enterprise'],
+      default: 'free'
+    },
     startDate: Date,
     endDate: Date,
-    status: { type: String, enum: ['active', 'cancelled', 'expired'], default: 'active' }
+    status: {
+      type: String,
+      enum: ['active', 'cancelled', 'expired'],
+      default: 'active'
+    }
   },
   
+  // ✅ NEW: Role field (for admin access to platform stats)
   role: {
     type: String,
     enum: ['user', 'admin'],

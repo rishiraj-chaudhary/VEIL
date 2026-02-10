@@ -1,14 +1,14 @@
 import {
-    ArcElement,
-    CategoryScale,
-    Chart as ChartJS,
-    Filler,
-    Legend,
-    LinearScale,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip
+  ArcElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip
 } from 'chart.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Doughnut, Line } from 'react-chartjs-2';
@@ -47,6 +47,10 @@ const AIUsageDashboard = () => {
         aiUsageService.getDailyUsage(timeRange),
         aiUsageService.getOperationBreakdown()
       ]);
+        console.log('📊 Stats Response:', statsRes); // ✅ ADD THIS
+        console.log('📅 Daily Response:', dailyRes); // ✅ ADD THIS
+        console.log('🎯 Operations Response:', opsRes); // ✅ ADD THIS
+
 
       setStats(statsRes.data);
       setDailyUsage(dailyRes.data);

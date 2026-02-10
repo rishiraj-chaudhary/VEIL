@@ -1,133 +1,245 @@
 import api from './api';
 
-const debateService = {
-  // ==================== DEBATES ====================
+class DebateService {
+  /* =====================================================
+     AI USAGE TRACKING METHODS
+  ===================================================== */
   
-  // Get all debates
-  getDebates: async (params = {}) => {
-    const response = await api.get('/debates', { params });
-    return response.data;
-  },
+  /**
+   * Get user's AI usage stats
+   */
+  async getAIUsageStats(startDate = null, endDate = null) {
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
-  // Get single debate
-  getDebate: async (id) => {
-    const response = await api.get(`/debates/${id}`);
-    return response.data;
-  },
+      const response = await api.get('/ai-usage/my-stats', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching AI usage stats:', error);
+      throw error;
+    }
+  }
 
-  // Create debate
-  createDebate: async (data) => {
-    const response = await api.post('/debates', data);
-    return response.data;
-  },
+  /**
+   * Check user's budget status
+   */
+  async checkAIBudget() {
+    try {
+      const response = await api.get('/ai-usage/check-budget');
+      return response.data;
+    } catch (error) {
+      console.error('Error checking AI budget:', error);
+      throw error;
+    }
+  }
 
-  // Join debate
-  joinDebate: async (id, side) => {
-    const response = await api.post(`/debates/${id}/join`, { side });
-    return response.data;
-  },
+  /**
+   * Get daily AI usage
+   */
+  async getDailyAIUsage(days = 30) {
+    try {
+      const response = await api.get('/ai-usage/daily', {
+        params: { days }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching daily AI usage:', error);
+      throw error;
+    }
+  }
 
-  // Mark ready
-  markReady: async (id) => {
-    const response = await api.post(`/debates/${id}/ready`);
-    return response.data;
-  },
+  /**
+   * Get AI operation breakdown
+   */
+  async getAIOperationBreakdown(startDate = null, endDate = null) {
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
-  // Leave debate
-  leaveDebate: async (id) => {
-    const response = await api.post(`/debates/${id}/leave`);
-    return response.data;
-  },
+      const response = await api.get('/ai-usage/operations', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching AI operation breakdown:', error);
+      throw error;
+    }
+  }
 
-  // Cancel debate
-  cancelDebate: async (id) => {
-    const response = await api.post(`/debates/${id}/cancel`);
-    return response.data;
-  },
+  /* =====================================================
+     DEBATE METHODS
+  ===================================================== */
+  
+  /**
+   * Get all debates
+   */
+  async getDebates(filters = {}) {
+    try {
+      const response = await api.get('/debates', { params: filters });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching debates:', error);
+      throw error;
+    }
+  }
 
-  // Get debate stats
-  getDebateStats: async (id) => {
-    const response = await api.get(`/debates/${id}/stats`);
-    return response.data;
-  },
+  /**
+   * Get single debate by ID
+   */
+  async getDebate(debateId) {
+    try {
+      const response = await api.get(`/debates/${debateId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching debate:', error);
+      throw error;
+    }
+  }
 
-  // Get debate score
-  getDebateScore: async (id) => {
-    const response = await api.get(`/debates/${id}/score`);
-    return response.data;
-  },
+  /**
+   * Create a new debate
+   */
+  async createDebate(debateData) {
+    try {
+      const response = await api.post('/debates', debateData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating debate:', error);
+      throw error;
+    }
+  }
 
-  // ==================== TURNS ====================
+  /**
+   * Join a debate
+   */
+  async joinDebate(debateId, side) {
+    try {
+      const response = await api.post(`/debates/${debateId}/join`, { side });
+      return response.data;
+    } catch (error) {
+      console.error('Error joining debate:', error);
+      throw error;
+    }
+  }
 
-  // Get debate turns
-  getDebateTurns: async (debateId, params = {}) => {
-    const response = await api.get(`/debates/${debateId}/turns`, { params });
-    return response.data;
-  },
+  /**
+   * Mark ready
+   */
+  async markReady(debateId) {
+    try {
+      const response = await api.post(`/debates/${debateId}/ready`);
+      return response.data;
+    } catch (error) {
+      console.error('Error marking ready:', error);
+      throw error;
+    }
+  }
 
-  // Get turns by round
-  getTurnsByRound: async (debateId) => {
-    const response = await api.get(`/debates/${debateId}/turns/rounds`);
-    return response.data;
-  },
+  /**
+   * Leave debate
+   */
+  async leaveDebate(debateId) {
+    try {
+      const response = await api.post(`/debates/${debateId}/leave`);
+      return response.data;
+    } catch (error) {
+      console.error('Error leaving debate:', error);
+      throw error;
+    }
+  }
 
-  // Submit turn
-  submitTurn: async (debateId, content) => {
-    const response = await api.post(`/debates/${debateId}/turns`, { content });
-    return response.data;
-  },
+  /**
+   * Cancel debate
+   */
+  async cancelDebate(debateId) {
+    try {
+      const response = await api.post(`/debates/${debateId}/cancel`);
+      return response.data;
+    } catch (error) {
+      console.error('Error cancelling debate:', error);
+      throw error;
+    }
+  }
 
-  // Check if can submit
-  canSubmitTurn: async (debateId) => {
-    const response = await api.get(`/debates/${debateId}/turns/check`);
-    return response.data;
-  },
+  /* =====================================================
+     TURN METHODS
+  ===================================================== */
 
-  // ==================== VOTING ====================
+  /**
+   * Get debate turns
+   */
+  async getDebateTurns(debateId) {
+    try {
+      const response = await api.get(`/debates/${debateId}/turns`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching turns:', error);
+      throw error;
+    }
+  }
 
-  // Vote on round
-  voteOnRound: async (debateId, round, vote, confidence) => {
-    const response = await api.post(`/debates/${debateId}/votes/${round}`, {
-      vote,
-      confidence
-    });
-    return response.data;
-  },
+  /**
+   * Submit a turn (AI tracked automatically)
+   */
+  async submitTurn(debateId, content) {
+    try {
+      const response = await api.post(`/debates/${debateId}/turns`, {
+        content
+      });
+      
+      console.log('✅ Turn submitted - AI usage tracked automatically');
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error submitting turn:', error);
+      throw error;
+    }
+  }
 
-  // Get debate votes
-  getDebateVotes: async (debateId) => {
-    const response = await api.get(`/debates/${debateId}/votes`);
-    return response.data;
-  },
+  /**
+   * Check if user can submit turn
+   */
+  async canSubmitTurn(debateId) {
+    try {
+      const response = await api.get(`/debates/${debateId}/turns/check`);
+      return response.data;
+    } catch (error) {
+      console.error('Error checking turn eligibility:', error);
+      throw error;
+    }
+  }
 
-  // Get round votes
-  getRoundVotes: async (debateId, round) => {
-    const response = await api.get(`/debates/${debateId}/votes/${round}`);
-    return response.data;
-  },
+  /* =====================================================
+     STATISTICS & SCORING
+  ===================================================== */
 
-  // ==================== REACTIONS ====================
+  /**
+   * Get debate statistics
+   */
+  async getDebateStats(debateId) {
+    try {
+      const response = await api.get(`/debates/${debateId}/stats`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      throw error;
+    }
+  }
 
-  // React to turn
-  reactToTurn: async (turnId, reactionType, comment) => {
-    const response = await api.post(`/debates/turns/${turnId}/reactions`, {
-      reactionType,
-      comment
-    });
-    return response.data;
-  },
+  /**
+   * Get debate score
+   */
+  async getDebateScore(debateId) {
+    try {
+      const response = await api.get(`/debates/${debateId}/score`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching score:', error);
+      throw error;
+    }
+  }
+}
 
-  // Get turn reactions
-  getTurnReactions: async (turnId) => {
-    const response = await api.get(`/debates/turns/${turnId}/reactions`);
-    return response.data;
-  },
-
-  // Get debate reactions
-  getDebateReactions: async (debateId) => {
-    const response = await api.get(`/debates/${debateId}/reactions`);
-    return response.data;
-  },
-};
-
+const debateService = new DebateService();
 export default debateService;
