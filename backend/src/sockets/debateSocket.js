@@ -1,268 +1,138 @@
-import Debate from '../models/debate.js';
-
-// Track active viewers per debate
-const debateViewers = new Map(); // debateId -> Set of socketIds
-
-/**
- * Initialize debate socket events
- */
 export const initDebateSocket = (io) => {
   io.on('connection', (socket) => {
-    console.log('🔌 Debate socket connected:', socket.id);
+    console.log('✅ Socket connected:', socket.id);
 
-    /* =====================================================
-       JOIN DEBATE ROOM
-    ===================================================== */
-    socket.on('debate:join', async (debateId) => {
-      try {
-        // Join the room
-        socket.join(`debate:${debateId}`);
-        
-        // Track viewer
-        if (!debateViewers.has(debateId)) {
-          debateViewers.set(debateId, new Set());
-        }
-        debateViewers.get(debateId).add(socket.id);
-
-        // Get current viewer count
-        const viewerCount = debateViewers.get(debateId).size;
-
-        // Broadcast updated viewer count to everyone in the room
-        io.to(`debate:${debateId}`).emit('debate:viewers', {
-          debateId,
-          viewerCount
-        });
-
-        console.log(`👁️  User joined debate ${debateId}, viewers: ${viewerCount}`);
-
-        // Send current debate state to the joining user
-        const debate = await Debate.findById(debateId)
-          .populate('currentTurn', 'username')
-          .populate('participants.user', 'username');
-
-        if (debate) {
-          socket.emit('debate:state', {
-            debateId,
-            status: debate.status,
-            currentRound: debate.currentRound,
-            currentTurn: debate.currentTurn,
-            totalTurns: debate.totalTurns
-          });
-        }
-      } catch (error) {
-        console.error('Join debate room error:', error);
-        socket.emit('debate:error', { message: 'Failed to join debate' });
-      }
-    });
-
-    /* =====================================================
-       LEAVE DEBATE ROOM
-    ===================================================== */
-    socket.on('debate:leave', (debateId) => {
-      try {
-        socket.leave(`debate:${debateId}`);
-        
-        // Remove from viewers
-        if (debateViewers.has(debateId)) {
-          debateViewers.get(debateId).delete(socket.id);
-          const viewerCount = debateViewers.get(debateId).size;
-
-          // Broadcast updated count
-          io.to(`debate:${debateId}`).emit('debate:viewers', {
-            debateId,
-            viewerCount
-          });
-
-          // Clean up empty sets
-          if (viewerCount === 0) {
-            debateViewers.delete(debateId);
-          }
-        }
-
-        console.log(`👋 User left debate ${debateId}`);
-      } catch (error) {
-        console.error('Leave debate room error:', error);
-      }
-    });
-
-    /* =====================================================
-       TYPING INDICATOR
-    ===================================================== */
-    socket.on('debate:typing', ({ debateId, username }) => {
-      socket.to(`debate:${debateId}`).emit('debate:user-typing', {
-        debateId,
-        username
-      });
-    });
-
-    socket.on('debate:stop-typing', ({ debateId }) => {
-      socket.to(`debate:${debateId}`).emit('debate:user-stopped-typing', {
-        debateId
-      });
-    });
-
-    /* =====================================================
-       DISCONNECT HANDLER
-    ===================================================== */
-    socket.on('disconnect', () => {
-      console.log('❌ Debate socket disconnected:', socket.id);
+    // Join debate room
+    socket.on('join-debate', (debateId) => {
+      socket.join(`debate-${debateId}`);
+      console.log(`📍 Socket ${socket.id} joined debate-${debateId}`);
       
-      // Remove from all debate rooms
-      debateViewers.forEach((viewers, debateId) => {
-        if (viewers.has(socket.id)) {
-          viewers.delete(socket.id);
-          const viewerCount = viewers.size;
+      // Emit viewer count
+      const room = io.sockets.adapter.rooms.get(`debate-${debateId}`);
+      const viewerCount = room ? room.size : 0;
+      io.to(`debate-${debateId}`).emit('viewer-count', viewerCount);
+    });
 
-          io.to(`debate:${debateId}`).emit('debate:viewers', {
-            debateId,
-            viewerCount
-          });
+    // Leave debate room
+    socket.on('leave-debate', (debateId) => {
+      socket.leave(`debate-${debateId}`);
+      console.log(`👋 Socket ${socket.id} left debate-${debateId}`);
+      
+      // Emit updated viewer count
+      const room = io.sockets.adapter.rooms.get(`debate-${debateId}`);
+      const viewerCount = room ? room.size : 0;
+      io.to(`debate-${debateId}`).emit('viewer-count', viewerCount);
+    });
 
-          if (viewerCount === 0) {
-            debateViewers.delete(debateId);
-          }
-        }
-      });
+    // Typing indicators
+    socket.on('typing', ({ debateId, username }) => {
+      socket.to(`debate-${debateId}`).emit('user-typing', { username });
+    });
+
+    socket.on('stop-typing', ({ debateId }) => {
+      socket.to(`debate-${debateId}`).emit('user-stopped-typing');
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ Socket disconnected:', socket.id);
     });
   });
+
+  console.log('✅ Debate socket initialized');
 };
 
-/* =====================================================
-   EMIT FUNCTIONS (Called from controllers/services)
-===================================================== */
-
-/**
- * Emit when debate starts
- */
+// Emit debate started
 export const emitDebateStarted = (io, debateId, debate) => {
-  io.to(`debate:${debateId}`).emit('debate:started', {
+  io.to(`debate-${debateId}`).emit('debate-started', {
     debateId,
-    status: debate.status,
-    currentRound: debate.currentRound,
-    currentTurn: debate.currentTurn,
-    message: 'Debate has started!'
+    debate
   });
-  console.log(`🎉 Emitted debate started: ${debateId}`);
+  console.log(`🎉 Debate started event emitted for debate-${debateId}`);
 };
 
+// Emit analysis complete
 export const emitAnalysisComplete = (io, debateId, turnId) => {
-  io.to(`debate_${debateId}`).emit('analysis-complete', { turnId });
-  console.log('📊 Emitted analysis complete:', turnId);
+  io.to(`debate-${debateId}`).emit('analysis-complete', {
+    turnId
+  });
+  console.log(`✅ Analysis complete event emitted for turn ${turnId}`);
 };
 
-/**
- * Emit when new turn is submitted
- */
+// Emit turn submitted
 export const emitTurnSubmitted = (io, debateId, turnData) => {
-  io.to(`debate:${debateId}`).emit('debate:turn-submitted', {
-    debateId,
-    turn: turnData.turn,
-    nextTurn: turnData.nextTurn,
-    currentRound: turnData.currentRound
-  });
-  console.log(`📝 Emitted turn submitted: ${turnData.turn._id}`);
+  io.to(`debate-${debateId}`).emit('turn-submitted', turnData);
+  console.log(`📝 Turn submitted event emitted for debate-${debateId}`);
 };
 
-/**
- * Emit when round advances
- */
+// Emit round advanced
 export const emitRoundAdvanced = (io, debateId, roundData) => {
-  io.to(`debate:${debateId}`).emit('debate:round-advanced', {
-    debateId,
-    currentRound: roundData.currentRound,
-    message: `Round ${roundData.currentRound} started!`
-  });
-  console.log(`⏭️  Emitted round advanced: ${debateId} -> Round ${roundData.currentRound}`);
+  io.to(`debate-${debateId}`).emit('round-advanced', roundData);
+  console.log(`🔄 Round advanced event emitted for debate-${debateId}`);
 };
 
-/**
- * Emit when debate completes
- */
+// Emit debate completed
 export const emitDebateCompleted = (io, debateId, results) => {
-  io.to(`debate:${debateId}`).emit('debate:completed', {
-    debateId,
-    winner: results.winner,
-    finalScores: results.finalScores,
-    message: 'Debate has concluded!'
-  });
-  console.log(`🏁 Emitted debate completed: ${debateId}`);
+  io.to(`debate-${debateId}`).emit('debate-completed', results);
+  console.log(`🏁 Debate completed event emitted for debate-${debateId}`);
 };
 
-/**
- * Emit when someone joins the debate
- */
+// Emit participant joined
 export const emitParticipantJoined = (io, debateId, participant) => {
-  io.to(`debate:${debateId}`).emit('debate:participant-joined', {
-    debateId,
-    participant,
-    message: `${participant.username} joined the debate!`
-  });
-  console.log(`👤 Emitted participant joined: ${participant.username}`);
+  io.to(`debate-${debateId}`).emit('participant-joined', participant);
+  console.log(`👤 Participant joined event emitted for debate-${debateId}`);
 };
 
-/**
- * Emit when someone marks ready
- */
+// Emit participant ready
 export const emitParticipantReady = (io, debateId, userId, username) => {
-  io.to(`debate:${debateId}`).emit('debate:participant-ready', {
-    debateId,
+  io.to(`debate-${debateId}`).emit('participant-ready', {
     userId,
-    username,
-    message: `${username} is ready!`
+    username
   });
-  console.log(`✅ Emitted participant ready: ${username}`);
+  console.log(`✓ Participant ready event emitted for ${username} in debate-${debateId}`);
 };
 
-/**
- * Emit when vote is cast
- */
+// Emit vote cast
 export const emitVoteCast = (io, debateId, voteData) => {
-  io.to(`debate:${debateId}`).emit('debate:vote-cast', {
-    debateId,
-    round: voteData.round,
-    // Don't send individual votes, just trigger refresh
-    message: 'New vote cast'
-  });
-  console.log(`🗳️  Emitted vote cast: ${debateId} Round ${voteData.round}`);
+  io.to(`debate-${debateId}`).emit('vote-cast', voteData);
+  console.log(`🗳️ Vote cast event emitted for debate-${debateId}`);
 };
 
-/**
- * Emit when reaction is added
- */
+// Emit reaction added
 export const emitReactionAdded = (io, debateId, turnId, reactionData) => {
-  io.to(`debate:${debateId}`).emit('debate:reaction-added', {
-    debateId,
+  io.to(`debate-${debateId}`).emit('reaction-added', {
     turnId,
-    reactionType: reactionData.reactionType,
-    // Don't send user info for privacy
+    ...reactionData
   });
-  console.log(`👍 Emitted reaction added: ${turnId}`);
+  console.log(`❤️ Reaction added event emitted for turn ${turnId}`);
 };
 
-/**
- * Emit when debate is cancelled
- */
+// Emit debate cancelled
 export const emitDebateCancelled = (io, debateId) => {
-  io.to(`debate:${debateId}`).emit('debate:cancelled', {
-    debateId,
-    message: 'Debate has been cancelled'
+  io.to(`debate-${debateId}`).emit('debate-cancelled', {
+    debateId
   });
-  console.log(`❌ Emitted debate cancelled: ${debateId}`);
+  console.log(`❌ Debate cancelled event emitted for debate-${debateId}`);
 };
 
-/**
- * Get current viewer count for a debate
- */
-export const getViewerCount = (debateId) => {
-  return debateViewers.get(debateId)?.size || 0;
+// Get viewer count (utility function)
+export const getViewerCount = (io, debateId) => {
+  const room = io.sockets.adapter.rooms.get(`debate-${debateId}`);
+  return room ? room.size : 0;
 };
 
-/**
- * Get all active debates with viewers
- */
-export const getActiveDebates = () => {
-  return Array.from(debateViewers.entries()).map(([debateId, viewers]) => ({
-    debateId,
-    viewerCount: viewers.size
-  }));
+// Get active debates (utility function)
+export const getActiveDebates = (io) => {
+  const rooms = io.sockets.adapter.rooms;
+  const activeDebates = [];
+  
+  rooms.forEach((sockets, roomName) => {
+    if (roomName.startsWith('debate-')) {
+      activeDebates.push({
+        debateId: roomName.replace('debate-', ''),
+        viewers: sockets.size
+      });
+    }
+  });
+  
+  return activeDebates;
 };

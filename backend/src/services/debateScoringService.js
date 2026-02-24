@@ -59,8 +59,8 @@ class DebateScoringService {
       const againstTotal = Object.values(againstScores).reduce((sum, val) => sum + val, 0);
 
       let winner = 'draw';
-      if (forTotal > againstTotal + 10) winner = 'for';
-      else if (againstTotal > forTotal + 10) winner = 'against';
+      if (forTotal > againstTotal) winner = 'for';
+      else if (againstTotal > forTotal) winner = 'against';
 
       console.log(`📊 Final Scores:\n  FOR side: ${forTotal}\n  AGAINST side: ${againstTotal}\n🤝 Result: ${winner.toUpperCase()}`);
 
@@ -68,10 +68,22 @@ class DebateScoringService {
 
       const scoreData = {
         debate: debateId,
-        forScores,
-        againstScores,
-        forTotal,
-        againstTotal,
+        scores: {
+          for: {
+            argumentQuality: forScores.argumentQuality,
+            rebuttalEffectiveness: forScores.rebuttalEffectiveness,
+            conductClarity: forScores.conductClarity,
+            audienceSupport: forScores.audienceSupport,
+            total: forTotal  // ✅ This will be saved in the schema
+          },
+          against: {
+            argumentQuality: againstScores.argumentQuality,
+            rebuttalEffectiveness: againstScores.rebuttalEffectiveness,
+            conductClarity: againstScores.conductClarity,
+            audienceSupport: againstScores.audienceSupport,
+            total: againstTotal  // ✅ This will be saved in the schema
+          }
+        },
         winner,
         roundScores,
         insights,

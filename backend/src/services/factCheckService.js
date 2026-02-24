@@ -29,6 +29,19 @@ class FactCheckService {
         { sources, topK }
       );
 
+      // ✅ Safety check for empty context
+      if (!context || !context.knowledge || context.knowledge.length === 0) {
+        return {
+          claim,
+          supported: false,
+          confidence: 0,
+          level: 'none',
+          reasoning: 'No knowledge sources available',
+          retrievedSources: [],
+          timestamp: new Date()
+        };
+      }
+
       // Calculate pattern match confidence
       const confidence = this.calculateConfidence(claim, context);
 
@@ -55,7 +68,8 @@ class FactCheckService {
         level: 'unknown',
         reasoning: 'Unable to verify',
         retrievedSources: [],
-        error: error.message
+        error: error.message,
+        timestamp: new Date()
       };
     }
   }
@@ -65,11 +79,33 @@ class FactCheckService {
    */
   async checkText(text, options = {}) {
     try {
+      // ✅ Validate input
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        return {
+          checks: [],
+          overallConfidence: 0,
+          flags: [],
+          verified: false,
+          timestamp: new Date()
+        };
+      }
+
       // Extract potential claims using simple sentence splitting
       const sentences = text
         .split(/[.!?]+/)
         .map(s => s.trim())
         .filter(s => s.length > 20); // Only check substantial sentences
+
+      // ✅ Handle empty sentences array
+      if (sentences.length === 0) {
+        return {
+          checks: [],
+          overallConfidence: 0,
+          flags: [],
+          verified: true, // No claims to verify = vacuously true
+          timestamp: new Date()
+        };
+      }
 
       // Check each claim
       const checks = await Promise.all(
@@ -78,8 +114,10 @@ class FactCheckService {
         )
       );
 
-      // Calculate overall confidence
-      const avgConfidence = checks.reduce((sum, c) => sum + c.confidence, 0) / checks.length;
+      // ✅ Safety check before calculating average
+      const avgConfidence = checks.length > 0
+        ? checks.reduce((sum, c) => sum + (c.confidence || 0), 0) / checks.length
+        : 0;
 
       // Identify flags
       const flags = checks
@@ -104,7 +142,8 @@ class FactCheckService {
         overallConfidence: 0,
         flags: [],
         verified: false,
-        error: error.message
+        error: error.message,
+        timestamp: new Date()
       };
     }
   }
@@ -113,16 +152,28 @@ class FactCheckService {
    * Calculate confidence based on pattern matching
    */
   calculateConfidence(claim, context) {
-    if (!context.knowledge || context.knowledge.length === 0) {
+    // ✅ Add comprehensive safety checks
+    if (!context || !context.knowledge || context.knowledge.length === 0) {
+      return 0;
+    }
+
+    if (!claim || typeof claim !== 'string') {
       return 0;
     }
 
     const claimWords = claim.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     
+    // ✅ Handle case with no meaningful words
+    if (claimWords.length === 0) {
+      return 0;
+    }
+
     let totalScore = 0;
     let maxScore = claimWords.length;
 
     context.knowledge.forEach(knowledge => {
+      if (!knowledge || !knowledge.content) return;
+      
       const knowledgeText = knowledge.content.toLowerCase();
       
       claimWords.forEach(word => {
@@ -150,12 +201,12 @@ class FactCheckService {
    */
   explainCheck(confidence, context) {
     const level = this.getConfidenceLevel(confidence);
-    const knowledgeCount = context.knowledge?.length || 0;
+    const knowledgeCount = context?.knowledge?.length || 0;
 
     const explanations = {
-      high: `Strong pattern match with ${knowledgeCount} knowledge sources`,
-      medium: `Partial pattern match with ${knowledgeCount} knowledge sources`,
-      low: `Weak pattern match with ${knowledgeCount} knowledge sources`,
+      high: `Strong pattern match with ${knowledgeCount} knowledge source${knowledgeCount !== 1 ? 's' : ''}`,
+      medium: `Partial pattern match with ${knowledgeCount} knowledge source${knowledgeCount !== 1 ? 's' : ''}`,
+      low: `Weak pattern match with ${knowledgeCount} knowledge source${knowledgeCount !== 1 ? 's' : ''}`,
       none: 'No supporting patterns found in knowledge base'
     };
 
@@ -167,9 +218,27 @@ class FactCheckService {
    */
   async checkWithAI(claim, context) {
     try {
+      // ✅ Safety checks
+      if (!context || !context.knowledge || context.knowledge.length === 0) {
+        return {
+          supported: false,
+          confidence: 0,
+          reasoning: 'No knowledge context available'
+        };
+      }
+
       const retrievedKnowledge = context.knowledge
-        .map(k => k.content)
+        .map(k => k?.content || '')
+        .filter(Boolean)
         .join('\n\n');
+
+      if (!retrievedKnowledge) {
+        return {
+          supported: false,
+          confidence: 0,
+          reasoning: 'Empty knowledge context'
+        };
+      }
 
       const prompt = `Given this knowledge base:
 
@@ -191,7 +260,12 @@ Respond with JSON only:
 
     } catch (error) {
       console.error('AI verification error:', error.message);
-      return null;
+      return {
+        supported: false,
+        confidence: 0,
+        reasoning: 'Verification failed',
+        error: error.message
+      };
     }
   }
 
@@ -199,8 +273,18 @@ Respond with JSON only:
    * Get fact check statistics
    */
   getStats(checks) {
+    // ✅ Handle empty or invalid checks array
+    if (!checks || !Array.isArray(checks) || checks.length === 0) {
+      return {
+        total: 0,
+        supported: 0,
+        unsupported: 0,
+        supportRate: 0
+      };
+    }
+
     const total = checks.length;
-    const supported = checks.filter(c => c.supported).length;
+    const supported = checks.filter(c => c && c.supported).length;
     const unsupported = total - supported;
 
     return {

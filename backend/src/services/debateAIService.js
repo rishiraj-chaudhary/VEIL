@@ -399,14 +399,28 @@ class DebateAIService {
     if (!this.useRAG || !this.vectorStore) {
       return { sources: [], context: '', knowledgeDocs: [], memoryDocs: [] };
     }
-
+  
     try {
-      // Retrieve from knowledge base
-      const knowledgeDocs = await this.vectorStore.retrieveKnowledge(content, 3);
+      // ✅ Add safety checks
+      let knowledgeDocs = [];
+      let memoryDocs = [];
       
-      // Retrieve from debate memory
-      const memoryDocs = await this.vectorStore.retrieveDebateMemory(content, 2);
-
+      try {
+        knowledgeDocs = await this.vectorStore.retrieveKnowledge(content, 3) || [];
+      } catch (error) {
+        console.error('Knowledge retrieval error:', error.message);
+      }
+      
+      try {
+        memoryDocs = await this.vectorStore.retrieveDebateMemory(content, 2) || [];
+      } catch (error) {
+        console.error('Memory retrieval error:', error.message);
+      }
+  
+      // ✅ Ensure arrays
+      if (!Array.isArray(knowledgeDocs)) knowledgeDocs = [];
+      if (!Array.isArray(memoryDocs)) memoryDocs = [];
+  
       const allDocs = [...knowledgeDocs, ...memoryDocs];
       
       if (allDocs.length > 0) {
@@ -414,33 +428,36 @@ class DebateAIService {
       } else {
         decisionTrace.push('🔍 No relevant documents found');
       }
-
-      // Build context from retrieved docs
+  
+      // ✅ Build context from retrieved docs - ADD SAFETY
       const retrievedContext = allDocs
-        .map(doc => doc.content)
+        .map(doc => doc?.content || '')
+        .filter(Boolean)
         .join('\n\n');
-
-      const sources = allDocs.map(doc => {
-        if (doc.metadata?.category && doc.metadata?.type) {
-          return `${doc.metadata.category}:${doc.metadata.type}`;
-        }
-        return 'memory';
-      });
-
+  
+      // ✅ Build sources - ADD SAFETY
+      const sources = allDocs
+        .map(doc => {
+          if (doc?.metadata?.category && doc?.metadata?.type) {
+            return `${doc.metadata.category}:${doc.metadata.type}`;
+          }
+          return 'memory';
+        })
+        .filter(Boolean);
+  
       return {
         sources,
         context: retrievedContext,
         knowledgeDocs,
         memoryDocs
       };
-
+  
     } catch (error) {
       console.error('Knowledge retrieval error:', error);
       decisionTrace.push('⚠️ Knowledge retrieval failed');
       return { sources: [], context: '', knowledgeDocs: [], memoryDocs: [] };
     }
   }
-
   /**
    * ========================================
    * ROBUST FALLACY DETECTION

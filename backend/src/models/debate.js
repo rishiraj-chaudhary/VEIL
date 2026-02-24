@@ -77,6 +77,10 @@ const debateSchema = new mongoose.Schema({
       required: true,
     },
   }],
+  maxRounds: {  
+    type: Number,
+    default: 3
+  },
   currentRound: {
     type: Number,
     default: 0,
@@ -126,9 +130,15 @@ const debateSchema = new mongoose.Schema({
   },
 
   // Metadata
+  turns: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DebateTurn',
+    default: []  
+  }],
+  
   totalTurns: {
     type: Number,
-    default: 0,
+    default: 0
   },
   viewCount: {
     type: Number,

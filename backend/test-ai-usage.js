@@ -1,98 +1,109 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import AIUsage from './src/models/AIUsage.js';
-import User from './src/models/user.js';
 
 dotenv.config();
 
-const createTestData = async () => {
+const checkAIAnalysis = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
+    console.log('✅ Connected to MongoDB\n');
 
-    // ✅ Find user by username 'codemaster'
-    let user = await User.findOne({ username: 'codemaster' });
+    // Direct query without models
+    const db = mongoose.connection.db;
     
-    if (!user) {
-      console.log('❌ User "codemaster" not found. Available users:');
-      const users = await User.find().select('username');
-      users.forEach(u => console.log(`   - ${u.username}`));
+    // Find Social Media debate
+    const debate = await db.collection('debates').findOne(
+      { topic: /social media/i },
+      { sort: { createdAt: -1 } }
+    );
+
+    if (!debate) {
+      console.log('❌ No "Social Media" debate found\n');
+      const allDebates = await db.collection('debates').find().limit(10).toArray();
+      console.log('📋 Available debates:');
+      allDebates.forEach((d, idx) => {
+        console.log(`   ${idx + 1}. ${d.topic} (${d.status}) - ${d._id}`);
+      });
       process.exit(1);
     }
 
-    console.log(`Creating test data for user: ${user.username} (${user._id})`);
+    console.log(`📊 Debate: "${debate.topic}"`);
+    console.log(`   ID: ${debate._id}`);
+    console.log(`   Status: ${debate.status}`);
+    console.log(`   Turns array: ${debate.turns?.length || 0} IDs stored\n`);
 
-    // Delete existing test data for this user
-    const deleted = await AIUsage.deleteMany({ user: user._id });
-    console.log(`🗑️  Deleted ${deleted.deletedCount} existing entries`);
+    // Check turns collection directly
+    const turns = await db.collection('debateturns').find(
+      { debate: debate._id }
+    ).sort({ createdAt: 1 }).toArray();
 
-    // Create test AI usage entries
-    const testData = [];
-    const now = new Date();
+    console.log(`📝 Turns in database: ${turns.length}\n`);
 
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-
-      // Random operations
-      const operations = ['debate_analysis', 'claim_extraction', 'summary_generation', 'live_assistant', 'fact_check'];
-      const models = ['llama-3.3-70b-versatile', 'llama-3.1-70b-versatile'];
-
-      // Random 1-10 calls per day
-      const callsToday = Math.floor(Math.random() * 10) + 1;
-
-      for (let j = 0; j < callsToday; j++) {
-        const operation = operations[Math.floor(Math.random() * operations.length)];
-        const model = models[Math.floor(Math.random() * models.length)];
-        const promptTokens = Math.floor(Math.random() * 500) + 100;
-        const completionTokens = Math.floor(Math.random() * 300) + 50;
-        const totalTokens = promptTokens + completionTokens;
-
-        // Cost calculation (Groq pricing)
-        const estimatedCost = (promptTokens * 0.59 + completionTokens * 0.79) / 1000000;
-
-        // Random time for this day
-        const callTime = new Date(date);
-        callTime.setHours(Math.floor(Math.random() * 24));
-        callTime.setMinutes(Math.floor(Math.random() * 60));
-
-        testData.push({
-          user: user._id,
-          operation,
-          model,
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          estimatedCost,
-          responseTime: Math.floor(Math.random() * 3000) + 500,
-          cached: Math.random() > 0.8, // 20% cached
-          success: true,
-          createdAt: callTime
+    if (turns.length === 0) {
+      console.log('❌ NO TURNS FOUND IN DATABASE');
+      console.log('   This means turns are NOT being saved!\n');
+      
+      // Check if any turns exist at all
+      const totalTurns = await db.collection('debateturns').countDocuments();
+      console.log(`   Total turns in entire collection: ${totalTurns}\n`);
+      
+      if (totalTurns > 0) {
+        console.log('   Sample turns from other debates:');
+        const sampleTurns = await db.collection('debateturns').find().limit(3).toArray();
+        sampleTurns.forEach((t, idx) => {
+          console.log(`   ${idx + 1}. Debate: ${t.debate}, Side: ${t.side}, Has AI: ${!!t.aiAnalysis}`);
         });
       }
+      
+      process.exit(1);
     }
 
-    // Insert test data
-    await AIUsage.insertMany(testData);
-    console.log(`✅ Created ${testData.length} test AI usage entries for ${user.username}`);
+    // Check each turn
+    for (let i = 0; i < turns.length; i++) {
+      const turn = turns[i];
+      console.log(`─────────────────────────────────────────────`);
+      console.log(`Turn ${i + 1} (${turn.side}) - Round ${turn.round}`);
+      console.log(`Turn Number: ${turn.turnNumber || 'N/A'}`);
+      console.log(`Author ID: ${turn.author}`);
+      console.log(`Content: ${turn.content.substring(0, 60)}...`);
+      console.log(`\n🤖 AI Analysis:`);
 
-    // Show summary
-    const totalCost = testData.reduce((sum, entry) => sum + entry.estimatedCost, 0);
-    const totalTokens = testData.reduce((sum, entry) => sum + entry.totalTokens, 0);
-    const cachedCount = testData.filter(entry => entry.cached).length;
+      if (!turn.aiAnalysis) {
+        console.log(`   ❌ NO AI ANALYSIS\n`);
+        continue;
+      }
 
-    console.log('\n📊 Summary:');
-    console.log(`   Total Calls: ${testData.length}`);
-    console.log(`   Cached Calls: ${cachedCount} (${((cachedCount/testData.length)*100).toFixed(1)}%)`);
-    console.log(`   Total Cost: $${totalCost.toFixed(4)}`);
-    console.log(`   Total Tokens: ${totalTokens.toLocaleString()}`);
-    console.log(`   Avg Cost/Call: $${(totalCost/testData.length).toFixed(6)}`);
+      console.log(`   ✅ EXISTS`);
+      console.log(`   Quality: ${turn.aiAnalysis.overallQuality || 'N/A'}`);
+      console.log(`   Tone: ${turn.aiAnalysis.toneScore || 'N/A'}`);
+      console.log(`   Clarity: ${turn.aiAnalysis.clarityScore || 'N/A'}`);
+      
+      if (turn.aiAnalysis.decisionTrace) {
+        console.log(`   Decision Trace: ✓ (${typeof turn.aiAnalysis.decisionTrace})`);
+        if (typeof turn.aiAnalysis.decisionTrace === 'object') {
+          const keys = Object.keys(turn.aiAnalysis.decisionTrace);
+          console.log(`   Trace Keys: ${keys.join(', ')}`);
+        }
+      } else {
+        console.log(`   Decision Trace: ✗ MISSING`);
+      }
+      
+      console.log();
+    }
 
+    console.log(`─────────────────────────────────────────────`);
+    console.log(`\n✅ Summary:`);
+    console.log(`   Turns found: ${turns.length}`);
+    console.log(`   With AI analysis: ${turns.filter(t => t.aiAnalysis).length}`);
+    console.log(`   With decision trace: ${turns.filter(t => t.aiAnalysis?.decisionTrace).length}\n`);
+
+    await mongoose.disconnect();
     process.exit(0);
+
   } catch (error) {
-    console.error('Error creating test data:', error);
+    console.error('❌ Error:', error);
     process.exit(1);
   }
 };
 
-createTestData();
+checkAIAnalysis();

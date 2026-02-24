@@ -74,7 +74,7 @@ const debateTurnSchema = new mongoose.Schema({
     },
     
     overallQuality: Number,
-    decisionTrace: [String],
+    decisionTrace: mongoose.Schema.Types.Mixed,
     retrievedSources: [String],
     
     // 🆕 PHASE 3: Fact-checking

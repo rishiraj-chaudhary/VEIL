@@ -244,28 +244,37 @@ class VectorStoreService {
     if (!this.isInitialized) {
       return [];
     }
-
+  
     try {
       const queryEmbedding = this.generateEmbedding(query);
       const items = await KnowledgeItem.find().lean();
-
-      const results = items.map(item => ({
-        ...item,
-        similarity: this.cosineSimilarity(queryEmbedding, item.embedding)
-      }));
-
+  
+      // ✅ Add safety check
+      if (!items || items.length === 0) {
+        return [];
+      }
+  
+      const results = items
+        .filter(item => item && item.embedding) // ✅ Filter out invalid items
+        .map(item => ({
+          ...item,
+          similarity: this.cosineSimilarity(queryEmbedding, item.embedding)
+        }));
+  
       results.sort((a, b) => b.similarity - a.similarity);
       const topResults = results.slice(0, topK);
-
-      return topResults.map(item => ({
-        content: item.text,
-        metadata: {
-          category: item.category,
-          type: item.type
-        },
-        similarity: item.similarity
-      }));
-
+  
+      return topResults
+        .filter(item => item && item.text) // ✅ Filter out invalid results
+        .map(item => ({
+          content: item.text,
+          metadata: {
+            category: item.category,
+            type: item.type
+          },
+          similarity: item.similarity
+        }));
+  
     } catch (error) {
       console.error('Knowledge retrieval error:', error.message);
       return [];
@@ -276,34 +285,43 @@ class VectorStoreService {
     if (!this.isInitialized) {
       return [];
     }
-
+  
     try {
       const count = await DebateMemory.countDocuments(filters);
       if (count === 0) {
         return [];
       }
-
+  
       const queryEmbedding = this.generateEmbedding(query);
-
+  
       const items = await DebateMemory.find(filters)
         .sort({ createdAt: -1 })
         .limit(50)
         .lean();
-
-      const results = items.map(item => ({
-        ...item,
-        similarity: this.cosineSimilarity(queryEmbedding, item.embedding)
-      }));
-
+  
+      // ✅ Add safety check
+      if (!items || items.length === 0) {
+        return [];
+      }
+  
+      const results = items
+        .filter(item => item && item.embedding) // ✅ Filter out invalid items
+        .map(item => ({
+          ...item,
+          similarity: this.cosineSimilarity(queryEmbedding, item.embedding)
+        }));
+  
       results.sort((a, b) => b.similarity - a.similarity);
       const topResults = results.slice(0, topK);
-
-      return topResults.map(item => ({
-        content: item.text,
-        metadata: item.metadata,
-        similarity: item.similarity
-      }));
-
+  
+      return topResults
+        .filter(item => item && item.text) // ✅ Filter out invalid results
+        .map(item => ({
+          content: item.text,
+          metadata: item.metadata,
+          similarity: item.similarity
+        }));
+  
     } catch (error) {
       console.error('Memory retrieval error:', error.message);
       return [];
