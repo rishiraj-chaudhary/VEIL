@@ -10,6 +10,7 @@ import aiCoachRoutes from './src/routes/aiCoachRoutes.js';
 import aiUsageRoutes from './src/routes/aiUsageRoutes.js';
 import knowledgeGraphRoutes from './src/routes/knowledgeGraphRoutes.js';
 import personaRoutes from './src/routes/personaRoutes.js';
+dotenv.config();
 
 // 🆕 MODELS FIRST - Register Mongoose schemas
 import './src/models/debate.js';
@@ -35,7 +36,6 @@ import { personaScheduler } from './src/services/personaScheduler.js'; // 🆕 I
 // Socket
 import { initSocket } from './src/sockets/index.js';
 
-dotenv.config();
 
 // Initialize Express app
 const app = express();

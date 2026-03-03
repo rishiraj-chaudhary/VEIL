@@ -1,177 +1,262 @@
-import { io } from 'socket.io-client';
+import io from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:5001';
-
-let socket = null;
+let debateSocket = null;
 
 export const initDebateSocket = () => {
-  if (!socket) {
-    socket = io(SOCKET_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-    });
-
-    socket.on('connect', () => {
-      console.log('🔌 Debate socket connected:', socket.id);
-    });
-
-    socket.on('disconnect', () => {
-      console.log('❌ Debate socket disconnected');
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('Debate socket error:', error);
-    });
+  if (debateSocket?.connected) {
+    return debateSocket;
   }
 
-  return socket;
+  debateSocket = io('http://localhost:5001', {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5
+  });
+
+  debateSocket.on('connect', () => {
+    console.log('✅ Debate socket connected:', debateSocket.id);
+  });
+
+  debateSocket.on('disconnect', (reason) => {
+    console.log('❌ Debate socket disconnected:', reason);
+  });
+
+  debateSocket.on('error', (error) => {
+    console.error('Debate socket error:', error);
+  });
+
+  return debateSocket;
 };
 
 export const getDebateSocket = () => {
-  if (!socket) {
-    return initDebateSocket();
-  }
-  return socket;
+  return debateSocket;
 };
 
 export const disconnectDebateSocket = () => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
+  if (debateSocket) {
+    debateSocket.disconnect();
+    debateSocket = null;
   }
 };
-// ==================== ANALYSIS EVENTS ====================
-
-export const emitAnalysisComplete = (io, debateId, turnId) => {
-  io.to(`debate:${debateId}`).emit('analysis-complete', { turnId });  
-  console.log('📊 Emitted analysis complete:', turnId);
-};
-export const onAnalysisComplete = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('analysis-complete', callback);
-};
-
-export const offAnalysisComplete = (callback) => {
-  const socket = getDebateSocket();
-  socket.off('analysis-complete', callback);
-};
-
-// ==================== DEBATE ROOM ====================
 
 export const joinDebateRoom = (debateId) => {
-  const socket = getDebateSocket();
-  socket.emit('debate:join', debateId);
-  console.log(`📍 Joined debate room: ${debateId}`);
+  if (debateSocket) {
+    debateSocket.emit('join-debate', debateId);
+    console.log('📍 Joined debate room:', debateId);
+  }
 };
 
 export const leaveDebateRoom = (debateId) => {
-  const socket = getDebateSocket();
-  socket.emit('debate:leave', debateId);
-  console.log(`👋 Left debate room: ${debateId}`);
+  if (debateSocket) {
+    debateSocket.emit('leave-debate', debateId);
+    console.log('👋 Left debate room:', debateId);
+  }
 };
 
-// ==================== TYPING INDICATORS ====================
-
-export const emitTyping = (debateId, username) => {
-  const socket = getDebateSocket();
-  socket.emit('debate:typing', { debateId, username });
-};
-
-export const emitStopTyping = (debateId) => {
-  const socket = getDebateSocket();
-  socket.emit('debate:stop-typing', { debateId });
-};
-
-// ==================== EVENT LISTENERS ====================
-
-export const onViewerCount = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:viewers', callback);
-};
-
-export const onDebateState = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:state', callback);
-};
-
-export const onDebateStarted = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:started', callback);
-};
-
+// ✅ FIX: Return unsubscribe functions
 export const onTurnSubmitted = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:turn-submitted', callback);
-};
-
-export const onRoundAdvanced = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:round-advanced', callback);
+  if (!debateSocket) {
+    console.warn('⚠️ Socket not initialized for onTurnSubmitted');
+    return () => {}; // Return empty function
+  }
+  
+  debateSocket.on('turn-submitted', callback);
+  
+  // Return unsubscribe function
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('turn-submitted', callback);
+    }
+  };
 };
 
 export const onDebateCompleted = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:completed', callback);
+  if (!debateSocket) {
+    console.warn('⚠️ Socket not initialized for onDebateCompleted');
+    return () => {}; // Return empty function
+  }
+  
+  debateSocket.on('debate-completed', callback);
+  
+  // Return unsubscribe function
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('debate-completed', callback);
+    }
+  };
+};
+
+export const onDebateStarted = (callback) => {
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('debate-started', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('debate-started', callback);
+    }
+  };
+};
+
+export const onAnalysisComplete = (callback) => {
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('analysis-complete', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('analysis-complete', callback);
+    }
+  };
 };
 
 export const onParticipantJoined = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:participant-joined', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('participant-joined', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('participant-joined', callback);
+    }
+  };
 };
 
 export const onParticipantReady = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:participant-ready', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('participant-ready', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('participant-ready', callback);
+    }
+  };
+};
+
+export const onRoundAdvanced = (callback) => {
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('round-advanced', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('round-advanced', callback);
+    }
+  };
 };
 
 export const onVoteCast = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:vote-cast', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('vote-cast', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('vote-cast', callback);
+    }
+  };
 };
 
 export const onReactionAdded = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:reaction-added', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('reaction-added', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('reaction-added', callback);
+    }
+  };
 };
 
 export const onDebateCancelled = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:cancelled', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('debate-cancelled', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('debate-cancelled', callback);
+    }
+  };
+};
+
+export const onViewerCount = (callback) => {
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('viewer-count', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('viewer-count', callback);
+    }
+  };
+};
+
+export const onDebateState = (callback) => {
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('debate-state', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('debate-state', callback);
+    }
+  };
 };
 
 export const onUserTyping = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:user-typing', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('user-typing', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('user-typing', callback);
+    }
+  };
 };
 
 export const onUserStoppedTyping = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:user-stopped-typing', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('user-stopped-typing', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('user-stopped-typing', callback);
+    }
+  };
 };
 
 export const onDebateError = (callback) => {
-  const socket = getDebateSocket();
-  socket.on('debate:error', callback);
+  if (!debateSocket) return () => {};
+  
+  debateSocket.on('debate-error', callback);
+  
+  return () => {
+    if (debateSocket) {
+      debateSocket.off('debate-error', callback);
+    }
+  };
 };
 
-// ==================== CLEANUP ====================
+export const emitTyping = (debateId, username) => {
+  if (debateSocket) {
+    debateSocket.emit('typing', { debateId, username });
+  }
+};
+
+export const emitStopTyping = (debateId) => {
+  if (debateSocket) {
+    debateSocket.emit('stop-typing', { debateId });
+  }
+};
 
 export const removeAllListeners = () => {
-  const socket = getDebateSocket();
-  socket.removeAllListeners('debate:viewers');
-  socket.removeAllListeners('debate:state');
-  socket.removeAllListeners('debate:started');
-  socket.removeAllListeners('debate:turn-submitted');
-  socket.removeAllListeners('debate:round-advanced');
-  socket.removeAllListeners('debate:completed');
-  socket.removeAllListeners('debate:participant-joined');
-  socket.removeAllListeners('debate:participant-ready');
-  socket.removeAllListeners('debate:vote-cast');
-  socket.removeAllListeners('debate:reaction-added');
-  socket.removeAllListeners('debate:cancelled');
-  socket.removeAllListeners('debate:user-typing');
-  socket.removeAllListeners('debate:user-stopped-typing');
-  socket.removeAllListeners('debate:error');
+  if (debateSocket) {
+    debateSocket.removeAllListeners();
+  }
 };

@@ -270,39 +270,62 @@ class DebateScoringService {
    * ========================================
    */
   async calculateRoundScores(forTurns, againstTurns) {
-    const roundScores = [];
-    const rounds = Math.max(forTurns.length, againstTurns.length);
-
-    for (let i = 0; i < rounds; i++) {
-      const forTurn = forTurns[i];
-      const againstTurn = againstTurns[i];
-
-      if (!forTurn || !againstTurn) continue;
-
-      // FIX: Safely handle decisionTrace for FOR turn
-      const forDecisionTraceText = this.convertDecisionTraceToString(
-        forTurn.aiAnalysis?.decisionTrace
-      );
-
-      // FIX: Safely handle decisionTrace for AGAINST turn
-      const againstDecisionTraceText = this.convertDecisionTraceToString(
-        againstTurn.aiAnalysis?.decisionTrace
-      );
-
-      // Now you can safely use .match() on the text versions
-      const forStronger = forDecisionTraceText.match(/strong|compelling|effective/i);
-      const againstStronger = againstDecisionTraceText.match(/strong|compelling|effective/i);
-
-      roundScores.push({
-        round: i + 1,
-        forScore: forTurn.aiAnalysis?.overallQuality || 50,
-        againstScore: againstTurn.aiAnalysis?.overallQuality || 50,
-        winner: forStronger && !againstStronger ? 'for' : 
-                againstStronger && !forStronger ? 'against' : 'tie'
-      });
-    }
-
-    return roundScores;
+    const rounds = new Set([
+      ...forTurns.map(t => t.round),
+      ...againstTurns.map(t => t.round)
+    ]);
+  
+    const weights = {
+      argumentQuality: 40,
+      rebuttalEffectiveness: 25,
+      conductClarity: 15,
+      audienceSupport: 20
+    };
+  
+    return Array.from(rounds).sort().map(round => {
+      const forTurnsInRound = forTurns.filter(t => t.round === round);
+      const againstTurnsInRound = againstTurns.filter(t => t.round === round);
+      
+      // Calculate scores for FOR side in this round
+      let forRoundScore = 0;
+      if (forTurnsInRound.length > 0) {
+        const forArgQuality = this.calculateArgumentQuality(forTurnsInRound);
+        const forRebuttal = this.calculateRebuttalEffectiveness(forTurnsInRound);
+        const forConduct = this.calculateConductClarity(forTurnsInRound);
+        const forAudience = 50; // Default for round scores
+        
+        forRoundScore = Math.round(
+          (forArgQuality * weights.argumentQuality / 100) +
+          (forRebuttal * weights.rebuttalEffectiveness / 100) +
+          (forConduct * weights.conductClarity / 100) +
+          (forAudience * weights.audienceSupport / 100)
+        );
+      }
+      
+      // Calculate scores for AGAINST side in this round
+      let againstRoundScore = 0;
+      if (againstTurnsInRound.length > 0) {
+        const againstArgQuality = this.calculateArgumentQuality(againstTurnsInRound);
+        const againstRebuttal = this.calculateRebuttalEffectiveness(againstTurnsInRound);
+        const againstConduct = this.calculateConductClarity(againstTurnsInRound);
+        const againstAudience = 50; // Default for round scores
+        
+        againstRoundScore = Math.round(
+          (againstArgQuality * weights.argumentQuality / 100) +
+          (againstRebuttal * weights.rebuttalEffectiveness / 100) +
+          (againstConduct * weights.conductClarity / 100) +
+          (againstAudience * weights.audienceSupport / 100)
+        );
+      }
+  
+      console.log(`📊 Round ${round} scores: FOR=${forRoundScore}, AGAINST=${againstRoundScore}`);
+  
+      return {
+        round,
+        for: forRoundScore,
+        against: againstRoundScore
+      };
+    });
   }
 
   /**
