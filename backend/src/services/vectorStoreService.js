@@ -3,7 +3,8 @@ import { MongoDBAtlasVectorSearch } from "@langchain/mongodb";
 import { MongoClient } from "mongodb";
 import chunkingService from './chunkingService.js';
 import embeddingService from './embeddingService.js';
-
+import hybridSearchService from './hybridSearchService.js';
+import rerankingService from './rerankingService.js';
 class VectorStoreService {
   constructor() {
     this.client = null;
@@ -139,6 +140,124 @@ class VectorStoreService {
       return [];
     }
   }
+
+  /**
+ * Hybrid retrieval: vector search → BM25 rerank
+ * Drop-in upgrade over retrieveKnowledge()
+ *
+ * @param {string} query
+ * @param {number} k - how many to return after reranking
+ * @param {number} candidateMultiplier - fetch k*multiplier docs before reranking
+ */
+async retrieveKnowledgeHybrid(query, k = 3, candidateMultiplier = 3) {
+  if (!this.isInitialized) {
+    console.warn('⚠️ Vector store not initialized');
+    return [];
+  }
+
+  try {
+    // Step 1: Fetch a larger candidate pool from vector search
+    const candidateK = k * candidateMultiplier;
+    const vectorDocs = await this.retrieveKnowledge(query, candidateK);
+
+    if (vectorDocs.length === 0) return [];
+
+    // Step 2: BM25 rerank the candidates
+    const reranked = hybridSearchService.hybridRerank(query, vectorDocs, { topK: k });
+
+    console.log(`🔀 Hybrid: ${vectorDocs.length} candidates → ${reranked.length} returned`);
+    return reranked;
+
+  } catch (error) {
+    console.error('❌ Hybrid retrieval failed, falling back to vector:', error.message);
+    return this.retrieveKnowledge(query, k);
+  }
+}
+
+/**
+ * Hybrid retrieval for debate memory
+ */
+async retrieveDebateMemoryHybrid(query, k = 2, filters = {}) {
+  if (!this.isInitialized) return [];
+
+  try {
+    const candidateK = k * 3;
+    const vectorDocs = await this.retrieveDebateMemory(query, candidateK, filters);
+
+    if (vectorDocs.length === 0) return [];
+
+    const reranked = hybridSearchService.hybridRerank(query, vectorDocs, { topK: k });
+    return reranked;
+
+  } catch (error) {
+    console.error('❌ Hybrid memory retrieval failed:', error.message);
+    return this.retrieveDebateMemory(query, k, filters);
+  }
+}
+
+/**
+ * Full pipeline: vector → hybrid BM25 rerank → LLM rerank
+ * This is the highest-quality retrieval available.
+ *
+ * Pipeline:
+ *   1. Vector search fetches k*4 candidates
+ *   2. Hybrid BM25+vector reranks → k*2 kept
+ *   3. LLM scores final candidates → top k returned
+ *
+ * @param {string} query
+ * @param {number} k - final number to return
+ * @param {string} context - optional debate context for LLM reranker
+ */
+async retrieveKnowledgeReranked(query, k = 3, context = '') {
+  if (!this.isInitialized) return [];
+
+  try {
+    // Stage 1: Hybrid retrieval with larger candidate pool
+    const hybridK = k * 2;
+    const hybridDocs = await this.retrieveKnowledgeHybrid(query, hybridK);
+
+    if (hybridDocs.length === 0) return [];
+    if (hybridDocs.length <= 2) return hybridDocs; // skip LLM for tiny sets
+
+    // Stage 2: LLM reranking
+    const reranked = await rerankingService.rerank(query, hybridDocs, {
+      topK: k,
+      context,
+    });
+
+    console.log(`✅ Full pipeline: vector→hybrid→LLM → ${reranked.length} docs`);
+    return reranked;
+
+  } catch (error) {
+    console.error('❌ Reranked retrieval failed, falling back to hybrid:', error.message);
+    return this.retrieveKnowledgeHybrid(query, k);
+  }
+}
+
+/**
+ * Full pipeline for debate memory.
+ */
+async retrieveDebateMemoryReranked(query, k = 2, filters = {}, context = '') {
+  if (!this.isInitialized) return [];
+
+  try {
+    const hybridDocs = await this.retrieveDebateMemoryHybrid(query, k * 2, filters);
+
+    if (hybridDocs.length === 0) return [];
+    if (hybridDocs.length <= 2) return hybridDocs;
+
+    const reranked = await rerankingService.rerank(query, hybridDocs, {
+      topK: k,
+      context,
+    });
+
+    return reranked;
+
+  } catch (error) {
+    console.error('❌ Reranked memory retrieval failed:', error.message);
+    return this.retrieveDebateMemoryHybrid(query, k, filters);
+  }
+}
 
   /**
    * Retrieve debate memory using LangChain .asRetriever() + .invoke()
@@ -345,7 +464,8 @@ class VectorStoreService {
       memoryCount,
       embeddingModel: embeddingService.getModel(),
       embeddingDimensions: embeddingService.getDimensions(),
-      vectorStore: 'MongoDB Atlas Vector Search (LangChain)'
+      vectorStore: 'MongoDB Atlas Vector Search (LangChain)',
+      rerankCache: rerankingService.getCacheStats(),
     };
   }
 

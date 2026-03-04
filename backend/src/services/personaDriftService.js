@@ -5,6 +5,7 @@ import Post from '../models/post.js';
 import Slick from '../models/slick.js';
 import UserPerformance from '../models/UserPerformance.js';
 import grokService from './grokService.js';
+import structuredParserService from './structuredParserService.js';
 import vectorStoreService from './vectorStoreService.js';
 class PersonaDriftService {
   
@@ -222,55 +223,16 @@ async extractTraits(userId, contentSample) {
  * Parse AI response into traits object
  */
 parseTraitsResponse(response) {
-    try {
-      // Try to extract JSON from response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        
-        // ✅ FIX: Handle tone with pipe separator (e.g., "neutral|humorous")
-        let tone = parsed.tone || 'neutral';
-        if (typeof tone === 'string' && tone.includes('|')) {
-          // Take the first tone if multiple are given
-          tone = tone.split('|')[0].trim();
-        }
-        
-        // Validate tone against allowed enums
-        const validTones = ['analytical', 'emotional', 'sarcastic', 'supportive', 'aggressive', 'neutral', 'humorous'];
-        if (!validTones.includes(tone)) {
-          console.warn(`⚠️ Invalid tone "${tone}", defaulting to "neutral"`);
-          tone = 'neutral';
-        }
-        
-        // ✅ FIX: Handle argumentativeStyle with pipe separator
-        let argumentativeStyle = parsed.argumentativeStyle || 'balanced';
-        if (typeof argumentativeStyle === 'string' && argumentativeStyle.includes('|')) {
-          argumentativeStyle = argumentativeStyle.split('|')[0].trim();
-        }
-        
-        // Validate argumentativeStyle
-        const validStyles = ['evidence-based', 'logical', 'emotional', 'rhetorical', 'balanced'];
-        if (!validStyles.includes(argumentativeStyle)) {
-          console.warn(`⚠️ Invalid style "${argumentativeStyle}", defaulting to "balanced"`);
-          argumentativeStyle = 'balanced';
-        }
-        
-        return {
-          tone,
-          vocabularyComplexity: Math.min(100, Math.max(0, parsed.vocabularyComplexity || 50)),
-          aggressiveness: Math.min(100, Math.max(0, parsed.aggressiveness || 50)),
-          empathy: Math.min(100, Math.max(0, parsed.empathy || 50)),
-          formality: Math.min(100, Math.max(0, parsed.formality || 50)),
-          humor: Math.min(100, Math.max(0, parsed.humor || 50)),
-          argumentativeStyle
-        };
-      }
-    } catch (error) {
-      console.error('Error parsing traits response:', error);
-    }
-    
-    return this.getDefaultTraits();
+  const result = structuredParserService.parseSync('personaTraits', response);
+  if (result.success) {
+    console.log('✅ Parsed persona traits (structured parser)');
+    return result.data;
   }
+  console.warn('⚠️ Persona trait parsing failed, using defaults:', result.error);
+  return this.getDefaultTraits();
+}
+
+
 
   /**
    * Default traits for new users
@@ -359,18 +321,13 @@ Format: ["topic1", "topic2", "topic3", "topic4", "topic5"]`;
   /**
    * Parse topics from AI response
    */
-  parseTopicsResponse(response) {
-    try {
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
-      }
-    } catch (error) {
-      console.error('Error parsing topics response:', error);
-    }
-    return [];
-  }
+// REPLACE parseTopicsResponse():
+parseTopicsResponse(response) {
+  const result = structuredParserService.parseSync('topics', response);
+  if (result.success) return result.data;
+  console.warn('⚠️ Topic parsing failed:', result.error);
+  return [];
+}
 
   // ============================================
   // EMBEDDING GENERATION

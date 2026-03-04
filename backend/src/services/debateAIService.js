@@ -1,9 +1,11 @@
 import factCheckService from './factCheckService.js';
 import grokService from './grokService.js';
 import knowledgeGraphService from './knowledgeGraphService.js';
+import structuredParserService from './structuredParserService.js';
 import vectorStoreService from './vectorStoreService.js';
 
 /**
+ * 
  * DEBATE AI SERVICE with RAG (Phase 2 - ChromaDB)
  * 
  * ENHANCED WITH:
@@ -402,13 +404,12 @@ async retrieveRelevantKnowledge(content, context, decisionTrace) {
 
   try {
     // Use LangChain retriever.invoke() - NO MANUAL SIMILARITY
-    const knowledgeDocs = await this.vectorStore.retrieveKnowledge(content, 3) || [];
-    const memoryDocs = await this.vectorStore.retrieveDebateMemory(content, 2) || [];
-
+    const knowledgeDocs = await this.vectorStore.retrieveKnowledgeReranked(content, 3, context) || [];
+    const memoryDocs = await this.vectorStore.retrieveDebateMemoryReranked(content, 2, {}, context) || [];
     const allDocs = [...knowledgeDocs, ...memoryDocs];
     
     if (allDocs.length > 0) {
-      decisionTrace.push(`🔍 Retrieved ${allDocs.length} docs via LangChain (${knowledgeDocs.length} knowledge, ${memoryDocs.length} memory)`);
+      decisionTrace.push(`🧠 Full pipeline retrieved ${allDocs.length} docs (vector→BM25→LLM rerank, ${knowledgeDocs.length} knowledge, ${memoryDocs.length} memory)`);
     } else {
       decisionTrace.push('🔍 No relevant documents found');
     }
@@ -841,54 +842,55 @@ async retrieveRelevantKnowledge(content, context, decisionTrace) {
    * ✅ Extract claims with COST TRACKING
    */
   async extractClaims(content, context, retrievedKnowledge, decisionTrace, aiContext = {}) {
-    try {
-      const ragContext = retrievedKnowledge.context 
-        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
-        : '';
+  try {
+    const ragContext = retrievedKnowledge.context
+      ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
+      : '';
 
-      const prompt = `Extract main claims from this debate argument. Return ONLY a JSON array of strings.
+    const prompt = `Extract the main claims from this debate argument.
+Return ONLY a JSON array of strings. Each string is one claim.
 
 ${context ? `Previous context:\n${context}\n\n` : ''}Current argument:
 ${content}${ragContext}
 
 Return format: ["claim 1", "claim 2"]`;
 
-      // ✅ Pass AI context for tracking
-      const response = await grokService.generateFast(prompt, {
-        ...aiContext,
-        operation: 'claim_extraction',
-        temperature: 0.3
-      });
-      
-      const cleanResponse = response.replace(/```json|```/g, '').trim();
-      const claims = JSON.parse(cleanResponse);
+    const response = await grokService.generateFast(prompt, {
+      ...aiContext,
+      operation: 'claim_extraction',
+      temperature: 0.3,
+    });
 
-      const claimArray = Array.isArray(claims) ? claims.slice(0, 5) : [];
-      decisionTrace.push(`Extracted ${claimArray.length} claims`);
-      
-      return claimArray;
-    } catch (error) {
-      console.error('Claim extraction error:', error);
-      decisionTrace.push('Claim extraction failed');
-      return [];
-    }
+    // ✅ Use structured parser instead of raw JSON.parse
+    const claims = await structuredParserService.parse('claims', response, prompt, aiContext);
+    const result = (claims || []).slice(0, 5);
+
+    decisionTrace.push(`Extracted ${result.length} claims`);
+    return result;
+
+  } catch (error) {
+    console.error('Claim extraction error:', error);
+    decisionTrace.push('Claim extraction failed');
+    return [];
   }
+}
 
   /**
    * ✅ Extract rebuttals with COST TRACKING
    */
   async extractRebuttals(content, context, retrievedKnowledge, decisionTrace, aiContext = {}) {
-    try {
-      if (!context) {
-        decisionTrace.push('No previous turns - no rebuttals possible');
-        return [];
-      }
+  try {
+    if (!context) {
+      decisionTrace.push('No previous turns - no rebuttals possible');
+      return [];
+    }
 
-      const ragContext = retrievedKnowledge.context 
-        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
-        : '';
+    const ragContext = retrievedKnowledge.context
+      ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
+      : '';
 
-      const prompt = `Identify which previous points this argument is rebutting. Return ONLY a JSON array.
+    const prompt = `Identify which previous points this argument is rebutting.
+Return ONLY a JSON array of strings.
 
 Previous arguments:
 ${context}
@@ -898,26 +900,25 @@ ${content}${ragContext}
 
 Return format: ["rebuttal to X", "counter to Y"]`;
 
-      // ✅ Pass AI context for tracking
-      const response = await grokService.generateFast(prompt, {
-        ...aiContext,
-        operation: 'debate_analysis',
-        temperature: 0.3
-      });
-      
-      const cleanResponse = response.replace(/```json|```/g, '').trim();
-      const rebuttals = JSON.parse(cleanResponse);
+    const response = await grokService.generateFast(prompt, {
+      ...aiContext,
+      operation: 'debate_analysis',
+      temperature: 0.3,
+    });
 
-      const rebuttalArray = Array.isArray(rebuttals) ? rebuttals.slice(0, 5) : [];
-      decisionTrace.push(`Found ${rebuttalArray.length} rebuttals`);
-      
-      return rebuttalArray;
-    } catch (error) {
-      console.error('Rebuttal extraction error:', error);
-      decisionTrace.push('Rebuttal extraction failed');
-      return [];
-    }
+    // ✅ Use structured parser
+    const rebuttals = await structuredParserService.parse('rebuttals', response, prompt, aiContext);
+    const result = (rebuttals || []).slice(0, 5);
+
+    decisionTrace.push(`Found ${result.length} rebuttals`);
+    return result;
+
+  } catch (error) {
+    console.error('Rebuttal extraction error:', error);
+    decisionTrace.push('Rebuttal extraction failed');
+    return [];
   }
+}
 
   /**
    * ✅ Generate summary with COST TRACKING
