@@ -1,9 +1,9 @@
 import factCheckService from './factCheckService.js';
+import fallacyGraph from './graph/fallacyGraph.js';
 import grokService from './grokService.js';
 import knowledgeGraphService from './knowledgeGraphService.js';
 import structuredParserService from './structuredParserService.js';
 import vectorStoreService from './vectorStoreService.js';
-
 /**
  * 
  * DEBATE AI SERVICE with RAG (Phase 2 - ChromaDB)
@@ -92,7 +92,13 @@ class DebateAIService {
       }
 
       // ✅ STEP 3: FALLACY DETECTION
-      const fallacies = await this.detectFallacies(content, retrievedKnowledge, decisionTrace);
+      const fallacies = await this.detectFallacies(content, retrievedKnowledge, decisionTrace, {
+          context,
+          side,
+          round: previousTurns.length + 1,
+          userTier,
+          aiContext,
+        });
       
       decisionTrace.push({
         step: 'fallacy_detection',
@@ -446,29 +452,34 @@ async retrieveRelevantKnowledge(content, context, decisionTrace) {
    * ROBUST FALLACY DETECTION
    * ========================================
    */
-  async detectFallacies(turnContent, retrievedKnowledge, decisionTrace) {
-    try {
-      console.log('🎯 Detecting fallacies...');
-      
-      // PATTERN-BASED DETECTION (Fast, reliable, no LLM needed)
-      const fallacies = this.detectFallaciesPattern(turnContent);
-      
-      if (fallacies.length > 0) {
-        decisionTrace.push(`⚠️ Detected ${fallacies.length} fallacies: ${fallacies.map(f => f.type).join(', ')}`);
-      } else {
-        decisionTrace.push('✓ No fallacies detected');
-      }
-      
-      console.log(`✅ Detected ${fallacies.length} fallacies via pattern matching`);
-      return fallacies;
-      
-    } catch (error) {
-      console.error('❌ Fallacy detection error:', error.message);
-      decisionTrace.push('⚠️ Fallacy detection failed');
-      return [];
-    }
-  }
+  async detectFallacies(content, retrievedKnowledge, decisionTrace, options = {}) {
+  try {
+    console.log('🎯 Detecting fallacies (hybrid LLM graph)...');
 
+    const fallacies = await fallacyGraph.detect(content, {
+      context: options.context || '',
+      side: options.side || 'for',
+      round: options.round || 1,
+      userTier: options.userTier || 'free',
+      aiContext: options.aiContext || {},
+      retrievedKnowledge: retrievedKnowledge.knowledgeDocs || [],
+    });
+
+    if (fallacies.length > 0) {
+      decisionTrace.push(`⚠️ Detected ${fallacies.length} fallacies: ${fallacies.map(f => `${f.type} (${f.detectionMethod}, conf:${f.confidence.toFixed(2)})`).join(', ')}`);
+    } else {
+      decisionTrace.push('✓ No fallacies detected');
+    }
+
+    console.log(`✅ Fallacy graph complete: ${fallacies.length} found`);
+    return fallacies;
+
+  } catch (error) {
+    console.error('❌ Fallacy detection error:', error.message);
+    decisionTrace.push('⚠️ Fallacy detection failed');
+    return [];
+  }
+}
   /**
    * Pattern-based fallacy detection (no LLM, always works)
    */
