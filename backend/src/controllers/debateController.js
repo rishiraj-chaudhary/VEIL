@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User from '../models/user.js';
 import debateAIService from '../services/debateAIService.js';
 import debateScoringService from '../services/debateScoringService.js';
 import debateService from '../services/debateService.js';
