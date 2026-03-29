@@ -4,8 +4,8 @@ import Community from '../models/community.js';
 import Post from '../models/post.js';
 import Slick from '../models/slick.js';
 import User from '../models/user.js';
+import perceptionGraph from './graph/perceptionGraph.js';
 import grokService from './grokService.js';
-
 class SlickAIService {
   constructor() {
     // Use GROK_API_KEY from environment (should be Groq API key, not X.ai)
@@ -38,6 +38,21 @@ class SlickAIService {
     }
     return key;
   }
+    async triggerPerceptionUpdate(targetUserId) {
+    try {
+      console.log(`🌀 Triggering perception update for user ${targetUserId}`);
+      const result = await perceptionGraph.run(targetUserId, {
+        lookbackDays: 30,
+        persist: true,
+      });
+      console.log(`✅ Perception updated — trend: ${result.trend}, gap score: ${result.selfGap?.gapScore || 0}`);
+      return result;
+    } catch (error) {
+      console.error('❌ Perception update failed:', error.message);
+      return null;
+    }
+  }
+
 
   // 🤖 Call Groq AI API (FIXED endpoint)
   async callGrokAI(prompt, maxTokens = 1000) {
@@ -104,10 +119,10 @@ class SlickAIService {
           communities: sharedCommunities.map(c => c.name)
         };
       }
-
       return {
-        isValid: false,
-        reason: 'No valid relationship found (must be in same community)'
+        isValid: true,
+        type: 'platform_member',
+        communities: [],
       };
 
     } catch (error) {

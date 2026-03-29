@@ -1,303 +1,146 @@
 import Community from '../models/community.js';
 import Post from '../models/post.js';
-import User from '../models/user.js';
+import karmaService from '../services/karmaService.js';
 import { personaDriftService } from '../services/personaDriftService.js';
 import { emitVoteUpdate } from '../sockets/index.js';
 
-// @route   POST /api/posts
-// @desc    Create a new post
-// @access  Private
 export const createPost = async (req, res) => {
   try {
     const { title, content, communityName, personaId } = req.body;
+    if (!title || !communityName)
+      return res.status(400).json({ success: false, message: 'Title and community are required' });
 
-    // Validation
-    if (!title || !communityName) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title and community are required',
-      });
-    }
+    const community = await Community.findOne({ name: communityName.toLowerCase() });
+    if (!community)
+      return res.status(404).json({ success: false, message: 'Community not found' });
 
-    // Find community
-    const community = await Community.findOne({ 
-      name: communityName.toLowerCase() 
-    });
-
-    if (!community) {
-      return res.status(404).json({
-        success: false,
-        message: 'Community not found',
-      });
-    }
-
-    // Create post
-    const post = await Post.create({
-      title,
-      content: content || '',
-      author: req.user._id,
-      persona: personaId || null,
-      community: community._id,
-    });
-
-    // Update community post count
+    const post = await Post.create({ title, content: content || '', author: req.user._id, persona: personaId || null, community: community._id });
     community.postCount += 1;
     await community.save();
-
-    // Populate author info
     await post.populate('author', 'username karma');
     await post.populate('community', 'name displayName');
-
-    // 🆕 TRIGGER PERSONA SNAPSHOT CHECK (non-blocking)
-    personaDriftService.triggerIfNeeded(req.user._id, 'time_interval')
-      .catch(err => console.error('Background persona snapshot error:', err));
-
-    res.status(201).json({
-      success: true,
-      message: 'Post created successfully',
-      data: { post },
-    });
+    personaDriftService.triggerIfNeeded(req.user._id, 'time_interval').catch(() => {});
+    res.status(201).json({ success: true, message: 'Post created successfully', data: { post } });
   } catch (error) {
     console.error('Create post error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to create post',
-    });
+    res.status(500).json({ success: false, message: error.message || 'Failed to create post' });
   }
 };
 
-// @route   GET /api/posts
-// @desc    Get all posts (with filtering)
-// @access  Public
 export const getPosts = async (req, res) => {
   try {
-    const { 
-      community, 
-      sort = 'hot', 
-      limit = 20, 
-      page = 1 
-    } = req.query;
-
-    // Build filter
+    const { community, sort = 'hot', limit = 20, page = 1 } = req.query;
     const filter = { isDeleted: false };
     if (community) {
       const comm = await Community.findOne({ name: community.toLowerCase() });
       if (comm) filter.community = comm._id;
     }
 
-    // Sort options
-    let sortOption;
-    switch (sort) {
-      case 'new':
-        sortOption = { createdAt: -1 };
-        break;
-      case 'top':
-        sortOption = { karma: -1, createdAt: -1 };
-        break;
-      case 'hot':
-      default:
-        sortOption = { karma: -1, createdAt: -1 };
-        break;
-    }
+    let posts;
 
-    const posts = await Post.find(filter)
-      .sort(sortOption)
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate('author', 'username karma')
-      .populate('community', 'name displayName');
+    if (sort === 'hot') {
+      // HOT: posts from last 48h ranked by karma, fallback to older posts
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      const recentPosts = await Post.find({ ...filter, createdAt: { $gte: cutoff } })
+        .sort({ karma: -1, createdAt: -1 })
+        .limit(parseInt(limit))
+        .populate('author', 'username karma')
+        .populate('community', 'name displayName');
+
+      if (recentPosts.length >= parseInt(limit)) {
+        posts = recentPosts;
+      } else {
+        const recentIds  = recentPosts.map(p => p._id);
+        const olderPosts = await Post.find({ ...filter, _id: { $nin: recentIds } })
+          .sort({ karma: -1, createdAt: -1 })
+          .limit(parseInt(limit) - recentPosts.length)
+          .populate('author', 'username karma')
+          .populate('community', 'name displayName');
+        posts = [...recentPosts, ...olderPosts];
+      }
+    } else {
+      // NEW: purely chronological | TOP: all-time karma
+      const sortOption = sort === 'new'
+        ? { createdAt: -1 }
+        : { karma: -1, upvotes: -1, createdAt: -1 };
+
+      posts = await Post.find(filter)
+        .sort(sortOption)
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .populate('author', 'username karma')
+        .populate('community', 'name displayName');
+    }
 
     const total = await Post.countDocuments(filter);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        posts,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / parseInt(limit)),
-        },
-      },
-    });
+    res.status(200).json({ success: true, data: { posts, pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / parseInt(limit)) } } });
   } catch (error) {
     console.error('Get posts error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch posts',
-    });
+    res.status(500).json({ success: false, message: 'Failed to fetch posts' });
   }
 };
 
-// @route   GET /api/posts/:id
-// @desc    Get single post
-// @access  Public
 export const getPost = async (req, res) => {
   try {
-    const post = await Post.findOne({ 
-      _id: req.params.id,
-      isDeleted: false 
-    })
-      .populate('author', 'username karma')
-      .populate('community', 'name displayName');
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: { post },
-    });
+    const post = await Post.findOne({ _id: req.params.id, isDeleted: false })
+      .populate('author', 'username karma').populate('community', 'name displayName');
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    res.status(200).json({ success: true, data: { post } });
   } catch (error) {
-    console.error('Get post error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch post',
-    });
+    res.status(500).json({ success: false, message: 'Failed to fetch post' });
   }
 };
 
-// @route   POST /api/posts/:id/vote
-// @desc    Vote on a post
-// @access  Private
 export const votePost = async (req, res) => {
   try {
     const { vote } = req.body;
-
-    if (![1, -1, 0].includes(vote)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid vote value',
-      });
-    }
+    if (![1, -1, 0].includes(vote))
+      return res.status(400).json({ success: false, message: 'Invalid vote value' });
 
     const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found',
-      });
-    }
-
-    // Find existing vote
-    const existingVote = post.voters.find(
-      v => v.user.toString() === req.user._id.toString()
-    );
-
+    const existingVote = post.voters.find(v => v.user.toString() === req.user._id.toString());
     const updateOps = {};
 
     if (existingVote) {
       const oldVote = existingVote.vote;
-
       if (vote === 0) {
-        // Remove vote
         updateOps.$pull = { voters: { user: req.user._id } };
-        if (oldVote === 1) {
-          updateOps.$inc = { upvotes: -1 };
-        } else if (oldVote === -1) {
-          updateOps.$inc = { downvotes: -1 };
-        }
+        updateOps.$inc  = oldVote === 1 ? { upvotes: -1 } : { downvotes: -1 };
       } else if (oldVote !== vote) {
-        // Change vote - need to remove old and add new
-        await Post.updateOne(
-          { _id: post._id },
-          { 
-            $pull: { voters: { user: req.user._id } },
-            $inc: oldVote === 1 ? { upvotes: -1 } : { downvotes: -1 }
-          }
-        );
-        
-        // Now add new vote
+        await Post.updateOne({ _id: post._id }, { $pull: { voters: { user: req.user._id } }, $inc: oldVote === 1 ? { upvotes: -1 } : { downvotes: -1 } });
         updateOps.$push = { voters: { user: req.user._id, vote } };
-        updateOps.$inc = vote === 1 ? { upvotes: 1 } : { downvotes: 1 };
+        updateOps.$inc  = vote === 1 ? { upvotes: 1 } : { downvotes: 1 };
       }
     } else if (vote !== 0) {
-      // New vote
       updateOps.$push = { voters: { user: req.user._id, vote } };
-      updateOps.$inc = vote === 1 ? { upvotes: 1 } : { downvotes: 1 };
+      updateOps.$inc  = vote === 1 ? { upvotes: 1 } : { downvotes: 1 };
     }
 
-    if (Object.keys(updateOps).length > 0) {
-      await Post.updateOne({ _id: post._id }, updateOps);
-    }
-    
-    // Fetch updated post
+    if (Object.keys(updateOps).length > 0) await Post.updateOne({ _id: post._id }, updateOps);
+
     const updatedPost = await Post.findById(req.params.id).populate('author');
-    
-    // Update post author's karma
-    if (updatedPost && updatedPost.author) {
-      const authorPosts = await Post.find({ author: updatedPost.author._id });
-      const totalKarma = authorPosts.reduce((sum, p) => sum + p.karma, 0);
-      await User.findByIdAndUpdate(updatedPost.author._id, { karma: totalKarma });
-    }
+    if (updatedPost?.author?._id) karmaService.recalculate(updatedPost.author._id).catch(() => {});
+    emitVoteUpdate(req.params.id, { postId: req.params.id, upvotes: updatedPost.upvotes, downvotes: updatedPost.downvotes, karma: updatedPost.karma });
 
-    // Emit real-time update
-    emitVoteUpdate(req.params.id, {
-      postId: req.params.id,
-      upvotes: updatedPost.upvotes,
-      downvotes: updatedPost.downvotes,
-      karma: updatedPost.karma,
-    });
-    
-    res.status(200).json({
-      success: true,
-      message: 'Vote recorded',
-      data: {
-        upvotes: updatedPost.upvotes,
-        downvotes: updatedPost.downvotes,
-        karma: updatedPost.karma,
-      },
-    });
+    res.status(200).json({ success: true, message: 'Vote recorded', data: { upvotes: updatedPost.upvotes, downvotes: updatedPost.downvotes, karma: updatedPost.karma } });
   } catch (error) {
     console.error('Vote post error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to vote',
-    });
+    res.status(500).json({ success: false, message: 'Failed to vote' });
   }
 };
 
-// @route   DELETE /api/posts/:id
-// @desc    Delete a post
-// @access  Private
 export const deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: 'Post not found',
-      });
-    }
-
-    // Check ownership
-    if (!post.author.equals(req.user._id)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to delete this post',
-      });
-    }
-
+    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+    if (!post.author.equals(req.user._id)) return res.status(403).json({ success: false, message: 'Not authorized' });
     post.isDeleted = true;
     post.deletedAt = new Date();
     await post.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Post deleted successfully',
-    });
+    res.status(200).json({ success: true, message: 'Post deleted successfully' });
   } catch (error) {
-    console.error('Delete post error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete post',
-    });
+    res.status(500).json({ success: false, message: 'Failed to delete post' });
   }
 };

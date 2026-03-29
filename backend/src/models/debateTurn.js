@@ -113,6 +113,6 @@ debateTurnSchema.index({ debate: 1, turnNumber: 1 });
 debateTurnSchema.index({ author: 1, createdAt: -1 });
 debateTurnSchema.index({ debate: 1, side: 1, round: 1 });
 
-const DebateTurn = mongoose.model('DebateTurn', debateTurnSchema);
+const DebateTurn = mongoose.models.DebateTurn || mongoose.model('DebateTurn', debateTurnSchema);
 
 export default DebateTurn;

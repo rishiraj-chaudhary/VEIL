@@ -1,333 +1,287 @@
+/**
+ * LIVE DEBATE ASSISTANT SERVICE — Phase 13
+ *
+ * Fixed:
+ *   - vectorStoreService.retrieveContext → correct LangChain retriever pattern
+ *   - Added LLM-powered fallacy detection (not just regex)
+ *   - Added evidence quality suggestions
+ *   - Added argument strength scoring
+ *
+ * Place at: backend/src/services/debateAssistantService.js
+ */
+
 import Debate from '../models/debate.js';
 import DebateTurn from '../models/debateTurn.js';
+import grokService from './grokService.js';
 import vectorStoreService from './vectorStoreService.js';
 
-/**
- * LIVE DEBATE ASSISTANT (Phase 2)
- * 
- * Provides real-time guidance while users type their arguments
- * Non-intrusive, structural assistance only
- */
 class DebateAssistantService {
   constructor() {
-    // Throttle settings
-    this.MIN_CHARS = 20; // Minimum characters before analysis (lowered for testing)
-    this.THROTTLE_MS = 2000; // Wait 2 seconds between analyses
-    this.lastAnalysis = new Map(); // debateId_userId -> timestamp
+    this.MIN_CHARS   = 20;
+    this.THROTTLE_MS = 2000;
+    this.lastAnalysis = new Map();
   }
 
-  /**
-   * Get live insights for current draft
-   */
-  async getLiveDebateInsights(options) {
-    const {
-      debateId,
-      userId,
-      currentDraft,
-      side
-    } = options;
+  // ── Main entry ──────────────────────────────────────────────────────────────
 
+  async getLiveDebateInsights({ debateId, userId, currentDraft, side }) {
     try {
-      // Validate input
       if (!currentDraft || currentDraft.trim().length < this.MIN_CHARS) {
-        return {
-          suggestions: [],
-          warnings: [],
-          opportunities: [],
-          stats: {
-            wordCount: 0,
-            hasEvidence: false
-          },
-          message: 'Keep writing...'
-        };
+        return this._empty('Keep writing…');
       }
 
-      // Throttle check
-      const key = `${debateId}_${userId}`;
-      const lastTime = this.lastAnalysis.get(key) || 0;
-      const now = Date.now();
-      
-      if (now - lastTime < this.THROTTLE_MS) {
-        return {
-          suggestions: [],
-          warnings: [],
-          opportunities: [],
-          stats: {
-            wordCount: currentDraft.split(/\s+/).length,
-            hasEvidence: false
-          },
-          throttled: true
-        };
+      // Throttle
+      const key  = `${debateId}_${userId}`;
+      const now  = Date.now();
+      if (now - (this.lastAnalysis.get(key) || 0) < this.THROTTLE_MS) {
+        return { ...this._empty(), throttled: true, stats: { wordCount: currentDraft.split(/\s+/).length, hasEvidence: false } };
       }
-
       this.lastAnalysis.set(key, now);
 
-      // Get debate context
-      const debate = await Debate.findById(debateId)
-        .populate('participants.user', 'username');
+      // Debate context
+      const debate = await Debate.findById(debateId).populate('participants.user', 'username');
+      if (!debate) throw new Error('Debate not found');
 
-      if (!debate) {
-        throw new Error('Debate not found');
-      }
+      const opponentSide  = side === 'for' ? 'against' : 'for';
+      const opponentTurns = await DebateTurn.find({ debate: debateId, side: opponentSide, isDeleted: false })
+        .sort({ turnNumber: 1 }).limit(5).lean();
 
-      // Get opponent's arguments
-      const opponentSide = side === 'for' ? 'against' : 'for';
-      const opponentTurns = await DebateTurn.find({
-        debate: debateId,
-        side: opponentSide,
-        isDeleted: false
-      }).sort({ turnNumber: 1 }).limit(5);
+      // ── FIX: use correct retrieval pattern ───────────────────────────────────
+      const knowledgeDocs = await this._retrieveKnowledge(currentDraft);
 
-      // Retrieve relevant context using unified retrieval
-      const context = await vectorStoreService.retrieveContext(
-        currentDraft,
-        {
-          sources: ['knowledge', 'debate'],
-          topK: 5,
-          debateId
-        }
-      );
-
-      // Analyze the draft (FIXED: removed space in method name)
       const insights = await this.analyzeDraft({
         draft: currentDraft,
         opponentTurns,
-        context,
-        side
+        knowledgeDocs,
+        side,
+        topic: debate.topic,
       });
 
       return insights;
 
     } catch (error) {
       console.error('Live assistant error:', error.message);
-      return {
-        suggestions: [],
-        warnings: [],
-        opportunities: [],
-        stats: {
-          wordCount: 0,
-          hasEvidence: false
-        },
-        error: error.message
-      };
+      return { ...this._empty(), error: error.message };
     }
   }
 
-  /**
-   * Analyze the draft and provide suggestions
-   */
-  async analyzeDraft(options) {
-    const { draft, opponentTurns = [], context = { knowledge: [] }, side } = options;
+  // ── Retrieve knowledge docs via LangChain retriever ──────────────────────────
 
+  async _retrieveKnowledge(query) {
+    try {
+      // Use the correct method from vectorStoreService
+      const docs = await vectorStoreService.retrieveKnowledgeHybrid(query, 5);
+      return docs;
+    } catch (error) {
+      console.error('Knowledge retrieval error:', error.message);
+      return [];
+    }
+  }
+
+  // ── Core analysis ────────────────────────────────────────────────────────────
+
+  async analyzeDraft({ draft, opponentTurns = [], knowledgeDocs = [], side, topic }) {
     const insights = {
-      suggestions: [],
-      warnings: [],
+      suggestions:  [],
+      warnings:     [],
       opportunities: [],
       stats: {
-        wordCount: draft.split(/\s+/).length,
-        hasEvidence: this.detectEvidenceIndicators(draft),
-        potentialFallacies: []
-      }
+        wordCount:   draft.split(/\s+/).filter(Boolean).length,
+        hasEvidence: this._detectEvidence(draft),
+        strengthScore: 0,
+      },
     };
 
-    // Check for potential fallacies
-    const fallacyWarnings = await this.checkPotentialFallacies(draft, context);
-    if (fallacyWarnings.length > 0) {
-      insights.warnings.push(...fallacyWarnings);
-    }
+    // Run checks in parallel for speed
+    const [fallacyWarnings, rebuttals, strengthScore] = await Promise.all([
+      this._checkFallaciesLLM(draft, knowledgeDocs),
+      this._findMissedRebuttals(draft, opponentTurns),
+      this._scoreArgumentStrength(draft, knowledgeDocs, topic),
+    ]);
 
-    // Check for missed rebuttals
-    const missedRebuttals = await this.findMissedRebuttals(
-      draft, 
-      opponentTurns, 
-      context
-    );
-    if (missedRebuttals.length > 0) {
-      insights.opportunities.push(...missedRebuttals);
-    }
+    insights.warnings.push(...fallacyWarnings);
+    insights.opportunities.push(...rebuttals);
+    insights.stats.strengthScore = strengthScore;
 
-    // Check for evidence
-    if (!insights.stats.hasEvidence && draft.length > 100) {
+    // Evidence suggestion
+    if (!insights.stats.hasEvidence && draft.length > 80) {
       insights.suggestions.push({
-        type: 'evidence',
-        title: 'Consider adding evidence',
-        message: 'Strong arguments are backed by data or citations',
-        priority: 'medium'
+        type:    'evidence',
+        title:   'Add evidence',
+        message: 'Back your claim with data, studies, or examples — it significantly increases your score.',
+        priority: 'medium',
       });
     }
 
-    // Check for structure
-    const structureSuggestions = this.checkStructure(draft);
-    if (structureSuggestions) {
-      insights.suggestions.push(structureSuggestions);
+    // Structure suggestion
+    const structureTip = this._checkStructure(draft);
+    if (structureTip) insights.suggestions.push(structureTip);
+
+    // Strength feedback
+    if (strengthScore < 40 && draft.length > 100) {
+      insights.suggestions.push({
+        type:    'strength',
+        title:   'Strengthen your argument',
+        message: strengthScore < 20
+          ? 'Try to make a clearer, more specific claim.'
+          : 'Consider addressing the opposing perspective directly.',
+        priority: 'low',
+      });
     }
 
     return insights;
   }
 
-  /**
-   * Check for potential logical fallacies
-   */
-  async checkPotentialFallacies(draft, context) {
+  // ── LLM fallacy detection ─────────────────────────────────────────────────────
+
+  async _checkFallaciesLLM(draft, knowledgeDocs) {
     const warnings = [];
 
-    try {
-      // Use retrieved fallacy definitions
-      const fallacyPatterns = context.knowledge.filter(
-        k => k.metadata?.category === 'fallacy'
-      );
+    // Fast regex pre-filter (skip LLM call if nothing suspicious)
+    const draftLower = draft.toLowerCase();
+    const suspiciousPatterns = [
+      /\b(you|they).{0,20}(stupid|idiot|ignorant|dumb|fool)/i,
+      /\b(all|every|always|never|everyone|no one)\b/,
+      /\bthink of the children\b/i,
+      /\bslippery slope\b/i,
+      /\b(ad hominem|straw man|false dilemma)\b/i,
+      /\b(obviously|clearly|everyone knows)\b/i,
+    ];
 
-      // Simple pattern matching (not LLM call for speed)
-      const draftLower = draft.toLowerCase();
+    const hasSuspicious = suspiciousPatterns.some(p => p.test(draft));
 
-      // Ad hominem indicators
-      if (draftLower.includes('you') && 
-          (draftLower.includes('stupid') || 
-           draftLower.includes('idiot') || 
-           draftLower.includes('ignorant') ||
-           draftLower.includes('dumb'))) {
-        warnings.push({
-          type: 'fallacy',
-          fallacyType: 'ad_hominem',
-          title: 'Potential personal attack',
-          message: 'Focus on the argument, not the person',
-          priority: 'high'
-        });
+    if (hasSuspicious) {
+      try {
+        // Use fast model for speed
+        const prompt = `You are a debate coach. Analyze this argument for logical fallacies.
+
+Argument: "${draft.substring(0, 500)}"
+
+Identify any fallacies present. Return ONLY valid JSON array (empty if none):
+[
+  {
+    "fallacyType": "ad_hominem|hasty_generalization|straw_man|appeal_to_emotion|false_dilemma|slippery_slope|appeal_to_authority|circular_reasoning",
+    "title": "short name",
+    "message": "one sentence coaching tip",
+    "priority": "high|medium|low"
+  }
+]
+
+Return [] if no clear fallacies. Max 2 items.`;
+
+        const response = await grokService.generateFast(prompt, { temperature: 0.2, maxTokens: 300 });
+        const clean    = response.replace(/```json|```/g, '').trim();
+        const parsed   = JSON.parse(clean);
+
+        if (Array.isArray(parsed)) {
+          warnings.push(...parsed.slice(0, 2).map(f => ({ type: 'fallacy', ...f })));
+        }
+      } catch {
+        // Fall back to regex-based detection
+        warnings.push(...this._regexFallacies(draftLower));
       }
-
-      // Appeal to emotion indicators
-      if (draftLower.match(/think (of |about )the children|won't someone/i)) {
-        warnings.push({
-          type: 'fallacy',
-          fallacyType: 'appeal_to_emotion',
-          title: 'Potential appeal to emotion',
-          message: 'Strengthen with logical reasoning',
-          priority: 'medium'
-        });
-      }
-
-      // Hasty generalization
-      if (draftLower.match(/\b(all|every|always|never|everyone|no one)\b/)) {
-        warnings.push({
-          type: 'fallacy',
-          fallacyType: 'hasty_generalization',
-          title: 'Absolute language detected',
-          message: 'Consider if this applies universally',
-          priority: 'low'
-        });
-      }
-
-    } catch (error) {
-      console.error('Fallacy check error:', error.message);
     }
 
     return warnings;
   }
 
-  /**
-   * Find opportunities for rebuttals
-   */
-  async findMissedRebuttals(draft, opponentTurns, context) {
+  _regexFallacies(draftLower) {
+    const warnings = [];
+    if (/\b(you|they).{0,20}(stupid|idiot|ignorant|dumb|fool)/i.test(draftLower)) {
+      warnings.push({ type: 'fallacy', fallacyType: 'ad_hominem', title: 'Personal attack detected', message: 'Focus on the argument, not the person.', priority: 'high' });
+    }
+    if (/\b(all|every|always|never|everyone|no one)\b/.test(draftLower)) {
+      warnings.push({ type: 'fallacy', fallacyType: 'hasty_generalization', title: 'Absolute language', message: 'Consider whether this truly applies universally.', priority: 'low' });
+    }
+    return warnings;
+  }
+
+  // ── Missed rebuttals ──────────────────────────────────────────────────────────
+
+  async _findMissedRebuttals(draft, opponentTurns) {
     const opportunities = [];
+    if (!opponentTurns?.length) return opportunities;
 
-    try {
-      if (!opponentTurns || opponentTurns.length === 0) {
-        return opportunities;
-      }
+    const draftLower = draft.toLowerCase();
+    const rebuttalWords = ['however', 'but', 'although', 'contrary', 'disagree', 'wrong', 'incorrect', 'overlook', 'actually', 'on the other hand'];
+    const hasRebuttal   = rebuttalWords.some(w => draftLower.includes(w));
 
-      // Get opponent's main claims
-      const opponentClaims = opponentTurns
-        .map(turn => turn.content)
-        .join(' ')
-        .toLowerCase();
-
-      // Check if draft addresses opponent
-      const draftLower = draft.toLowerCase();
-      const rebuttalIndicators = [
-        'however', 'but', 'although', 'contrary', 'disagree',
-        'wrong', 'incorrect', 'mistaken', 'overlook'
-      ];
-
-      const hasRebuttalLanguage = rebuttalIndicators.some(
-        indicator => draftLower.includes(indicator)
-      );
-
-      if (!hasRebuttalLanguage && opponentTurns.length > 0) {
-        const latestOpponent = opponentTurns[opponentTurns.length - 1];
-        opportunities.push({
-          type: 'rebuttal',
-          title: 'Consider addressing opponent',
-          message: `Your opponent argued: "${latestOpponent.content.substring(0, 100)}..."`,
-          priority: 'high'
-        });
-      }
-
-    } catch (error) {
-      console.error('Rebuttal check error:', error.message);
+    if (!hasRebuttal) {
+      const latest  = opponentTurns[opponentTurns.length - 1];
+      const preview = latest.content?.substring(0, 120) || '';
+      opportunities.push({
+        type:    'rebuttal',
+        title:   'Address your opponent',
+        message: `Your opponent argued: "${preview}…" — consider directly countering this.`,
+        priority: 'high',
+      });
     }
 
     return opportunities;
   }
 
-  /**
-   * Detect evidence indicators
-   */
-  detectEvidenceIndicators(text) {
-    const indicators = [
-      'study', 'research', 'data', 'statistics', 'source',
-      'according to', 'shows that', 'evidence', 'proven',
-      'report', 'analysis', 'survey', 'experiment', 'found that',
-      'peer-reviewed', 'journal', 'published'
-    ];
+  // ── Argument strength scoring ─────────────────────────────────────────────────
 
-    const textLower = text.toLowerCase();
-    return indicators.some(indicator => textLower.includes(indicator));
+  async _scoreArgumentStrength(draft, knowledgeDocs, topic) {
+    try {
+      const wordCount    = draft.split(/\s+/).filter(Boolean).length;
+      const hasEvidence  = this._detectEvidence(draft);
+      const hasStructure = draft.split(/[.!?]+/).filter(s => s.trim()).length >= 2;
+
+      // Base score from structural signals
+      let score = 20;
+      if (wordCount > 30)  score += 15;
+      if (wordCount > 80)  score += 10;
+      if (hasEvidence)     score += 25;
+      if (hasStructure)    score += 10;
+
+      // Knowledge relevance boost
+      if (knowledgeDocs.length > 0) {
+        const knowledgeText = knowledgeDocs.map(d => d.text || d.content || d.pageContent || '').join(' ').toLowerCase();
+        const draftWords    = draft.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+        const matches       = draftWords.filter(w => knowledgeText.includes(w)).length;
+        const relevance     = Math.min(20, Math.round((matches / Math.max(draftWords.length, 1)) * 100));
+        score += relevance;
+      }
+
+      return Math.min(100, score);
+    } catch {
+      return 50;
+    }
   }
 
-  /**
-   * Check argument structure
-   */
-  checkStructure(draft) {
-    const sentences = draft.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  // ── Helpers ───────────────────────────────────────────────────────────────────
 
-    if (sentences.length < 2 && draft.length > 100) {
+  _detectEvidence(text) {
+    const indicators = [
+      'study', 'research', 'data', 'statistics', 'source', 'according to',
+      'shows that', 'evidence', 'proven', 'report', 'analysis', 'survey',
+      'experiment', 'found that', 'peer-reviewed', 'journal', 'published', '%',
+    ];
+    const lower = text.toLowerCase();
+    return indicators.some(i => lower.includes(i));
+  }
+
+  _checkStructure(draft) {
+    const sentences = draft.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    if (sentences.length < 2 && draft.length > 120) {
       return {
-        type: 'structure',
-        title: 'Consider breaking into sentences',
-        message: 'Multiple sentences improve clarity',
-        priority: 'low'
+        type:    'structure',
+        title:   'Break into sentences',
+        message: 'Multiple sentences improve clarity and readability.',
+        priority: 'low',
       };
     }
-
     return null;
   }
 
-  /**
-   * Quick fact check (pattern matching only - fast!)
-   */
-  async quickFactCheck(claim, context) {
-    // Use retrieved knowledge to verify patterns
-    const knowledgeText = context.knowledge
-      .map(k => k.content)
-      .join(' ')
-      .toLowerCase();
-
-    const claimLower = claim.toLowerCase();
-    const words = claimLower.split(/\s+/).filter(w => w.length > 3);
-
-    const matchCount = words.filter(word => 
-      knowledgeText.includes(word)
-    ).length;
-
-    const confidence = matchCount / words.length;
-
+  _empty(message = '') {
     return {
-      claim,
-      supported: confidence > 0.3,
-      confidence: Math.round(confidence * 100),
-      message: confidence > 0.3 
-        ? 'Pattern matches knowledge base'
-        : 'No supporting patterns found'
+      suggestions:   [],
+      warnings:      [],
+      opportunities: [],
+      stats:         { wordCount: 0, hasEvidence: false, strengthScore: 0 },
+      ...(message ? { message } : {}),
     };
   }
 }

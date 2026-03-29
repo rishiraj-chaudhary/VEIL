@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
     select: false,
   },
   karma: {
-    type: Number,
+    type: Number,  
     default: 0,
   },
   isActive: {
@@ -35,30 +35,61 @@ const userSchema = new mongoose.Schema({
   lastLogin: {
     type: Date,
   },
-  
-  // ✅ NEW: Subscription field for AI cost governance
+
+  // ✅ Subscription field for AI cost governance
   subscription: {
     tier: {
       type: String,
       enum: ['free', 'pro', 'team', 'enterprise'],
-      default: 'free'
+      default: 'free',
     },
     startDate: Date,
     endDate: Date,
     status: {
       type: String,
       enum: ['active', 'cancelled', 'expired'],
-      default: 'active'
-    }
+      default: 'active',
+    },
   },
-  
-  // ✅ NEW: Role field (for admin access to platform stats)
+
+  // ✅ Role field (for admin access to platform stats)
   role: {
     type: String,
     enum: ['user', 'admin'],
-    default: 'user'
-  }
-  
+    default: 'user',
+  },
+
+  // ── Perception fields (Step 10 — PerceptionGraph) ─────────────
+  // How OTHER users perceive this user, built from received Slicks.
+  // Compared against PersonaSnapshot.traits to compute the self-gap.
+
+  perceptionTraits: {
+    tone: { type: String },
+    vocabularyComplexity: { type: Number },
+    aggressiveness: { type: Number },
+    empathy: { type: Number },
+    formality: { type: Number },
+    humor: { type: Number },
+    argumentativeStyle: { type: String },
+  },
+
+  perceptionEmbedding: [{ type: Number }],
+
+  perceptionTrend: {
+    type: String,
+    enum: ['improving', 'stable', 'declining', 'shifting'],
+    default: 'stable',
+  },
+
+  perceptionSummary: {
+    type: String,
+    default: '',
+  },
+
+  perceptionUpdatedAt: {
+    type: Date,
+  },
+
 }, {
   timestamps: true,
 });

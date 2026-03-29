@@ -1,4 +1,4 @@
-import factCheckService from './factCheckService.js';
+import debateTurnGraph from './graph/debateTurnGraph.js';
 import fallacyGraph from './graph/fallacyGraph.js';
 import grokService from './grokService.js';
 import knowledgeGraphService from './knowledgeGraphService.js';
@@ -30,13 +30,20 @@ class DebateAIService {
    * Initialize RAG system
    */
   async initializeRAG() {
-    try {
+      try {
       console.log('🤖 Initializing Debate AI with RAG...');
       await vectorStoreService.initialize();
       this.vectorStore = vectorStoreService;
+
+      // ← NEW: wire graph to the same vector store
+      debateTurnGraph.setVectorStore(vectorStoreService, false);
+
       const stats = await vectorStoreService.getStats();
       this.useRAG = stats.initialized && stats.hasKnowledgeStore;
-      
+
+      // ← NEW: update graph with final useRAG value
+      debateTurnGraph.setVectorStore(vectorStoreService, this.useRAG);
+
       if (this.useRAG) {
         console.log('✅ RAG enabled for debate analysis');
         console.log(`   Knowledge items: ${stats.knowledgeCount}`);
@@ -54,348 +61,46 @@ class DebateAIService {
    * ✅ MAIN ANALYSIS METHOD with RAG + COST TRACKING
    */
   async analyzeTurn(content, side, previousTurns = [], userId = null, debateId = null, userTier = 'free') {
-    try {
-      console.log(`🤖 Analyzing turn for side '${side}' (RAG: ${this.useRAG})`);
-      const context = this.buildTurnContext(previousTurns);
-      const decisionTrace = [];
+    console.log(`🤖 DebateTurnGraph: analyzing turn for side '${side}'`);
 
-      // ✅ STEP 1: INITIALIZATION
-      decisionTrace.push({
-        step: 'initialization',
-        message: 'Starting AI analysis of debate turn',
-        timestamp: new Date().toISOString(),
-        impact: 'neutral',
-        data: {
-          side,
-          wordCount: content.split(/\s+/).length,
-          roundContext: `Round ${previousTurns.length + 1}`,
-          useRAG: this.useRAG
-        }
-      });
-
-      // ✨ STEP 2: RETRIEVE KNOWLEDGE
-      const retrievedKnowledge = this.useRAG 
-        ? await this.retrieveRelevantKnowledge(content, context, decisionTrace)
-        : { sources: [], context: '', knowledgeDocs: [], memoryDocs: [] };
-
-      if (this.useRAG) {
-        decisionTrace.push({
-          step: 'knowledge_retrieval',
-          message: `Retrieved ${retrievedKnowledge.knowledgeDocs.length + retrievedKnowledge.memoryDocs.length} relevant documents`,
-          impact: 'neutral',
-          data: {
-            knowledgeCount: retrievedKnowledge.knowledgeDocs.length,
-            memoryCount: retrievedKnowledge.memoryDocs.length,
-            sources: retrievedKnowledge.sources
-          }
-        });
-      }
-
-      // ✅ STEP 3: FALLACY DETECTION
-      const fallacies = await this.detectFallacies(content, retrievedKnowledge, decisionTrace, {
-          context,
-          side,
-          round: previousTurns.length + 1,
-          userTier,
-          aiContext,
-        });
-      
-      decisionTrace.push({
-        step: 'fallacy_detection',
-        message: fallacies.length > 0 
-          ? `Detected ${fallacies.length} logical fallacy(ies)`
-          : 'No fallacies detected',
-        impact: fallacies.length > 0 ? 'negative' : 'positive',
-        score: -5 * fallacies.length,
-        data: {
-          fallacies: fallacies.map(f => ({
-            type: f.type,
-            severity: f.severity,
-            explanation: f.explanation
-          })),
-          deduction: -5 * fallacies.length,
-          tips: fallacies.length > 0 ? [
-            'Review common logical fallacies',
-            'Focus on addressing arguments directly',
-            'Avoid personal attacks and emotional manipulation'
-          ] : []
-        }
-      });
-
-      // ✅ Run parallel analysis with retrieved context + COST TRACKING
-      const aiContext = {
-        userId,
-        debateId,
-        userTier,
-        temperature: 0.3
-      };
-
-      const [claims, rebuttals, toneScore, clarityScore, evidenceAnalysis] = await Promise.all([
-        this.extractClaims(content, context, retrievedKnowledge, decisionTrace, aiContext),
-        this.extractRebuttals(content, context, retrievedKnowledge, decisionTrace, aiContext),
-        this.analyzeTone(content, fallacies, decisionTrace),
-        this.analyzeClarity(content, [], decisionTrace),
-        this.analyzeEvidenceWithRAG(content, retrievedKnowledge, decisionTrace)
-      ]);
-
-      // ✅ STEP 4: TONE ANALYSIS
-      decisionTrace.push({
-        step: 'tone_analysis',
-        message: `Tone scored ${toneScore}/100`,
-        impact: toneScore >= 70 ? 'positive' : toneScore >= 50 ? 'neutral' : 'negative',
-        score: toneScore,
-        data: {
-          toneScore,
-          category: toneScore >= 80 ? 'Excellent' : toneScore >= 60 ? 'Good' : toneScore >= 40 ? 'Fair' : 'Poor',
-          reasoning: 'Based on respectfulness, civility, and absence of aggressive language',
-          tips: toneScore < 70 ? [
-            'Avoid aggressive or dismissive language',
-            'Focus on arguments, not the person',
-            'Use respectful phrases like "I understand your point, but..."',
-            'Acknowledge valid points made by opponents'
-          ] : [
-            'Great tone! Keep maintaining respect and professionalism'
-          ]
-        }
-      });
-
-      // ✅ STEP 5: CLARITY ANALYSIS
-      decisionTrace.push({
-        step: 'clarity_analysis',
-        message: `Clarity scored ${clarityScore}/100`,
-        impact: clarityScore >= 70 ? 'positive' : clarityScore >= 50 ? 'neutral' : 'negative',
-        score: clarityScore,
-        data: {
-          clarityScore,
-          claimCount: claims.length,
-          category: clarityScore >= 80 ? 'Very Clear' : clarityScore >= 60 ? 'Clear' : clarityScore >= 40 ? 'Somewhat Clear' : 'Unclear',
-          reasoning: 'Based on argument structure, coherence, and readability',
-          tips: clarityScore < 70 ? [
-            'Organize arguments with clear topic sentences',
-            'Use transition words (however, therefore, moreover)',
-            'Break complex ideas into smaller, digestible points',
-            'Aim for 15-25 words per sentence on average'
-          ] : [
-            'Well-structured argument! Good use of organization'
-          ]
-        }
-      });
-
-      // ✅ STEP 6: EVIDENCE ANALYSIS
-      decisionTrace.push({
-        step: 'evidence_analysis',
-        message: `Evidence scored ${evidenceAnalysis.score}/100`,
-        impact: evidenceAnalysis.score >= 70 ? 'positive' : evidenceAnalysis.score >= 50 ? 'neutral' : 'negative',
-        score: evidenceAnalysis.score,
-        data: {
-          evidenceScore: evidenceAnalysis.score,
-          hasEvidence: evidenceAnalysis.hasEvidence,
-          verified: evidenceAnalysis.verified,
-          indicatorCount: evidenceAnalysis.indicatorCount,
-          category: evidenceAnalysis.score >= 80 ? 'Strong Evidence' : evidenceAnalysis.score >= 60 ? 'Moderate Evidence' : evidenceAnalysis.score >= 40 ? 'Weak Evidence' : 'No Evidence',
-          reasoning: 'Evaluated based on citations, data, and supporting facts',
-          tips: evidenceAnalysis.score < 70 ? [
-            'Include specific citations or sources (e.g., "According to Smith 2023...")',
-            'Use data and statistics to support claims',
-            'Provide concrete examples and case studies',
-            'Reference peer-reviewed research when possible'
-          ] : [
-            'Strong evidence usage! Keep citing reliable sources'
-          ]
-        }
-      });
-
-      // ✅ STEP 7: CLAIMS EXTRACTION
-      decisionTrace.push({
-        step: 'claims_extraction',
-        message: `Extracted ${claims.length} main claim(s)`,
-        impact: claims.length > 0 ? 'positive' : 'neutral',
-        data: {
-          claims: claims.slice(0, 5),
-          claimCount: claims.length,
-          tips: claims.length === 0 ? [
-            'Make clear, specific claims',
-            'State your main arguments explicitly'
-          ] : []
-        }
-      });
-
-      // ✅ STEP 8: REBUTTAL ANALYSIS
-      if (previousTurns.length > 0) {
-        decisionTrace.push({
-          step: 'rebuttal_analysis',
-          message: `Found ${rebuttals.length} rebuttal(s)`,
-          impact: rebuttals.length > 0 ? 'positive' : 'neutral',
-          data: {
-            rebuttals: rebuttals.slice(0, 5),
-            rebuttalCount: rebuttals.length,
-            tips: rebuttals.length === 0 ? [
-              'Directly address opponent\'s arguments',
-              'Explain why their reasoning is flawed',
-              'Provide counter-evidence'
-            ] : []
-          }
-        });
-      }
-
-      // Fact-check with RAG
-      let factCheckResult = null;
-      if (this.useRAG) {
-        try {
-          factCheckResult = await factCheckService.checkText(content, {
-            sources: ['knowledge'],
-            topK: 3
-          });
-
-          if (factCheckResult.flags.length > 0) {
-            decisionTrace.push({
-              step: 'fact_check',
-              message: `${factCheckResult.flags.length} claim(s) lack supporting patterns`,
-              impact: 'negative',
-              data: {
-                flags: factCheckResult.flags,
-                confidence: factCheckResult.overallConfidence
-              }
-            });
-          } else if (factCheckResult.checks.length > 0) {
-            decisionTrace.push({
-              step: 'fact_check',
-              message: `Claims match knowledge patterns (${factCheckResult.overallConfidence}% confidence)`,
-              impact: 'positive',
-              data: {
-                checks: factCheckResult.checks,
-                confidence: factCheckResult.overallConfidence
-              }
-            });
-          }
-        } catch (error) {
-          console.error('Fact check error:', error.message);
-        }
-      }
-
-      // ✅ STEP 9: OVERALL QUALITY CALCULATION
-      const overallQuality = this.calculateOverallQuality(
-        toneScore,
-        clarityScore,
-        evidenceAnalysis.score,
-        fallacies.length,
-        claims.length,
-        decisionTrace
-      );
-
-      decisionTrace.push({
-        step: 'overall_quality',
-        message: `Final quality score: ${overallQuality}/100`,
-        impact: overallQuality >= 70 ? 'positive' : overallQuality >= 50 ? 'neutral' : 'negative',
-        score: overallQuality,
-        data: {
-          overallQuality,
-          breakdown: {
-            tone: { score: toneScore, weight: '25%' },
-            clarity: { score: clarityScore, weight: '25%' },
-            evidence: { score: evidenceAnalysis.score, weight: '30%' },
-            claims: { present: claims.length > 0, weight: '10%' },
-            fallacies: { count: fallacies.length, penalty: fallacies.length * 5, weight: '10%' }
-          },
-          formula: '(tone × 0.25) + (clarity × 0.25) + (evidence × 0.30) + (hasClaims × 0.10) + (noFallacies × 0.10)',
-          category: overallQuality >= 80 ? 'Excellent' : overallQuality >= 60 ? 'Good' : overallQuality >= 40 ? 'Fair' : 'Poor',
-          tips: overallQuality < 70 ? [
-            'Focus on areas with lowest scores',
-            'Balance emotion with logic',
-            'Support claims with evidence',
-            'Maintain respectful discourse'
-          ] : [
-            'Outstanding argument quality!',
-            'Keep up the excellent work'
-          ]
-        }
-      });
-
-      // ✅ FINAL SUMMARY
-      decisionTrace.push({
-        step: 'summary',
-        message: 'Analysis complete',
-        impact: 'neutral',
-        data: {
-          totalSteps: decisionTrace.length,
-          analysisTime: 'Real-time',
-          strengths: [
-            ...(toneScore >= 70 ? ['Respectful tone'] : []),
-            ...(clarityScore >= 70 ? ['Clear structure'] : []),
-            ...(evidenceAnalysis.score >= 70 ? ['Strong evidence'] : []),
-            ...(fallacies.length === 0 ? ['No fallacies'] : [])
-          ],
-          weaknesses: [
-            ...(toneScore < 70 ? ['Tone could be more respectful'] : []),
-            ...(clarityScore < 70 ? ['Structure could be clearer'] : []),
-            ...(evidenceAnalysis.score < 70 ? ['Needs more evidence'] : []),
-            ...(fallacies.length > 0 ? [`${fallacies.length} fallacy(ies) detected`] : [])
-          ]
-        }
-      });
-
-      return {
-        claims,
-        rebuttals,
-        fallacies,
-        toneScore,
-        clarityScore,
-        evidenceQuality: evidenceAnalysis.score,
-        evidenceAnalysis,
-        overallQuality,
-        decisionTrace,
-        retrievedSources: retrievedKnowledge.sources,
-        factCheck: factCheckResult
-      };
-
-    } catch (error) {
-      console.error('❌ Turn analysis error:', error);
-      return {
-        claims: [],
-        rebuttals: [],
-        fallacies: [],
-        toneScore: 50,
-        clarityScore: 50,
-        evidenceQuality: 50,
-        evidenceAnalysis: { hasEvidence: false, verified: false, score: 50 },
-        overallQuality: 50,
-        decisionTrace: [{
-          step: 'error',
-          message: 'Error during analysis - using default scores',
-          impact: 'negative',
-          data: { error: error.message }
-        }],
-        retrievedSources: []
-      };
-    }
+    return await debateTurnGraph.run(
+      content,
+      side,
+      previousTurns,
+      userId,
+      debateId,
+      userTier
+    );
   }
 
-  /**
-   * Process claims and add to knowledge graph
-   */
-  async processClaimsForGraph(claims, turn, debate, qualityScore) {
-    if (!claims || claims.length === 0) return;
 
-    try {
-      console.log(`📊 Processing ${claims.length} claims for knowledge graph...`);
+/**
+ * Process claims and add to knowledge graph
+ */
+async processClaimsForGraph_REPLACEMENT(claims, turn, debate, qualityScore, userId = null) {
+  if (!claims || claims.length === 0) return;
 
-      for (const claimText of claims) {
-        if (claimText && claimText.trim().length > 10) {
-          await knowledgeGraphService.addClaim(
-            claimText,
-            debate._id || debate,
-            turn._id || turn,
-            turn.side,
-            qualityScore
-          );
-        }
+  try {
+    console.log(`📊 Processing ${claims.length} claims for knowledge graph...`);
+
+    for (const claimText of claims) {
+      if (claimText && claimText.trim().length > 10) {
+        await knowledgeGraphService.addClaim(
+          claimText,
+          debate._id || debate,
+          turn._id || turn,
+          turn.side,
+          qualityScore,
+          userId   // ← NEW: pass userId for persona metadata
+        );
       }
-
-      console.log(`✅ Claims added to knowledge graph`);
-    } catch (error) {
-      console.error('❌ Error processing claims for graph:', error);
     }
+
+    console.log(`✅ Claims added to knowledge graph`);
+  } catch (error) {
+    console.error('❌ Error processing claims for graph:', error);
   }
+}
 
   /**
    * PHASE 2: Retrieve relevant knowledge from ChromaDB

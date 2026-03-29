@@ -93,6 +93,26 @@ const claimSchema = new mongoose.Schema({
       default: 0
     },
 
+    refutationCount: {
+       type: Number,
+      default: 0,
+    },
+    refutationSuccessRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 1,
+    },
+    averageRebuttalQuality: {
+      type: Number,
+      default: 0,
+    },
+    claimResilienceScore: {
+      type: Number,
+      default: 100,
+      min: 0,
+      max: 100,
+  },
     // Success rate (wins / total uses)
     successRate: {
       type: Number,
@@ -144,7 +164,13 @@ const claimSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  authorPersona: {
+      tone: { type: String },
+      argumentativeStyle: { type: String },
+      aggressiveness: { type: Number },
+      empathy: { type: Number },
+    },
 });
 
 // Indexes for efficient queries
@@ -152,7 +178,8 @@ claimSchema.index({ normalizedText: 'text' });
 claimSchema.index({ 'stats.totalUses': -1 });
 claimSchema.index({ 'stats.successRate': -1 });
 claimSchema.index({ topic: 1, 'stats.totalUses': -1 });
-
+claimSchema.index({ 'stats.claimResilienceScore': -1 });
+claimSchema.index({ 'authorPersona.argumentativeStyle': 1, topic: 1 });
 // Update timestamp on save
 claimSchema.pre('save', function(next) {
   this.updatedAt = new Date();

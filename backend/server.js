@@ -6,18 +6,27 @@ import helmet from 'helmet';
 import { createServer } from 'http';
 import morgan from 'morgan';
 import connectDB from './src/config/database.js';
+import './src/models/Huddle.js';
+import './src/models/post.js';
+import './src/models/UserPerformance.js';
 import aiCoachRoutes from './src/routes/aiCoachRoutes.js';
 import aiUsageRoutes from './src/routes/aiUsageRoutes.js';
+import communityHealthRoutes from './src/routes/communityHealthRoutes.js';
+import communityMemoryRoutes from './src/routes/communityMemoryRoutes.js';
+import feedRoutes from './src/routes/feedRoutes.js';
+import huddleRoutes from './src/routes/huddleRoutes.js';
+import karmaRoutes from './src/routes/karmaRoutes.js';
 import knowledgeGraphRoutes from './src/routes/knowledgeGraphRoutes.js';
 import personaRoutes from './src/routes/personaRoutes.js';
+import threadRoutes from './src/routes/threadRoutes.js';
 dotenv.config();
 
-// 🆕 MODELS FIRST - Register Mongoose schemas
-import './src/models/debate.js';
+// MODELS FIRST - Register Mongoose schemas
+import './src/models/Debate.js';
 import './src/models/DebateMemory.js';
 import './src/models/debateTurn.js';
 import './src/models/KnowledgeItem.js';
-import './src/models/PersonaSnapshot.js'; // 🆕 Add PersonaSnapshot model
+import './src/models/PersonaSnapshot.js';
 import './src/models/user.js';
 
 // Routes
@@ -31,26 +40,18 @@ import slickRoutes from './src/routes/slickRoutes.js';
 
 // Services
 import debateAIService from './src/services/debateAIService.js';
-import { personaScheduler } from './src/services/personaScheduler.js'; // 🆕 Import scheduler
+import { personaScheduler } from './src/services/personaScheduler.js';
 
 // Socket
 import { initSocket } from './src/sockets/index.js';
 
-
-// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5001;
-
-// Create HTTP server
 const server = createServer(app);
 
-// Initialize Socket.io
 initSocket(server);
-
-// Connect to MongoDB
 connectDB();
 
-// Initialize RAG System (after DB connection)
 (async () => {
   try {
     console.log('\n📊 Initializing RAG System...');
@@ -61,44 +62,28 @@ connectDB();
   }
 })();
 
-// Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
-app.use(compression());
+  origin: [
+    'http://localhost:3000',
+    'https://veil-lvmb.vercel.app',
+    'https://veil-lvmb-j1is6mtq4-rishis-projects-93e34b4b.vercel.app',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean),
+  credentials: true,
+}));app.use(compression());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check route
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'VEIL Backend is running',
-    timestamp: new Date().toISOString(),
-    personaScheduler: personaScheduler.getStatus() // 🆕 Include scheduler status
-  });
+  res.json({ status: 'OK', message: 'VEIL Backend is running', timestamp: new Date().toISOString(), personaScheduler: personaScheduler.getStatus() });
 });
 
-// Root route
 app.get('/', (req, res) => {
-  res.json({
-    name: 'VEIL API',
-    version: '1.0.0',
-    description: 'AI-Enhanced Social Discourse Platform',
-    features: {
-      oracle: '🔮 AI Assistant Ready',
-      shadow: '🌑 Devil\'s Advocate Standby',
-      reveal: '✨ Truth Unveiled',
-      debates: '⚖️ Structured Debates',
-      personaDrift: '📸 Persona Evolution Tracking' // 🆕 New feature
-    }
-  });
+  res.json({ name: 'VEIL API', version: '1.0.0', description: 'AI-Enhanced Social Discourse Platform' });
 });
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/communities', communityRoutes);
 app.use('/api/posts', postRoutes);
@@ -108,27 +93,25 @@ app.use('/api/slicks', slickRoutes);
 app.use('/api/debates', debateRoutes);
 app.use('/api/knowledge-graph', knowledgeGraphRoutes);
 app.use('/api/coach', aiCoachRoutes);
-app.use('/api/persona', personaRoutes); // 🆕 Persona drift routes
+app.use('/api/persona', personaRoutes);
 app.use('/api/ai-usage', aiUsageRoutes);
+app.use('/api/feed', feedRoutes);
+app.use('/api/thread', threadRoutes);
+app.use('/api/communities', communityMemoryRoutes);
+app.use('/api/communities', communityHealthRoutes);
+app.use('/api/huddles', huddleRoutes);
+app.use('/api/karma', karmaRoutes);
 
-// 404 handler
+
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-  });
+  res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// Error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error',
-  });
+  res.status(err.status || 500).json({ success: false, message: err.message || 'Internal server error' });
 });
 
-// Start server (use server, not app)
 server.listen(PORT, () => {
   console.log(`
   ═══════════════════════════════════════
@@ -143,8 +126,6 @@ server.listen(PORT, () => {
   📸 Persona Drift: Enabled
   ═══════════════════════════════════════
   `);
-
-  // 🆕 START PERSONA SCHEDULER
   try {
     personaScheduler.start();
   } catch (error) {
@@ -152,14 +133,9 @@ server.listen(PORT, () => {
   }
 });
 
-// 🆕 GRACEFUL SHUTDOWN
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
   personaScheduler.stop();
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
+  server.close(() => process.exit(0));
 });
 
 process.on('SIGINT', () => {
