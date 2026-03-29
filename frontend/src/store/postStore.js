@@ -2,22 +2,45 @@ import { create } from 'zustand';
 import postService from '../services/postService';
 
 const usePostStore = create((set, get) => ({
-  posts: [],
+  posts:       [],
   currentPost: null,
-  loading: false,
-  error: null,
+  loading:     false,
+  error:       null,
 
-  // Fetch posts
+  // ── NEW: AI feed state ──────────────────────────────────────────────────
+  feedRanked:     false,   // true when currently showing AI-ranked feed
+  feedGeneratedAt: null,   // timestamp of last AI feed generation
+
+  // Fetch posts (existing — unchanged)
   fetchPosts: async (params = {}) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, feedRanked: false });
     try {
       const data = await postService.getPosts(params);
       set({ posts: data.data.posts, loading: false });
     } catch (error) {
-      set({ 
+      set({
         error: error.response?.data?.message || 'Failed to fetch posts',
-        loading: false 
+        loading: false,
       });
+    }
+  },
+
+  // ── NEW: Fetch AI-ranked personalised feed ──────────────────────────────
+  fetchFeed: async (params = {}) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await postService.getFeed(params);
+      set({
+        posts:           data.data.posts,
+        feedRanked:      data.data.ranked ?? true,
+        feedGeneratedAt: data.data.generatedAt ?? new Date().toISOString(),
+        loading:         false,
+      });
+    } catch (error) {
+      // Fall back to regular posts on error
+      console.warn('AI feed failed, falling back to regular feed');
+      set({ feedRanked: false });
+      get().fetchPosts(params);
     }
   },
 
@@ -28,9 +51,9 @@ const usePostStore = create((set, get) => ({
       const data = await postService.getPost(id);
       set({ currentPost: data.data.post, loading: false });
     } catch (error) {
-      set({ 
+      set({
         error: error.response?.data?.message || 'Failed to fetch post',
-        loading: false 
+        loading: false,
       });
     }
   },
@@ -41,7 +64,7 @@ const usePostStore = create((set, get) => ({
     try {
       const data = await postService.createPost(postData);
       set((state) => ({
-        posts: [data.data.post, ...state.posts],
+        posts:   [data.data.post, ...state.posts],
         loading: false,
       }));
       return { success: true, post: data.data.post };
@@ -56,26 +79,23 @@ const usePostStore = create((set, get) => ({
   votePost: async (postId, vote) => {
     try {
       const data = await postService.votePost(postId, vote);
-      
-      // Update post in list
       set((state) => ({
         posts: state.posts.map((post) =>
           post._id === postId
-            ? { 
-                ...post, 
-                upvotes: data.data.upvotes,
+            ? {
+                ...post,
+                upvotes:   data.data.upvotes,
                 downvotes: data.data.downvotes,
-                karma: data.data.karma,
+                karma:     data.data.karma,
               }
             : post
         ),
       }));
-      
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.message || 'Failed to vote' 
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Failed to vote',
       };
     }
   },

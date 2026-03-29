@@ -1,7 +1,7 @@
 import api from './api';
 
 const postService = {
-  // Get all posts
+  // Get all posts (existing — unchanged)
   getPosts: async (params = {}) => {
     const response = await api.get('/posts', { params });
     return response.data;
@@ -28,6 +28,18 @@ const postService = {
   // Delete post
   deletePost: async (id) => {
     const response = await api.delete(`/posts/${id}`);
+    return response.data;
+  },
+
+  // ── NEW: AI-ranked personalised feed ──────────────────────────────────
+  getFeed: async (params = {}) => {
+    const response = await api.get('/feed', { params });
+    return response.data;
+  },
+
+  // Get "why am I seeing this" explanation for a post
+  getWhyExplanation: async (postId) => {
+    const response = await api.get(`/feed/why/${postId}`);
     return response.data;
   },
 };
