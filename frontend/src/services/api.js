@@ -2,9 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
@@ -20,7 +18,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (!error.response) {
-      console.error('Network error:', error.message);
       return Promise.reject(new Error('Network error - please check your connection'));
     }
     if (error.response.status === 401) {
