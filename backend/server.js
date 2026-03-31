@@ -22,7 +22,7 @@ import threadRoutes from './src/routes/threadRoutes.js';
 dotenv.config();
 
 // MODELS FIRST - Register Mongoose schemas
-import './src/models/Debate.js';
+import './src/models/debate.js';
 import './src/models/DebateMemory.js';
 import './src/models/debateTurn.js';
 import './src/models/KnowledgeItem.js';
