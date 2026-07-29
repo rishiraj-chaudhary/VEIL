@@ -22,6 +22,10 @@ const debateMemorySchema = new mongoose.Schema({
     type: [Number],
     required: true,
   },
+  // Written by vectorStoreService.addToMemory through LangChain, which spreads a
+  // Document's metadata across the root of the record. Nesting the fields under a
+  // `metadata` key in the Document is what reproduces this shape, and the same
+  // paths are declared as Atlas filter fields so retrieval can pre-filter on them.
   metadata: {
     topic: String,
     side: {
@@ -30,6 +34,12 @@ const debateMemorySchema = new mongoose.Schema({
     },
     round: Number,
     quality: Number,
+    // Was written at the root by the old flat shape, so it landed outside this
+    // object and read back undefined on every record.
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
 }, {
   timestamps: true,

@@ -2,7 +2,15 @@ import PersonaSnapshot from '../../models/PersonaSnapshot.js';
 import factCheckService from '../factCheckService.js';
 import grokService from '../grokService.js';
 import structuredParserService from '../structuredParserService.js';
+import { theoryFor } from '../debateTheory.js';
 import fallacyGraph from './fallacyGraph.js';
+import {
+  calculateQuality,
+  scoreClarity,
+  scoreEvidence,
+  scoreRubric,
+  scoreTone,
+} from './scoring/argumentScorer.js';
 
 /**
  * DEBATE TURN GRAPH — Step 7 of AI Maturity Roadmap
@@ -22,9 +30,11 @@ import fallacyGraph from './fallacyGraph.js';
  *   4.  detectFallacies      — FallacyGraph (LLM + regex hybrid)
  *   5.  extractClaims        — structured claim extraction, persona-tuned
  *   6.  extractRebuttals     — rebuttal identification, persona-tuned
- *   7.  analyzeTone          — heuristic + fallacy-aware tone scoring
- *   8.  analyzeClarity       — structure + readability scoring
- *   9.  analyzeEvidence      — RAG-backed evidence quality scoring
+ *   7.  analyzeTone          — heuristic fallback: fallacy-aware tone scoring
+ *   8.  analyzeClarity       — heuristic fallback: structure + readability
+ *   9.  analyzeEvidence      — heuristic fallback: evidence indicators
+ *   9b. analyzeRubric        — model grades substance/evidence/clarity/tone,
+ *                              overriding the heuristics above when available
  *   10. calculateQuality     — weighted final score
  *   11. factCheck            — optional RAG fact verification
  *   12. storeMemory          — persist turn to vector memory
@@ -74,6 +84,9 @@ class DebateTurnGraph {
       userId,
       debateId,
       userTier,
+      // Published onto state because scoring lives outside this class now and
+      // must not depend on `this`.
+      useRAG: this.useRAG,
 
       // Built during execution
       contextString: '',
@@ -92,6 +105,8 @@ class DebateTurnGraph {
       rebuttals: [],
       toneScore: 50,
       clarityScore: 50,
+      substanceScore: 50,
+      substanceReason: '',
       evidenceAnalysis: { hasEvidence: false, verified: false, score: 50, indicatorCount: 0, sources: [] },
       overallQuality: 50,
       factCheckResult: null,
@@ -113,14 +128,18 @@ class DebateTurnGraph {
         this._node_extractRebuttals(state),
       ]);
 
-      // Tone + clarity + evidence run in parallel — all read-only on state inputs
+      // Heuristics run first and establish baseline scores...
       await Promise.all([
-        this._node_analyzeTone(state),
-        this._node_analyzeClarity(state),
-        this._node_analyzeEvidence(state),
+        scoreTone(state),
+        scoreClarity(state),
+        scoreEvidence(state),
       ]);
 
-      await this._node_calculateQuality(state);
+      // ...then the model rubric refines them. Ordered rather than parallel so
+      // the heuristics cannot overwrite the model's judgment in a race.
+      await scoreRubric(state);
+
+      await calculateQuality(state);
       await this._node_factCheck(state);
       await this._node_storeMemory(state);
       await this._node_buildResult(state);
@@ -260,50 +279,59 @@ class DebateTurnGraph {
   // ─────────────────────────────────────────────────────────────────
 
   async _node_retrieveKnowledge(state) {
+    // Standard argumentation theory is now inlined rather than retrieved. It is
+    // a fixed two-thousand-character reference that any competent model already
+    // knows; embedding the turn and running a three-stage retrieval pipeline to
+    // select two paragraphs from it bought nothing measurable.
+    state.theory = theoryFor('fallacies', 'evidence');
+
     if (!this.useRAG || !this.vectorStore) {
-      console.log('🔷 [Graph:3] RAG disabled — skipping retrieval');
+      console.log('🔷 [Graph:3] Memory retrieval unavailable — using inlined theory only');
       return;
     }
 
     try {
-      const knowledgeDocs = await this.vectorStore.retrieveKnowledgeReranked(
-        state.content, 3, state.contextString
-      ) || [];
+      // Retrieval is now pointed entirely at this platform's own debate history,
+      // which is the only thing here a pretrained model cannot already know.
+      // Counter-arguments are filtered to the opposing side and to turns that
+      // actually scored well, so what comes back is how this argument has been
+      // successfully attacked before — not merely what sounds like it.
+      const [counterArguments, weakAttempts] = await Promise.all([
+        this.vectorStore.findCounterArguments(state.content, state.side, 3),
+        this.vectorStore.findWeakArguments(state.content, 2),
+      ]);
 
-      const memoryDocs = await this.vectorStore.retrieveDebateMemoryReranked(
-        state.content, 2, {}, state.contextString
-      ) || [];
+      const memoryDocs = [...counterArguments, ...weakAttempts];
 
-      const allDocs = [...knowledgeDocs, ...memoryDocs];
-
-      const retrievedContext = allDocs
-        .map(doc => doc?.content || doc?.text || '')
+      const retrievedContext = counterArguments
+        .map(doc => `[${doc.side}, scored ${doc.quality}] ${doc.content || ''}`)
         .filter(Boolean)
         .join('\n\n');
 
-      const sources = allDocs
-        .map(doc => doc?.metadata?.category && doc?.metadata?.type
-          ? `${doc.metadata.category}:${doc.metadata.type}`
-          : 'memory')
-        .filter(Boolean);
-
-      state.retrievedKnowledge = { sources, context: retrievedContext, knowledgeDocs, memoryDocs };
+      state.retrievedKnowledge = {
+        sources: memoryDocs.map(d => `memory:${d.side ?? 'unknown'}`),
+        context: retrievedContext,
+        knowledgeDocs: [],
+        memoryDocs,
+        counterArguments,
+        weakAttempts,
+      };
 
       state.decisionTrace.push({
-        step: 'knowledge_retrieval',
-        message: `Retrieved ${allDocs.length} relevant documents`,
+        step: 'memory_retrieval',
+        message: `Retrieved ${counterArguments.length} prior counter-arguments, ${weakAttempts.length} weak attempts`,
         impact: 'neutral',
         data: {
-          knowledgeCount: knowledgeDocs.length,
-          memoryCount: memoryDocs.length,
-          sources,
+          counterArguments: counterArguments.length,
+          weakAttempts: weakAttempts.length,
+          contextChars: retrievedContext.length,
         },
       });
 
-      console.log(`🔷 [Graph:3] Retrieved ${allDocs.length} docs`);
+      console.log(`🔷 [Graph:3] Memory — ${counterArguments.length} counter-arguments, ${weakAttempts.length} weak attempts`);
 
     } catch (error) {
-      console.error('❌ [Graph:3] Retrieval error:', error.message);
+      console.warn('🔷 [Graph:3] Memory retrieval failed:', error.message);
     }
   }
 
@@ -369,8 +397,11 @@ class DebateTurnGraph {
     try {
       const { content, contextString, retrievedKnowledge, aiContext, personaContext } = state;
 
+      // Budget raised from 500: the old blob was mostly generic theory, so
+      // truncating it lost little. It now carries real prior counter-arguments,
+      // and cutting 40% of what was just retrieved wastes the retrieval.
       const ragContext = retrievedKnowledge.context
-        ? `\n\nRelevant knowledge:\n${retrievedKnowledge.context.substring(0, 500)}`
+        ? `\n\nHow this has been argued against before:\n${retrievedKnowledge.context.substring(0, 1200)}`
         : '';
 
       // ── Persona-tuned instruction ─────────────────────────────
@@ -534,302 +565,6 @@ Return format: ["rebuttal to X", "counter to Y"]`;
    *   - If empathy drift is upward → small tone bonus (user improving)
    *   - Baseline: user's current aggressiveness score anchors expected tone
    */
-  async _node_analyzeTone(state) {
-    const { content, fallacies, personaContext } = state;
-    let score = 100;
-
-    const adHominem = fallacies.filter(f => f.type === 'ad hominem');
-    const appealEmotion = fallacies.filter(f => f.type === 'appeal to emotion');
-
-    score -= adHominem.length * 25;
-    score -= appealEmotion.length * 15;
-    score -= (fallacies.length - adHominem.length - appealEmotion.length) * 5;
-
-    const aggressiveWords = [
-      'stupid', 'idiot', 'dumb', 'fool', 'moron', 'ignorant',
-      'ridiculous', 'absurd', 'nonsense', 'joke', 'pathetic',
-    ];
-    const contentLower = content.toLowerCase();
-    const aggressiveCount = aggressiveWords.filter(w => contentLower.includes(w)).length;
-    score -= aggressiveCount * 10;
-
-    const respectfulPhrases = [
-      'i understand', 'you make a good point', 'while i disagree',
-      'i respect', 'let me clarify', 'to be fair', "you're right that",
-    ];
-    const respectfulCount = respectfulPhrases.filter(p => contentLower.includes(p)).length;
-    score += respectfulCount * 5;
-
-    // ── Persona drift adjustment ──────────────────────────────────
-    let driftWarning = null;
-    if (personaContext?.traits && personaContext?.drift) {
-      const { aggressiveness, empathy } = personaContext.traits;
-      const changes = personaContext.drift.significantChanges || [];
-
-      const aggressivenessChange = changes.find(c => c.type === 'aggressiveness');
-      const empathyChange = changes.find(c => c.type === 'empathy');
-
-      // User is drifting more aggressive → extra penalty to surface the pattern
-      if (aggressivenessChange && aggressiveness > 65) {
-        score -= 8;
-        driftWarning = `Your recent debates show increasing aggressiveness (${aggressiveness}/100). Focus on argument quality over forcefulness.`;
-      }
-
-      // User is growing in empathy → small reward
-      if (empathyChange && empathy > 65) {
-        score += 5;
-      }
-
-      // High baseline aggressiveness (even without drift) → tone guidance
-      if (aggressiveness > 75 && !driftWarning) {
-        driftWarning = `Your communication style tends toward high intensity (aggressiveness: ${aggressiveness}/100). Consider a more measured tone.`;
-      }
-    }
-
-    score = Math.max(0, Math.min(100, score));
-    state.toneScore = score;
-
-    const traceData = {
-      toneScore: score,
-      category: score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Fair' : 'Poor',
-      reasoning: 'Based on respectfulness, civility, and absence of aggressive language',
-      adHominemCount: adHominem.length,
-      aggressiveWordCount: aggressiveCount,
-      respectfulPhraseCount: respectfulCount,
-      tips: score < 70 ? [
-        'Avoid aggressive or dismissive language',
-        'Focus on arguments, not the person',
-        'Use respectful phrases like "I understand your point, but..."',
-        'Acknowledge valid points made by opponents',
-      ] : ['Great tone! Keep maintaining respect and professionalism'],
-    };
-
-    if (driftWarning) traceData.driftWarning = driftWarning;
-
-    state.decisionTrace.push({
-      step: 'tone_analysis',
-      message: `Tone scored ${score}/100${driftWarning ? ' ⚠️ drift detected' : ''}`,
-      impact: score >= 70 ? 'positive' : score >= 50 ? 'neutral' : 'negative',
-      score,
-      data: traceData,
-    });
-
-    console.log(`🔷 [Graph:7] Tone: ${score}/100`);
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // NODE 8 — ANALYZE CLARITY
-  // ─────────────────────────────────────────────────────────────────
-
-  async _node_analyzeClarity(state) {
-    const { content, claims } = state;
-    let score = 50;
-
-    const words = content.trim().split(/\s+/).length;
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
-    const avgSentenceLength = words / Math.max(1, sentences);
-
-    if (avgSentenceLength >= 15 && avgSentenceLength <= 25) score += 15;
-    else if (avgSentenceLength > 40) score -= 15;
-    else if (avgSentenceLength < 10) score -= 10;
-
-    const hasStructure = content.includes('\n\n') || content.includes('\n');
-    if (hasStructure && words > 100) score += 10;
-
-    if (sentences >= 3) score += 10;
-    else if (sentences === 1 && words > 50) score -= 15;
-
-    if (claims && claims.length > 0) score += Math.min(20, claims.length * 5);
-
-    const transitions = [
-      'however', 'therefore', 'furthermore', 'moreover', 'additionally',
-      'consequently', 'nevertheless', 'thus', 'hence', 'indeed',
-    ];
-    const transitionCount = transitions.filter(w => content.toLowerCase().includes(w)).length;
-    score += Math.min(15, transitionCount * 5);
-
-    score = Math.max(0, Math.min(100, score));
-    state.clarityScore = score;
-
-    state.decisionTrace.push({
-      step: 'clarity_analysis',
-      message: `Clarity scored ${score}/100`,
-      impact: score >= 70 ? 'positive' : score >= 50 ? 'neutral' : 'negative',
-      score,
-      data: {
-        clarityScore: score,
-        sentences,
-        avgSentenceLength: parseFloat(avgSentenceLength.toFixed(1)),
-        transitionCount,
-        category: score >= 80 ? 'Very Clear' : score >= 60 ? 'Clear' : score >= 40 ? 'Somewhat Clear' : 'Unclear',
-        tips: score < 70 ? [
-          'Organize arguments with clear topic sentences',
-          'Use transition words (however, therefore, moreover)',
-          'Break complex ideas into smaller, digestible points',
-        ] : ['Well-structured argument!'],
-      },
-    });
-
-    console.log(`🔷 [Graph:8] Clarity: ${score}/100`);
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // NODE 9 — ANALYZE EVIDENCE
-  // ─────────────────────────────────────────────────────────────────
-
-  async _node_analyzeEvidence(state) {
-    const { content, retrievedKnowledge } = state;
-    let score = 0;
-
-    const strongIndicators = [
-      'peer-reviewed', 'published study', 'research shows', 'data indicates',
-      'according to', 'study found', 'statistics show', 'meta-analysis',
-    ];
-    const mediumIndicators = [
-      'research', 'study', 'data', 'statistics', 'evidence',
-      'report', 'survey', 'analysis', 'findings',
-    ];
-    const weakIndicators = [
-      'i believe', 'in my opinion', 'it seems', 'probably',
-      'might', 'could', 'perhaps', 'maybe',
-    ];
-
-    const contentLower = content.toLowerCase();
-    const strongCount = strongIndicators.filter(i => contentLower.includes(i)).length;
-    const mediumCount = mediumIndicators.filter(i => contentLower.includes(i)).length;
-    const weakCount = weakIndicators.filter(i => contentLower.includes(i)).length;
-
-    score += strongCount * 30;
-    score += mediumCount * 15;
-    score -= weakCount * 5;
-
-    const hasNumbers = /\d+%|\d+\.\d+|\d+ (percent|people|cases|studies)/.test(content);
-    if (hasNumbers) score += 15;
-
-    const hasCitation = /\([A-Z][a-z]+ \d{4}\)|\[?\d+\]?|et al\./.test(content);
-    if (hasCitation) score += 20;
-
-    if (weakCount > strongCount + mediumCount && !hasNumbers) score -= 20;
-
-    let verified = false;
-    if (this.useRAG && retrievedKnowledge.knowledgeDocs.length > 0) {
-      const hasStrongEvidence = retrievedKnowledge.knowledgeDocs.some(
-        doc => doc.metadata?.type === 'strong_evidence'
-      );
-      if (hasStrongEvidence) {
-        verified = true;
-        score += 10;
-      }
-    }
-
-    score = Math.max(0, Math.min(100, score));
-    const hasEvidence = strongCount + mediumCount > 0;
-
-    state.evidenceAnalysis = {
-      hasEvidence,
-      verified,
-      score,
-      indicatorCount: strongCount + mediumCount,
-      sources: retrievedKnowledge.sources,
-    };
-
-    state.decisionTrace.push({
-      step: 'evidence_analysis',
-      message: `Evidence scored ${score}/100`,
-      impact: score >= 70 ? 'positive' : score >= 50 ? 'neutral' : 'negative',
-      score,
-      data: {
-        evidenceScore: score,
-        hasEvidence,
-        verified,
-        strongCount,
-        mediumCount,
-        hasNumbers,
-        hasCitation,
-        category: score >= 80 ? 'Strong Evidence' : score >= 60 ? 'Moderate Evidence' : score >= 40 ? 'Weak Evidence' : 'No Evidence',
-        tips: score < 70 ? [
-          'Include specific citations (e.g., "According to Smith 2023...")',
-          'Use data and statistics to support claims',
-          'Reference peer-reviewed research when possible',
-        ] : ['Strong evidence usage!'],
-      },
-    });
-
-    console.log(`🔷 [Graph:9] Evidence: ${score}/100`);
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // NODE 10 — CALCULATE QUALITY (Persona-baseline aware)
-  // ─────────────────────────────────────────────────────────────────
-
-  /**
-   * Persona integration:
-   *   - argumentativeStyle === 'evidence-based' → evidence weight bumped to 35%
-   *   - argumentativeStyle === 'emotional'       → tone weight bumped to 30%
-   *   - Coaching tips from persona drift appended to the trace
-   */
-  async _node_calculateQuality(state) {
-    const { toneScore, clarityScore, evidenceAnalysis, fallacies, claims, personaContext } = state;
-
-    // ── Dynamic weights based on argumentative style ──────────────
-    let toneWeight = 0.25;
-    let evidenceWeight = 0.30;
-    let clarityWeight = 0.25;
-
-    if (personaContext?.traits?.argumentativeStyle === 'evidence-based') {
-      evidenceWeight = 0.35;
-      toneWeight = 0.20;
-      clarityWeight = 0.20;
-    } else if (personaContext?.traits?.argumentativeStyle === 'emotional') {
-      toneWeight = 0.30;
-      evidenceWeight = 0.25;
-    }
-
-    const weighted = (
-      toneScore * toneWeight +
-      clarityScore * clarityWeight +
-      evidenceAnalysis.score * evidenceWeight +
-      (claims.length > 0 ? 100 : 50) * 0.10 +
-      (fallacies.length === 0 ? 100 : Math.max(0, 100 - fallacies.length * 20)) * 0.10
-    );
-
-    state.overallQuality = Math.round(weighted);
-
-    // ── Drift-aware coaching tips ─────────────────────────────────
-    const driftTips = personaContext?.coaching || [];
-
-    state.decisionTrace.push({
-      step: 'overall_quality',
-      message: `Final quality score: ${state.overallQuality}/100`,
-      impact: state.overallQuality >= 70 ? 'positive' : state.overallQuality >= 50 ? 'neutral' : 'negative',
-      score: state.overallQuality,
-      data: {
-        overallQuality: state.overallQuality,
-        breakdown: {
-          tone: { score: toneScore, weight: `${Math.round(toneWeight * 100)}%` },
-          clarity: { score: clarityScore, weight: `${Math.round(clarityWeight * 100)}%` },
-          evidence: { score: evidenceAnalysis.score, weight: `${Math.round(evidenceWeight * 100)}%` },
-          claims: { present: claims.length > 0, weight: '10%' },
-          fallacies: { count: fallacies.length, penalty: fallacies.length * 5, weight: '10%' },
-        },
-        personaWeightsApplied: !!personaContext,
-        category: state.overallQuality >= 80 ? 'Excellent' : state.overallQuality >= 60 ? 'Good' : state.overallQuality >= 40 ? 'Fair' : 'Poor',
-        driftCoachingTips: driftTips,
-        tips: state.overallQuality < 70 ? [
-          'Focus on areas with lowest scores',
-          'Balance emotion with logic',
-          'Support claims with evidence',
-          'Maintain respectful discourse',
-          ...driftTips,
-        ] : [
-          'Outstanding argument quality!',
-          ...driftTips,
-        ],
-      },
-    });
-
-    console.log(`🔷 [Graph:10] Overall quality: ${state.overallQuality}/100`);
-  }
 
   // ─────────────────────────────────────────────────────────────────
   // NODE 11 — FACT CHECK (optional, RAG only)

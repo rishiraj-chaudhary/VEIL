@@ -1,4 +1,5 @@
 import natural from 'natural';
+import { FALLACY_REFERENCE } from '../debateTheory.js';
 import grokService from '../grokService.js';
 import structuredParserService from '../structuredParserService.js';
 
@@ -19,14 +20,16 @@ import structuredParserService from '../structuredParserService.js';
  *     → Confidence-scored per fallacy
  *
  * When does Layer 2 trigger?
- *   - Regex found a hit (verify + enrich)
- *   - Tone is aggressive (potential ad hominem)
- *   - Argument is complex (>100 words)
- *   - High-tier user (pro/team/enterprise)
- *   - Debate round > 1 (rebuttals have more fallacy risk)
+ *   - Any turn long enough to contain an argument (see MIN_WORDS_FOR_LLM)
+ *   - Set FALLACY_LLM_ENABLED=false to disable the layer entirely
  *
  * Cost: ~50-80 tokens per analysis (fast model only)
  */
+
+// Below this, a turn is a fragment rather than an argument — there is no
+// reasoning structure for the LLM layer to evaluate.
+const MIN_WORDS_FOR_LLM = 25;
+
 class FallacyGraph {
   constructor() {
     this.tokenizer = new natural.WordTokenizer();
@@ -112,7 +115,11 @@ class FallacyGraph {
     }
 
     // ── Node 2: Build knowledge context ──────────────────────────
-    const knowledgeContext = this._buildKnowledgeContext(retrievedKnowledge);
+    // Was: retrieve fallacy definitions from a vector store and paste them in.
+    // The model does not need to be told what an ad hominem is — turn analysis
+    // was measured detecting an implicit false dilemma at 0.9 confidence with
+    // retrieval disabled entirely.
+    const knowledgeContext = FALLACY_REFERENCE;
 
     // ── Node 3: LLM reasoning ────────────────────────────────────
     const llmFallacies = await this._runLLMLayer(
@@ -173,27 +180,33 @@ class FallacyGraph {
 
   // ── Trigger decision ─────────────────────────────────────────────
 
+  /**
+   * Decides whether the reasoning layer runs.
+   *
+   * The gate is deliberately permissive. Regex only ever matches fallacies that
+   * announce themselves in stock phrasing; the ones worth catching — false
+   * dilemma, circular reasoning, unstated premises — are structural and leave no
+   * keyword behind. Gating on "regex found something, or the text is long, or it
+   * sounded angry" meant a short, calm, well-mannered opening argument received
+   * no reasoning-level analysis at all, which is precisely the argument a user
+   * most needs feedback on.
+   *
+   * Detection costs a fraction of a cent per turn on the fast model, so the
+   * default is to analyse. Only trivially short turns are skipped, since there
+   * is not enough there to reason about.
+   */
   _shouldTriggerLLM(content, regexSignals, round, userTier) {
+    if (process.env.FALLACY_LLM_ENABLED === 'false') return false;
+
     // Always trigger if regex found something (verify + enrich)
     if (regexSignals.length > 0) return true;
 
-    const words = content.trim().split(/\s+/);
+    const words = content.trim().split(/\s+/).filter(Boolean);
 
-    // Trigger for complex arguments (more fallacy surface area)
-    if (words.length > 100) return true;
+    // Too short to contain a structural argument worth analysing.
+    if (words.length < MIN_WORDS_FOR_LLM) return false;
 
-    // Trigger if aggressive tone detected
-    const wordSet = new Set(words.map(w => w.toLowerCase().replace(/[^a-z]/g, '')));
-    const aggressiveHits = [...wordSet].filter(w => this.aggressiveWords.has(w)).length;
-    if (aggressiveHits > 0) return true;
-
-    // Trigger for paying users on all rounds
-    if (['pro', 'team', 'enterprise'].includes(userTier)) return true;
-
-    // Trigger on rebuttal rounds (higher fallacy risk)
-    if (round > 1) return true;
-
-    return false;
+    return true;
   }
 
   // ── Node 3: LLM reasoning ────────────────────────────────────────
@@ -216,19 +229,32 @@ Identify logical fallacies in this argument. For each fallacy:
 - explanation: why this specific text is a fallacy (be specific, reference the argument)
 - severity: 1-10 (10 = most damaging to argument quality)
 - confidence: 0.0-1.0 (how certain you are this is actually a fallacy)
-- quote: the specific phrase that contains the fallacy (optional, max 100 chars)
+- quote: REQUIRED. Copy the exact words from the argument that contain the fallacy, verbatim, word for word, MAXIMUM 150 characters. Do not paraphrase or invent text.
 
-Only report genuine fallacies. If the argument is logically sound, return [].
+Most arguments contain NO fallacies. Returning [] is the expected result for a
+reasonable argument. Do not find a fallacy merely because you were asked to look.
+
+These are NOT fallacies:
+- Citing a study, statistic, or expert to support a claim — that is evidence, not appeal to authority. It is only appeal to authority if the source is irrelevant, unqualified, or the sole basis for an unrelated conclusion.
+- Acknowledging that evidence is mixed or uncertain.
+- Stating a limited, hedged conclusion.
+- Disagreeing strongly, or being blunt.
+
+Only report a fallacy when you can quote the exact words that commit it.
 Limit to 3 most significant fallacies.
 
 Return ONLY a JSON array:
 [{"type": "...", "explanation": "...", "severity": 7, "confidence": 0.85, "quote": "..."}]`;
 
     try {
-      const response = await grokService.generateFast(prompt, {
+      // Deliberately the smart model. Fallacy identification is a reasoning
+      // judgment, and the fast model confidently mislabels sound arguments —
+      // citing a study as "appeal to authority", hedging as "slippery slope".
+      // A coach that invents flaws is worse than one that misses them.
+      const response = await grokService.generateSmart(prompt, {
         ...aiContext,
         operation: 'fallacy_detection',
-        temperature: 0.2,
+        temperature: 0.1,
       });
 
       const fallacies = await structuredParserService.parse(
@@ -240,15 +266,50 @@ Return ONLY a JSON array:
 
       if (!Array.isArray(fallacies)) return [];
 
-      return fallacies.map(f => ({
-        ...f,
-        detectionMethod: 'llm',
-      }));
+      return fallacies
+        .filter(f => this._isGrounded(f, content))
+        .map(f => ({
+          ...f,
+          detectionMethod: 'llm',
+        }));
 
     } catch (error) {
       console.error('❌ LLM fallacy detection failed:', error.message);
       return [];
     }
+  }
+
+  /**
+   * Rejects a reported fallacy whose quote does not actually appear in the
+   * argument. A model asked to find flaws will produce them, inventing the
+   * supporting text along with the verdict; requiring the quote to be real is a
+   * cheap check that the finding is about this argument and not a plausible
+   * one. Telling a user their sound argument is fallacious is far more damaging
+   * than missing a fallacy, so anything ungrounded is dropped.
+   */
+  _isGrounded(fallacy, content) {
+    const quote = String(fallacy?.quote || '').trim();
+    if (!quote) return false;
+
+    const normalise = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const haystack = normalise(content);
+    const needle = normalise(quote);
+
+    if (!needle) return false;
+    if (haystack.includes(needle)) return true;
+
+    // Tolerate light paraphrase (ellipses, dropped articles) by requiring most
+    // of the quoted words to be present in order-independent form.
+    const needleWords = needle.split(' ').filter(w => w.length > 3);
+    if (needleWords.length === 0) return false;
+
+    const present = needleWords.filter(w => haystack.includes(w)).length;
+    const overlap = present / needleWords.length;
+
+    if (overlap >= 0.8) return true;
+
+    console.log(`🚫 Dropped ungrounded fallacy "${fallacy.type}" (quote overlap ${(overlap * 100).toFixed(0)}%)`);
+    return false;
   }
 
   // ── Node 4: Merge + deduplicate ──────────────────────────────────

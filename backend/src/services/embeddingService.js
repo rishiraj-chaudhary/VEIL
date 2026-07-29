@@ -1,4 +1,7 @@
 import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
+import CachedEmbeddings from "./cachedEmbeddings.js";
+
+const EMBEDDING_CACHE_SIZE = parseInt(process.env.EMBEDDING_CACHE_SIZE, 10) || 5000;
 
 class EmbeddingService {
   constructor() {
@@ -18,16 +21,23 @@ class EmbeddingService {
     }
 
     try {
-      this.embeddings = new HuggingFaceInferenceEmbeddings({
+      const remote = new HuggingFaceInferenceEmbeddings({
         apiKey: apiKey,
         model: this.model,
+      });
+
+      // Wrapped so repeated queries (retrieval runs the same text constantly)
+      // don't pay a network round-trip each time.
+      this.embeddings = new CachedEmbeddings(remote, {
+        model: this.model,
+        maxEntries: EMBEDDING_CACHE_SIZE,
       });
 
       this.initialized = true;
       console.log('✅ HuggingFace Embeddings initialized (LangChain)');
       console.log(`   Model: ${this.model}`);
       console.log('   Dimensions: 384-d');
-      console.log('   Cost: FREE 🎉');
+      console.log(`   Cache: in-process, max ${EMBEDDING_CACHE_SIZE} vectors`);
 
       return this.embeddings;
 
@@ -54,6 +64,20 @@ class EmbeddingService {
 
   getDimensions() {
     return 384;
+  }
+
+  /** Embed many texts in one upstream call, reusing anything already cached. */
+  async embedDocuments(texts) {
+    if (!Array.isArray(texts) || texts.length === 0) return [];
+    return this.getEmbeddings().embedDocuments(texts);
+  }
+
+  async embedQuery(text) {
+    return this.getEmbeddings().embedQuery(text);
+  }
+
+  getCacheStats() {
+    return this.initialized ? this.embeddings.getCacheStats() : null;
   }
 }
 
