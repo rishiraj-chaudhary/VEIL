@@ -27,7 +27,8 @@ const Register = () => {
 
     const result = await register(username, email, password);
     if (result.success) {
-      navigate('/');
+      // New accounts go through onboarding rather than landing on an empty feed.
+      navigate('/welcome');
     }
   };
 

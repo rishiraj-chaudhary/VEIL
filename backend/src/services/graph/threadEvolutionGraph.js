@@ -53,7 +53,7 @@ class ThreadEvolutionGraph {
 
     // Check if re-analysis is needed
     const existing = post.threadAnalysis;
-    if (existing && existing.commentCountAtAnalysis) {
+    if (!state.force && existing && existing.commentCountAtAnalysis) {
       const newComments = comments.length - existing.commentCountAtAnalysis;
       if (newComments < REANALYSE_THRESHOLD) {
         state.skipAnalysis = true;
@@ -145,7 +145,7 @@ Return ONLY valid JSON, no preamble:
 Score 0=very negative, 50=neutral, 100=very positive.`;
 
     try {
-      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a sentiment analyst. Return only valid JSON.' });
+      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a sentiment analyst. Return only valid JSON.', operation: 'sentiment_analysis' });
       const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       state.sentimentArc = JSON.parse(clean);
     } catch (err) {
@@ -187,7 +187,7 @@ Return ONLY valid JSON, no preamble:
 driftScore: 0=completely on topic, 100=completely drifted.`;
 
     try {
-      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a topic analyst. Return only valid JSON.' });
+      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a topic analyst. Return only valid JSON.', operation: 'topic_analysis' });
       const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       state.topicDrift = JSON.parse(clean);
     } catch (err) {
@@ -230,7 +230,7 @@ Return ONLY valid JSON array, no preamble:
 Return empty array [] if no clear turning points. Maximum 3 turning points.`;
 
     try {
-      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a conversation analyst. Return only valid JSON array.' });
+      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a conversation analyst. Return only valid JSON array.', operation: 'community_analysis' });
       const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const parsed = JSON.parse(clean);
       state.turningPoints = Array.isArray(parsed) ? parsed.slice(0, 3) : [];
@@ -288,7 +288,7 @@ Return ONLY valid JSON array, no preamble:
 ]`;
 
     try {
-      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a community analyst. Return only valid JSON array.' });
+      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a community analyst. Return only valid JSON array.', operation: 'community_analysis' });
       const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const parsed = JSON.parse(clean);
       state.dominantVoices = Array.isArray(parsed) ? parsed : [];
@@ -427,6 +427,7 @@ Return ONLY valid JSON array, no preamble:
   async run(postId, options = {}) {
     const state = {
       postId:        postId.toString(),
+      force:         options.force === true,
       post:          null,
       comments:      [],
       totalCount:    0,
@@ -444,11 +445,6 @@ Return ONLY valid JSON array, no preamble:
       scoreBreakdown:null,
       result:        null,
     };
-
-    if (options.force) {
-      // Will bypass cache check in node 1
-      state._forceReanalyse = true;
-    }
 
     try {
       await this._node_loadThread(state);

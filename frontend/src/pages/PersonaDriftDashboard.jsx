@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { CartesianGrid, Legend, Line, LineChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import api from '../services/api';
 import useAuthStore from '../store/authStore';
 import usePersonaStore from '../store/personaStore';
 
 const fetchPerception = async (userId) => {
   try {
-    const token = localStorage.getItem('veil_token');
-    const res = await fetch(`/api/slicks/perception/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
+    const res = await api.get(`/slicks/perception/${userId}`);
+    return res.data;
+  } catch (error) {
+    console.error('Failed to load perception data:', error);
+    return null;
+  }
 };
 
 const GapBar = ({ label, selfVal, perceivedVal }) => {

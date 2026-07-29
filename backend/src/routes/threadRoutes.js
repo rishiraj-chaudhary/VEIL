@@ -11,13 +11,15 @@
 import express from 'express';
 import { forceThreadAnalysis, getThreadAnalysis } from '../controllers/threadController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { threadValidators } from '../validators/index.js';
 
 const router = express.Router();
 
 // GET /api/thread/:postId/analysis — get thread analysis (public)
-router.get('/:postId/analysis', getThreadAnalysis);
+router.get('/:postId/analysis', validate(threadValidators.byPost), getThreadAnalysis);
 
 // POST /api/thread/:postId/analyse — force re-analysis (auth required)
-router.post('/:postId/analyse', authenticate, forceThreadAnalysis);
+router.post('/:postId/analyse', authenticate, validate(threadValidators.byPost), forceThreadAnalysis);
 
 export default router;

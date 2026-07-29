@@ -1,5 +1,7 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { postValidators } from '../validators/index.js';
 import User from '../models/user.js';
 import karmaService from '../services/karmaService.js';
 
@@ -23,12 +25,12 @@ router.post('/recalculate', authenticate, async (req, res) => {
   }
 });
 
-router.get('/leaderboard', (req, res, next) => {
+router.get('/leaderboard', validate(postValidators.list), (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 }, async (req, res) => {
   try {
-    const users = await User.find({ isActive: true })
+    const users = await User.find({ isActive: true, isSystem: { $ne: true } })
         .select('username karma')
         .sort({ karma: -1 })
         .limit(20)

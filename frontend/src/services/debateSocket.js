@@ -1,5 +1,7 @@
 import io from 'socket.io-client';
 
+const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+
 let debateSocket = null;
 
 export const initDebateSocket = () => {
@@ -7,7 +9,7 @@ export const initDebateSocket = () => {
     return debateSocket;
   }
 
-  debateSocket = io('http://localhost:5001', {
+  debateSocket = io(SOCKET_URL, {
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,
@@ -155,18 +157,6 @@ export const onVoteCast = (callback) => {
   return () => {
     if (debateSocket) {
       debateSocket.off('vote-cast', callback);
-    }
-  };
-};
-
-export const onReactionAdded = (callback) => {
-  if (!debateSocket) return () => {};
-  
-  debateSocket.on('reaction-added', callback);
-  
-  return () => {
-    if (debateSocket) {
-      debateSocket.off('reaction-added', callback);
     }
   };
 };

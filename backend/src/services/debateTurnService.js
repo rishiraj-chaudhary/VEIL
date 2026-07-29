@@ -1,6 +1,8 @@
 import Debate from '../models/debate.js';
 import DebateTurn from '../models/debateTurn.js';
 import debateAIService from './debateAIService.js';
+import { JOB_TYPES } from './jobHandlers.js';
+import jobQueue from './jobQueue.js';
 
 class DebateTurnService {
   /**
@@ -81,12 +83,22 @@ class DebateTurnService {
             aiAnalysis.claims,
             turn,
             debate,
-            aiAnalysis.overallQuality
+            aiAnalysis.overallQuality,
+            turn.author
           );
         } catch (error) {
           console.error('⚠️ Failed to process claims for graph:', error);
         }
       }
+
+      // Record which opposing claims this turn challenges. Queued so a failure
+      // is retried rather than silently dropping a user's reputation update.
+      await jobQueue.enqueue(JOB_TYPES.DETECT_REFUTATIONS, {
+        debateId: debate._id.toString(),
+        authorSide: turn.side,
+        rebuttalText: turn.content,
+        rebuttalQuality: aiAnalysis.overallQuality ?? 50,
+      });
   
       // Store turn in debate memory (RAG)
       try {
@@ -118,46 +130,11 @@ class DebateTurnService {
         
         await debate.save();
         
-        // ✅ Trigger score calculation immediately
-        console.log('📊 Triggering final score calculation...');
-        
-        // Use setImmediate to calculate scores asynchronously without blocking response
-        setImmediate(async () => {
-          try {
-            const debateScoringService = (await import('./debateScoringService.js')).default;
-            const score = await debateScoringService.calculateFinalScore(debateId);
-            
-            console.log('✅ Final scores calculated successfully');
-            console.log(`   Winner: ${score.winner}`);
-            console.log(`   FOR: ${score.forTotal}, AGAINST: ${score.againstTotal}`);
-            console.log('📊 Score object keys:', Object.keys(score));
-            console.log('📊 Score._doc:', score._doc);
-            console.log('📊 Score.forTotal:', score.forTotal);
-            console.log('📊 Score.againstTotal:', score.againstTotal);
-            
-            // Update debate with winner and scores
-            const updatedDebate = await Debate.findById(debateId);
-            if (updatedDebate) {
-              updatedDebate.winner = score.winner;
-              
-              const scoreObj = score.toObject ? score.toObject() : score._doc;
+        // Queued: losing this leaves a completed debate with no verdict and
+        // both records unresolved, with nothing indicating scoring was owed.
+        await jobQueue.enqueue(JOB_TYPES.SCORE_DEBATE, { debateId: debateId.toString() },
+          { dedupeKey: `score:${debateId}`, maxAttempts: 5 });
 
-              updatedDebate.finalScores = {
-                for: score.scores?.for?.total || score._doc?.scores?.for?.total || 0,
-                against: score.scores?.against?.total || score._doc?.scores?.against?.total || 0
-              };
-              
-              await updatedDebate.save();
-              console.log('✅ Debate updated with final results');
-              console.log(`   Final Scores - FOR: ${updatedDebate.finalScores.for}, AGAINST: ${updatedDebate.finalScores.against}`);
-            }
-            
-          } catch (error) {
-            console.error('❌ Error calculating final scores:', error.message);
-            console.error(error.stack);
-          }
-        });
-        
       } else {
         // Switch turn to opponent
         const opponents = debate.participants.filter(

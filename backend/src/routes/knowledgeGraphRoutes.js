@@ -1,5 +1,7 @@
 import express from 'express';
 import * as knowledgeGraphController from '../controllers/knowledgeGraphController.js';
+import { validate } from '../middleware/validate.js';
+import { knowledgeGraphValidators } from '../validators/index.js';
 
 const router = express.Router();
 
@@ -11,7 +13,7 @@ const router = express.Router();
  */
 
 // Get statistics for a specific claim
-router.post('/claims/stats', knowledgeGraphController.getClaimStats);
+router.post('/claims/stats', validate(knowledgeGraphValidators.claimStats), knowledgeGraphController.getClaimStats);
 
 // Get popular claims
 router.get('/claims/popular', knowledgeGraphController.getPopularClaims);
@@ -20,13 +22,13 @@ router.get('/claims/popular', knowledgeGraphController.getPopularClaims);
 router.get('/claims/successful', knowledgeGraphController.getMostSuccessful);
 
 // Search claims
-router.get('/claims/search', knowledgeGraphController.searchClaims);
+router.get('/claims/search', validate(knowledgeGraphValidators.search), knowledgeGraphController.searchClaims);
 
 // Get claims by topic
-router.get('/claims/topic/:topic', knowledgeGraphController.getClaimsByTopic);
+router.get('/claims/topic/:topic', validate(knowledgeGraphValidators.byTopic), knowledgeGraphController.getClaimsByTopic);
 
 // Get claim relationships
-router.get('/claims/:claimId/relationships', knowledgeGraphController.getClaimRelationships);
+router.get('/claims/:claimId/relationships', validate(knowledgeGraphValidators.byClaim), knowledgeGraphController.getClaimRelationships);
 
 // Get overall graph statistics
 router.get('/stats', knowledgeGraphController.getGraphStats);

@@ -28,6 +28,14 @@ const userSchema = new mongoose.Schema({
     type: Number,  
     default: 0,
   },
+  // Marks non-human accounts (currently the AI opponent). They participate in
+  // debates like anyone else, but must not appear in leaderboards, member
+  // counts, or scheduled background work meant for real users.
+  isSystem: {
+    type: Boolean,
+    default: false,
+  },
+
   isActive: {
     type: Boolean,
     default: true,
@@ -93,6 +101,10 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true,
 });
+
+// Karma leaderboard: filter on isActive then sort by karma. Without this the
+// query is a full collection scan plus an in-memory sort on every request.
+userSchema.index({ isActive: 1, isSystem: 1, karma: -1 });
 
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

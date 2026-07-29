@@ -55,6 +55,17 @@ const debateSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+    // Marks the AI opponent so turn-taking knows to generate a reply rather
+    // than wait for a human. Absent on every existing participant, which reads
+    // as false — no migration needed.
+    isAI: {
+      type: Boolean,
+      default: false,
+    },
+    aiProfile: {
+      difficulty: { type: String, enum: ['easy', 'balanced', 'hard', 'brutal'], default: 'balanced' },
+      style:      { type: String, enum: ['socratic', 'evidence', 'aggressive', 'empathetic'], default: 'evidence' },
+    },
   }],
 
   // Structure
@@ -216,4 +227,4 @@ debateSchema.statics.getDefaultRounds = function() {
 // 🔥 CRITICAL FIX: Use capital 'Debate' to match import name
 const Debate = mongoose.models.Debate || mongoose.model('Debate', debateSchema);
 
-export default Debate;
+export default Debate;  

@@ -50,6 +50,7 @@ Plain text only, no bullet points.`;
 
     try {
       return await grokService.generateFast(prompt, {
+        operation: 'summary_generation',
         systemRole: 'You are a conversation summariser. Be concise and accurate.',
       });
     } catch {
@@ -79,6 +80,7 @@ Maximum 5 claims. Only include substantive claims, not small talk.`;
 
     try {
       const raw    = await grokService.generateFast(prompt, {
+        operation: 'summary_generation',
         systemRole: 'You are a debate analyst. Return only valid JSON.',
       });
       const clean  = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
@@ -108,6 +110,7 @@ Return ONLY valid JSON:
 
     try {
       const raw    = await grokService.generateFast(prompt, {
+        operation: 'summary_generation',
         systemRole: 'You are a community post writer. Return only valid JSON.',
       });
       const clean  = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();

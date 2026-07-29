@@ -15,11 +15,13 @@ import {
     getWhyExplanation,
 } from '../controllers/feedController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { feedValidators } from '../validators/index.js';
 
 const router = express.Router();
 
 // GET /api/feed — personalised AI-ranked feed (auth required)
-router.get('/', authenticate, getPersonalisedFeed);
+router.get('/', authenticate, validate(feedValidators.list), getPersonalisedFeed);
 
 // GET /api/feed/why/:postId — why is this post in my feed?
 router.get('/why/:postId', authenticate, getWhyExplanation);

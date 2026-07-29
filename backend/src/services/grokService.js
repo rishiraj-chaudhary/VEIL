@@ -1,6 +1,15 @@
 import axios from 'axios';
 import AICostService from './aiCostService.js';
 
+// A live request must never block on a provider cooldown for longer than this.
+// Groq's Retry-After can be twenty minutes on a daily cap; honouring it inside a
+// request handler hangs the user's turn submission for the full period.
+const MAX_RETRY_WAIT_MS = 5000;
+
+// Groq's free tier caps the 70B model at 100k tokens/day. Reserve a margin so
+// the platform degrades gracefully instead of erroring on the final requests.
+const SMART_DAILY_TOKEN_BUDGET = parseInt(process.env.SMART_DAILY_TOKEN_BUDGET, 10) || 85000;
+
 class GrokService {
   constructor() {
     this.initialized = false;
@@ -46,8 +55,53 @@ class GrokService {
   /**
    * Generate response using smart model
    */
+  /**
+   * Today's smart-model token spend, cached briefly.
+   *
+   * Groq's free tier allows 100k tokens/day on the 70B model. Hitting that wall
+   * produces a hard 429 with a cooldown measured in tens of minutes, so the
+   * budget has to be checked *before* the call, not discovered by failing it.
+   */
+  async _smartTokensToday() {
+    const now = Date.now();
+    if (this._budgetCache && now - this._budgetCache.at < 60_000) {
+      return this._budgetCache.tokens;
+    }
+
+    try {
+      const AIUsage = (await import('../models/AIUsage.js')).default;
+      const since = new Date();
+      since.setHours(0, 0, 0, 0);
+
+      const [row] = await AIUsage.aggregate([
+        { $match: { createdAt: { $gte: since }, model: this.smartModel } },
+        { $group: { _id: null, tokens: { $sum: '$totalTokens' } } },
+      ]);
+
+      const tokens = row?.tokens ?? 0;
+      this._budgetCache = { at: now, tokens };
+      return tokens;
+    } catch {
+      // Never let a budget lookup failure block generation.
+      return 0;
+    }
+  }
+
   async generateSmart(prompt, context = {}) {
     this.initialize();
+
+    // Degrade to the fast model as the daily budget runs out, rather than
+    // letting the last few requests fail outright. Quality drops; availability
+    // does not.
+    const used = await this._smartTokensToday();
+    if (used >= SMART_DAILY_TOKEN_BUDGET) {
+      if (!this._budgetWarned) {
+        console.warn(`⏬ Smart-model daily budget reached (${used}/${SMART_DAILY_TOKEN_BUDGET}) — using ${this.fastModel} for the rest of the day`);
+        this._budgetWarned = true;
+      }
+      return this.generate(prompt, { ...context, _downgraded: true }, this.fastModel, 500);
+    }
+
     return this.generate(prompt, context, this.smartModel, 800);
   }
 
@@ -98,10 +152,12 @@ class GrokService {
       
       console.log(`✅ Grok response generated (${usage.total_tokens} tokens)`);
       
-      // ✅ Track AI usage if userId is provided
-      if (context.userId) {
+      // Tracked unconditionally. Gating on context.userId meant 36 of 37 call
+      // sites — every graph, the AI opponent, safety checks — spent money
+      // without appearing in usage at all.
+      {
         await AICostService.trackUsage({
-          userId: context.userId,
+          userId: context.userId || null,
           operation: context.operation || 'other',
           model: model,
           promptTokens: usage.prompt_tokens,
@@ -121,10 +177,11 @@ class GrokService {
       
       console.error('❌ Grok API error:', error.response?.data || error.message);
       
-      // ✅ Track failed request
-      if (context.userId) {
+      // Failed calls are still billed for the prompt, and a spike in failures
+      // is exactly what an operator needs to see.
+      {
         await AICostService.trackUsage({
-          userId: context.userId,
+          userId: context.userId || null,
           operation: context.operation || 'other',
           model: model,
           promptTokens: 0,
@@ -140,7 +197,44 @@ class GrokService {
       if (error.response?.status === 401) {
         throw new Error('Invalid Grok API key');
       } else if (error.response?.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
+        // Groq limits both tokens-per-minute and tokens-per-day. A per-minute
+        // ceiling clears in seconds; a daily one does not clear at all today.
+        // Retry-After is honoured only up to MAX_RETRY_WAIT_MS — beyond that,
+        // waiting means blocking a live request for minutes, which is worse
+        // than answering with the cheaper model.
+        const retryAfterSec = Number(error.response.headers?.['retry-after']) || 0;
+        const message = error.response?.data?.error?.message || '';
+        const isDailyLimit = /per day|TPD|RPD/i.test(message);
+        const attempt = (context._rateLimitAttempt || 0) + 1;
+
+        const waitMs = retryAfterSec > 0 ? retryAfterSec * 1000 : 1000 * attempt;
+        const canWait = !isDailyLimit && waitMs <= MAX_RETRY_WAIT_MS && attempt <= 2;
+
+        if (canWait) {
+          console.warn(`⏳ Rate limited on ${model}; retrying in ${waitMs}ms (attempt ${attempt}/2)`);
+          await new Promise(r => setTimeout(r, waitMs));
+          return this.generate(prompt, { ...context, _rateLimitAttempt: attempt }, model, maxTokens);
+        }
+
+        if (model !== this.fastModel) {
+          const reason = isDailyLimit
+            ? 'daily token budget exhausted'
+            : `cooldown ${Math.round(waitMs / 1000)}s exceeds the ${MAX_RETRY_WAIT_MS / 1000}s wait cap`;
+          console.warn(`⏬ ${reason} on ${model} — using ${this.fastModel} instead`);
+
+          return this.generate(
+            prompt,
+            { ...context, _rateLimitAttempt: 0, _downgraded: true },
+            this.fastModel,
+            Math.min(maxTokens, 500),
+          );
+        }
+
+        throw new Error(
+          isDailyLimit
+            ? 'Daily AI token budget exhausted. Analysis will resume tomorrow.'
+            : 'Rate limit exceeded. Please try again shortly.',
+        );
       } else if (error.code === 'ECONNABORTED') {
         throw new Error('Request timeout. Please try again.');
       }

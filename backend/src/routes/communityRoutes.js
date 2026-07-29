@@ -7,16 +7,18 @@ import {
     leaveCommunity,
 } from '../controllers/communityController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { communityValidators } from '../validators/index.js';
 
 const router = express.Router();
 
 // Public routes
 router.get('/', getAllCommunities);
-router.get('/:name', getCommunity);
+router.get('/:name', validate(communityValidators.byName), getCommunity);
 
 // Protected routes
-router.post('/', authenticate, createCommunity);
-router.post('/:name/join', authenticate, joinCommunity);
-router.post('/:name/leave', authenticate, leaveCommunity);
+router.post('/', authenticate, validate(communityValidators.create), createCommunity);
+router.post('/:name/join', authenticate, validate(communityValidators.byName), joinCommunity);
+router.post('/:name/leave', authenticate, validate(communityValidators.byName), leaveCommunity);
 
 export default router;

@@ -38,9 +38,11 @@ const Timer = ({ startedAt }) => {
 
 const VideoTile = ({ stream, label, muted = false, noVideo = false }) => {
   const ref = useRef(null);
+  // `noVideo` unmounts the <video>, so a remount needs srcObject reassigned
+  // even though `stream` itself never changed.
   useEffect(() => {
     if (ref.current && stream) ref.current.srcObject = stream;
-  }, [stream]);
+  }, [stream, noVideo]);
   return (
     <div className="relative bg-slate-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center">
       {stream && !noVideo ? (
@@ -87,14 +89,20 @@ const HuddleRoom = () => {
   const socketInitRef   = useRef(false);   // prevent StrictMode double-init
 
   useEffect(() => {
-    loadHuddle();
-    return () => cleanup();
+    const session = { cancelled: false };
+    loadHuddle(session);
+    return () => {
+      session.cancelled = true;
+      cleanup();
+    };
   }, [id]); // eslint-disable-line
 
-  const loadHuddle = async () => {
+  const loadHuddle = async (session) => {
     try {
       const res = await api.get(`/huddles/${id}`);
-      const h   = res.data.data.huddle;
+      if (session.cancelled) return;
+
+      const h = res.data.data.huddle;
       setHuddle(h);
       isHostRef.current = h.host._id === user?.id || h.host === user?.id;
 
@@ -104,32 +112,40 @@ const HuddleRoom = () => {
         return;
       }
 
-      const stream = await startMedia();
-      if (stream) connectSocket(h);
+      const { stream, hasVideo } = await acquireMedia();
+
+      // The effect can be torn down while getUserMedia is still pending (route
+      // change, StrictMode double-mount) — an orphaned stream keeps the camera on.
+      if (session.cancelled) {
+        stream?.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      if (stream) {
+        localStreamRef.current = stream;
+        setLocalStream(stream);
+        if (!hasVideo) setVideoOn(false);
+        connectSocket(h);
+      } else {
+        setError('Could not access camera/microphone.');
+      }
+
       setStatus('ready');
     } catch (err) {
-      setError('Could not load huddle.');
+      if (!session.cancelled) setError('Could not load huddle.');
     } finally {
-      setLoading(false);
+      if (!session.cancelled) setLoading(false);
     }
   };
 
-  const startMedia = async () => {
+  const acquireMedia = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      setLocalStream(stream);
-      localStreamRef.current = stream;
-      return stream;
+      return { stream: await navigator.mediaDevices.getUserMedia({ video: true, audio: true }), hasVideo: true };
     } catch {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setLocalStream(stream);
-        localStreamRef.current = stream;
-        setVideoOn(false);
-        return stream;
+        return { stream: await navigator.mediaDevices.getUserMedia({ audio: true }), hasVideo: false };
       } catch {
-        setError('Could not access camera/microphone.');
-        return null;
+        return { stream: null, hasVideo: false };
       }
     }
   };
@@ -146,11 +162,9 @@ const HuddleRoom = () => {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      socket.emit('huddle:join', {
-        huddleId: id,
-        userId:   user?.id,
-        username: user?.username,
-      });
+      // Identity comes from the handshake token — the server ignores any
+      // userId sent in the payload.
+      socket.emit('huddle:join', { huddleId: id });
     });
 
     // ── FIX 2: only host initiates, only once ──────────────────────────────────
@@ -209,6 +223,8 @@ const HuddleRoom = () => {
     socket.on('huddle:peer-left', () => {
       setPeerConnected(false);
       setRemoteStream(null);
+      // The peer may rejoin (reload/reconnect) and will wait for a fresh offer.
+      offerSentRef.current = false;
     });
 
     socket.on('connect_error', () => setError('Socket connection failed.'));
@@ -344,10 +360,20 @@ const HuddleRoom = () => {
   };
 
   const cleanup = (stopMedia = true) => {
-    if (stopMedia && localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+    if (stopMedia && localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
     pcRef.current?.close();
+    pcRef.current = null;
     socketRef.current?.disconnect();
+    socketRef.current = null;
     recognitionRef.current?.stop();
+
+    // These guards must not outlive the connection they were guarding, or the
+    // next room (or a rejoining peer) never gets a socket or an offer.
+    socketInitRef.current = false;
+    offerSentRef.current  = false;
   };
 
   // ── Ended state ─────────────────────────────────────────────────────────────

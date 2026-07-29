@@ -58,6 +58,12 @@ postSchema.pre('save', function (next) {
 postSchema.index({ community: 1, createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ karma: -1 });
+
+// Every list endpoint filters on isDeleted first, so the sort keys have to be
+// compounded onto it or Mongo cannot use an index for the ordering.
+postSchema.index({ isDeleted: 1, createdAt: -1 });
+postSchema.index({ isDeleted: 1, karma: -1, createdAt: -1 });
+postSchema.index({ isDeleted: 1, community: 1, karma: -1, createdAt: -1 });
 postSchema.index({ intentType: 1 });
 postSchema.index({ 'threadAnalysis.healthScore': -1 });
 

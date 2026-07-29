@@ -33,30 +33,33 @@ const Navbar = () => {
               </h1>
             </Link>
 
+            {/* Four primary destinations. Everything else moved under "More":
+                a nine-item bar gave no signal about what this product is for,
+                and the debate engine is what people actually use. */}
             <div className="flex items-center space-x-6">
-              <NavLink to="/feed"        className={navLinkClass}>Feed</NavLink>
-              <NavLink to="/communities" className={navLinkClass}>Communities</NavLink>
-              <NavLink to="/debates"     className={navLinkClass}>⚖️ Debates</NavLink>
-              <NavLink to="/huddles"     className={navLinkClass}>🎙️ Huddles</NavLink>
-              <NavLink to="/leaderboard" className={navLinkClass}>🏆 Leaderboard</NavLink>
-            </div>
+              <NavLink to="/drill"       className={navLinkClass}>🔥 Daily Drill</NavLink>
+              <NavLink to="/debates"     className={navLinkClass}>⚖️ Debate</NavLink>
+              <NavLink to="/reputation"  className={navLinkClass}>🛡️ Track Record</NavLink>
+              <NavLink to="/coach"       className={navLinkClass}>🎓 Progress</NavLink>
+              </div>
 
-            {/* AI Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setAiOpen(!aiOpen)}
                 className="text-gray-400 hover:text-white transition flex items-center gap-1"
               >
-                🤖 AI
+                More
                 <span className={`transform transition ${aiOpen ? 'rotate-180' : ''}`}>▾</span>
               </button>
 
               {aiOpen && (
-                <div className="absolute top-10 left-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl w-48 py-2 z-50">
-                  <NavLink to="/coach"           className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>🎓 AI Coach</NavLink>
+                <div className="absolute top-10 left-0 bg-slate-800 border border-slate-700 rounded-xl shadow-xl w-52 py-2 z-50">
+                  <NavLink to="/communities"     className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>Communities</NavLink>
+                  <NavLink to="/leaderboard"     className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>🏆 Leaderboard</NavLink>
+                  <NavLink to="/huddles"         className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>🎙️ Huddles</NavLink>
                   <NavLink to="/persona"         className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>📸 Persona</NavLink>
                   <NavLink to="/knowledge-graph" className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>📊 Knowledge Graph</NavLink>
-                  <NavLink to="/ai-usage"        className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>💰 Usage</NavLink>
+                  <NavLink to="/ai-usage"        className="block px-4 py-2 text-gray-300 hover:bg-slate-700 hover:text-white" onClick={() => setAiOpen(false)}>💰 AI Usage</NavLink>
                 </div>
               )}
             </div>

@@ -1,6 +1,7 @@
 import Comment from '../models/comment.js';
 import Post from '../models/post.js';
 import aiCacheService from '../services/aiCacheService.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 import grokService from '../services/grokService.js';
 
 // @route   POST /api/ai/oracle
@@ -104,8 +105,7 @@ export const oracleReply = async (req, res) => {
 // @route   GET /api/ai/status
 // @desc    Get AI service status
 // @access  Private
-export const getAIStatus = async (req, res) => {
-  try {
+export const getAIStatus = asyncHandler(async (req, res) => {
     const remaining = await aiCacheService.getRemainingRequests(req.user._id);
     
     res.status(200).json({
@@ -121,125 +121,18 @@ export const getAIStatus = async (req, res) => {
         cacheEnabled: aiCacheService.enabled,
       },
     });
-  } catch (error) {
-    console.error('AI status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get AI status',
-    });
-  }
-};
+});
 
 /**
  * Get category leaders (Tone, Clarity, Evidence, Logic)
  */
-export const getCategoryLeaders = async (req, res) => {
-  try {
-    const { category = 'tone' } = req.query;
-
-    const validCategories = ['tone', 'clarity', 'evidence', 'logic'];
-    if (!validCategories.includes(category)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid category. Must be: tone, clarity, evidence, or logic'
-      });
-    }
-
-    const leaders = await UserPerformance.getCategoryLeaders(category, 5);
-
-    res.json({
-      success: true,
-      data: {
-        category,
-        leaders: leaders.map((perf, index) => {
-          let score;
-          if (category === 'tone') score = Math.round(perf.qualityMetrics.avgToneScore);
-          else if (category === 'clarity') score = Math.round(perf.qualityMetrics.avgClarityScore);
-          else if (category === 'evidence') score = Math.round(perf.qualityMetrics.avgEvidenceScore);
-          else score = Math.round((1 - perf.fallacyStats.fallacyRate) * 100);
-
-          return {
-            rank: index + 1,
-            username: perf.user?.username || 'Unknown',
-            score,
-            totalDebates: perf.stats.totalDebates
-          };
-        })
-      }
-    });
-
-  } catch (error) {
-    console.error('Get category leaders error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get category leaders'
-    });
-  }
-};
-
 /**
  * Get user's rank position
  */
-export const getUserRankPosition = async (req, res) => {
-  try {
-    const userId = req.query.userId || req.user?._id || req.user?.id;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID is required'
-      });
-    }
-
-    const performance = await UserPerformance.findOne({ user: userId });
-
-    if (!performance) {
-      return res.json({
-        success: true,
-        data: {
-          qualified: false,
-          message: 'Complete at least 3 debates to qualify for rankings'
-        }
-      });
-    }
-
-    if (performance.stats.totalDebates < 3) {
-      return res.json({
-        success: true,
-        data: {
-          qualified: false,
-          debatesNeeded: 3 - performance.stats.totalDebates,
-          message: `Complete ${3 - performance.stats.totalDebates} more debate(s) to qualify`
-        }
-      });
-    }
-
-    const rankPosition = await UserPerformance.getUserRankPosition(userId);
-
-    res.json({
-      success: true,
-      data: {
-        qualified: true,
-        ...rankPosition,
-        tier: performance.rank,
-        winRate: Math.round(performance.stats.winRate)
-      }
-    });
-
-  } catch (error) {
-    console.error('Get user rank position error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get rank position'
-    });
-  }
-};
-
 /**
  * Get all leaderboards (combined view)
  */
-export const getAllLeaderboards = async (req, res) => {
-  try {
+export const getAllLeaderboards = asyncHandler(async (req, res) => {
     const [overall, improvers, tone, clarity, evidence, logic] = await Promise.all([
       UserPerformance.getLeaderboard(10, 'winRate'),
       UserPerformance.getTopImprovers(10),
@@ -290,14 +183,7 @@ export const getAllLeaderboards = async (req, res) => {
       }
     });
 
-  } catch (error) {
-    console.error('Get all leaderboards error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get leaderboards'
-    });
-  }
-};
+});
 
 
 /**

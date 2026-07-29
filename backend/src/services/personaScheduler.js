@@ -108,7 +108,8 @@ class PersonaScheduler {
 
       // Get users with recent debate activity (you can expand this query)
       const users = await User.find({
-        createdAt: { $lte: sixtyDaysAgo } // Only users who've been around for 60+ days
+        createdAt: { $lte: sixtyDaysAgo }, // Only users who've been around for 60+ days
+        isSystem: { $ne: true },          // the AI opponent has no persona to track
       })
       .select('_id')
       .limit(100) // Process max 100 users per run

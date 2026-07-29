@@ -4,6 +4,7 @@
  */
 
 import { Server } from 'socket.io';
+import { allowedOrigins } from '../config/cors.js';
 import { initLiveAssistant } from './assistantSocket.js';
 import { initDebateSocket } from './debateSocket.js';
 import { initHuddleSocket } from './huddleSocket.js';
@@ -13,7 +14,7 @@ let io;
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: ['http://localhost:3000', 'http://localhost:5173'],
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },

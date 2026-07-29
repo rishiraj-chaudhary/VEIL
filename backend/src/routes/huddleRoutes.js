@@ -19,16 +19,18 @@ import {
     publishHuddlePost,
 } from '../controllers/huddleController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { huddleValidators } from '../validators/index.js';
 
 const router = express.Router();
 
-router.post('/',                    authenticate, createHuddle);
+router.post('/',                    authenticate, validate(huddleValidators.create), createHuddle);
 router.get('/my',                   authenticate, getMyHuddles);
-router.post('/join/:joinCode',      authenticate, joinHuddle);
-router.get('/:id',                  authenticate, getHuddle);
-router.post('/:id/transcript',      authenticate, addTranscriptEntry);
-router.post('/:id/end',             authenticate, endHuddle);
-router.get('/:id/summary',          authenticate, getHuddleSummary);
-router.post('/:id/publish',         authenticate, publishHuddlePost);
+router.post('/join/:joinCode',      authenticate, validate(huddleValidators.join), joinHuddle);
+router.get('/:id',                  authenticate, validate(huddleValidators.byId), getHuddle);
+router.post('/:id/transcript',      authenticate, validate(huddleValidators.transcript), addTranscriptEntry);
+router.post('/:id/end',             authenticate, validate(huddleValidators.byId), endHuddle);
+router.get('/:id/summary',          authenticate, validate(huddleValidators.byId), getHuddleSummary);
+router.post('/:id/publish',         authenticate, validate(huddleValidators.publish), publishHuddlePost);
 
 export default router;

@@ -10,24 +10,23 @@
  * Place at: backend/src/controllers/threadController.js
  */
 
+import { asyncHandler } from '../middleware/errorHandler.js';
 import Post from '../models/post.js';
 import threadEvolutionGraph from '../services/graph/threadEvolutionGraph.js';
+import { notFound } from '../utils/AppError.js';
 
 /**
  * GET /api/thread/:postId/analysis
  * Returns cached analysis if fresh, otherwise triggers a new one.
  */
-export const getThreadAnalysis = async (req, res) => {
-  try {
+export const getThreadAnalysis = asyncHandler(async (req, res) => {
     const { postId } = req.params;
 
     const post = await Post.findOne({ _id: postId, isDeleted: false })
       .select('threadAnalysis commentCount title')
       .lean();
 
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
+    if (!post) throw notFound('Post not found');
 
     const existing = post.threadAnalysis;
 
@@ -50,24 +49,17 @@ export const getThreadAnalysis = async (req, res) => {
       data: { analysis, cached: false },
     });
 
-  } catch (error) {
-    console.error('Thread analysis error:', error);
-    res.status(500).json({ success: false, message: 'Failed to analyse thread' });
-  }
-};
+});
 
 /**
  * POST /api/thread/:postId/analyse
  * Force re-analysis (ignores cache). Auth required.
  */
-export const forceThreadAnalysis = async (req, res) => {
-  try {
+export const forceThreadAnalysis = asyncHandler(async (req, res) => {
     const { postId } = req.params;
 
     const post = await Post.findOne({ _id: postId, isDeleted: false }).lean();
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
+    if (!post) throw notFound('Post not found');
 
     const analysis = await threadEvolutionGraph.run(postId, { force: true });
 
@@ -76,8 +68,4 @@ export const forceThreadAnalysis = async (req, res) => {
       data: { analysis, cached: false },
     });
 
-  } catch (error) {
-    console.error('Force thread analysis error:', error);
-    res.status(500).json({ success: false, message: 'Failed to analyse thread' });
-  }
-};
+});

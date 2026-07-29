@@ -39,7 +39,14 @@ class DebateAIService {
       debateTurnGraph.setVectorStore(vectorStoreService, false);
 
       const stats = await vectorStoreService.getStats();
-      this.useRAG = stats.initialized && stats.hasKnowledgeStore;
+
+      // Having documents is not the same as being able to retrieve them: a
+      // missing Atlas vector index yields empty results, not an error.
+      const retrieval = stats.initialized && stats.hasKnowledgeStore
+        ? await vectorStoreService.verifyRetrieval()
+        : { ok: false, reason: 'no knowledge documents' };
+
+      this.useRAG = retrieval.ok;
 
       // ← NEW: update graph with final useRAG value
       debateTurnGraph.setVectorStore(vectorStoreService, this.useRAG);
@@ -49,7 +56,8 @@ class DebateAIService {
         console.log(`   Knowledge items: ${stats.knowledgeCount}`);
         console.log(`   Memory items: ${stats.memoryCount}`);
       } else {
-        console.log('⚠️  RAG disabled - running without retrieval');
+        console.log(`⚠️  RAG disabled — ${retrieval.reason}`);
+        console.log('   Run: node scripts/createVectorIndexes.js');
       }
     } catch (error) {
       console.error('❌ RAG initialization error:', error.message);
@@ -77,7 +85,7 @@ class DebateAIService {
 /**
  * Process claims and add to knowledge graph
  */
-async processClaimsForGraph_REPLACEMENT(claims, turn, debate, qualityScore, userId = null) {
+async processClaimsForGraph(claims, turn, debate, qualityScore, userId = null) {
   if (!claims || claims.length === 0) return;
 
   try {

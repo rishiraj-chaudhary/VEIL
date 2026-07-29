@@ -15,10 +15,12 @@
 import express from 'express';
 import { analyseCommunityMemory, getCommunityMemory } from '../controllers/communityMemoryController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { communityAnalysisValidators } from '../validators/index.js';
 
 const router = express.Router();
 
-router.get('/:name/memory', getCommunityMemory);
-router.post('/:name/memory/analyse', authenticate, analyseCommunityMemory);
+router.get('/:name/memory', validate(communityAnalysisValidators.byName), getCommunityMemory);
+router.post('/:name/memory/analyse', authenticate, validate(communityAnalysisValidators.byName), analyseCommunityMemory);
 
 export default router;

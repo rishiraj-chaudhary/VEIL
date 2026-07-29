@@ -260,6 +260,7 @@ Do not use bullet points. Plain text only. Be concise.`;
 
     try {
       const highlight = await grokService.generateFast(prompt, {
+        operation: 'coaching',
         systemRole: 'You are an encouraging AI debate coach. Be specific, brief, and personal.',
       });
       state.weeklyHighlight = highlight.trim().slice(0, 400);

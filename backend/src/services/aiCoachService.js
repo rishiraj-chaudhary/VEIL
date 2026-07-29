@@ -76,6 +76,28 @@ class AICoachService {
   // UPDATE AFTER DEBATE — now triggers PerformanceGraph
   // ─────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Runs the LLM-backed PerformanceGraph and falls back to the deterministic
+   * rule-based tips when it produces no coaching plan (LLM unconfigured or
+   * failing), so the coach panel is never left empty.
+   */
+  async runPerformanceGraphWithFallback(userId) {
+    const result = await performanceGraph.run(userId, { lookbackTurns: 20, persist: true });
+
+    console.log(`🧠 PerformanceGraph complete for ${userId} — trend: ${result.trend}, blindSpots: ${result.blindSpots.length}`);
+    if (result.newAchievements.length > 0) {
+      console.log(`🏅 New skill achievements: ${result.newAchievements.map(a => a.name).join(', ')}`);
+    }
+
+    if (!result.coachingPlan) {
+      console.log(`⚠️ No coaching plan from PerformanceGraph for ${userId} — using rule-based tips`);
+      const performance = await UserPerformance.findOne({ user: userId });
+      if (performance) await this.generateCoachingTips(userId, performance);
+    }
+
+    return result;
+  }
+
   async updatePerformanceAfterDebate(userId, debate) {
     try {
       let performance = await UserPerformance.findOne({ user: userId });
@@ -113,26 +135,18 @@ class AICoachService {
       // ── Old count-based achievements (preserved) ───────────────────────
       await this.checkAchievements(performance);
 
-      // ── OLD: rule-based tips every 3 debates (kept as fallback) ────────
-      // Now only fires if PerformanceGraph is unavailable
-      // await this.generateCoachingTips(userId, performance);
-
-      // ── NEW: PerformanceGraph — runs async, non-blocking ────────────────
-      performanceGraph.run(userId, { lookbackTurns: 20, persist: true })
-        .then(result => {
-          console.log(`🧠 PerformanceGraph complete for ${userId} — trend: ${result.trend}, blindSpots: ${result.blindSpots.length}`);
-          if (result.newAchievements.length > 0) {
-            console.log(`🏅 New skill achievements: ${result.newAchievements.map(a => a.name).join(', ')}`);
-          }
-        })
-        .catch(err => console.error('PerformanceGraph error (non-blocking):', err.message));
-
       // ── Snapshot every 5 debates (unchanged) ──────────────────────────
       if (performance.stats.totalDebates % 5 === 0) {
         if (typeof performance.addSnapshot === 'function') {
           await performance.addSnapshot('milestone');
         }
       }
+
+      // PerformanceGraph loads and saves its own copy of this same document, so
+      // it is chained after every write above rather than started alongside them
+      // — two in-flight copies clobber each other's snapshots and coaching tips.
+      this.runPerformanceGraphWithFallback(userId)
+        .catch(err => console.error('PerformanceGraph error (non-blocking):', err.message));
 
       // ── Persona snapshot trigger (unchanged) ──────────────────────────
       const shouldSnapshot = await personaDriftService.shouldTriggerSnapshot(userId, 'debate_count');
@@ -295,7 +309,7 @@ class AICoachService {
       if (performance.qualityMetrics.avgToneScore < 70)
         tips.push({ category: 'tone', priority: 'high', message: 'Focus on maintaining a respectful tone', actionable: 'Avoid personal attacks. Address the argument, not the person.' });
       if (performance.fallacyStats.fallacyRate > 0.4) {
-        const mostCommon = performance.fallacyStats.commonFallacies.sort((a, b) => b.count - a.count)[0];
+        const mostCommon = [...performance.fallacyStats.commonFallacies].sort((a, b) => b.count - a.count)[0];
         tips.push({ category: 'logic', priority: 'high', message: `Watch out for ${mostCommon?.type || 'logical fallacies'}`, actionable: `You frequently use ${mostCommon?.type || 'fallacies'}. Review and practice avoiding it.` });
       }
       if (performance.qualityMetrics.avgClarityScore < 70)

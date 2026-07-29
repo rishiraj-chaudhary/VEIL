@@ -2,7 +2,9 @@ import express from 'express';
 import { getLiveInsights } from '../controllers/assistantController.js';
 import {
     cancelDebate,
+    createAIDebate,
     createDebate,
+    getAIOpponentProfiles,
     getDebate,
     getDebates,
     getDebateScore,
@@ -19,16 +21,15 @@ import {
     submitTurn,
 } from '../controllers/debateTurnController.js';
 import {
-    deleteReaction,
-    getDebateReactions,
     getDebateVotes,
     getRoundVotes,
-    getTurnReactions,
-    reactToTurn,
     voteOnRound,
 } from '../controllers/debateVoteController.js';
+import { getPublicDebate } from '../controllers/publicDebateController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
 import debateScoringService from '../services/debateScoringService.js';
+import { debateValidators, postValidators } from '../validators/index.js';
 
 const router = express.Router();
 
@@ -57,6 +58,13 @@ router.get('/:debateId/score', async (req, res) => {
     }
   });
   
+// Public replay — no authentication, so a finished debate can be shared.
+router.get('/public/:id', validate(postValidators.byId), getPublicDebate);
+
+// AI opponent — declared before '/:id' so 'ai' is not captured as an id
+router.get('/ai/profiles', getAIOpponentProfiles);
+router.post('/ai', authenticate, validate(debateValidators.createVsAI), createAIDebate);
+
 // Public routes
 router.get('/', getDebates); // Get all debates (with filters)
 router.get('/:id', getDebate); // Get single debate
@@ -92,12 +100,8 @@ router.get('/:debateId/turns/check', authenticate, canSubmitTurn); // Check elig
 // Public routes
 router.get('/:debateId/votes', getDebateVotes); // Get all votes
 router.get('/:debateId/votes/:round', getRoundVotes); // Get round votes
-router.get('/turns/:turnId/reactions', getTurnReactions); // Get turn reactions
-router.get('/:debateId/reactions', getDebateReactions); // Get debate reactions
 
 // Protected routes
 router.post('/:debateId/votes/:round', authenticate, voteOnRound); // Vote on round
-router.post('/turns/:turnId/reactions', authenticate, reactToTurn); // React to turn
-router.delete('/reactions/:reactionId', authenticate, deleteReaction); // Delete reaction
 
 export default router;

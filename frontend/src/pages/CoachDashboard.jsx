@@ -200,7 +200,7 @@ const CoachDashboard = () => {
           </div>
         </div>
         <div>
-          <WeeklyInsightPanel userId={user.id} token={token} />
+          <WeeklyInsightPanel />
         </div>
 
         {/* ── Stats row ────────────────────────────────────────────────── */}
@@ -594,7 +594,7 @@ const CoachDashboard = () => {
             <p className="text-sm text-gray-400 mb-6">{achievements.length} earned</p>
             {achievements.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {achievements.sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt)).map((a) => (
+                {[...achievements].sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt)).map((a) => (
                   <div key={a.id} className="bg-slate-900/60 border border-slate-700 rounded-lg p-4 flex items-center gap-4">
                     <span className="text-3xl">{a.icon}</span>
                     <div>

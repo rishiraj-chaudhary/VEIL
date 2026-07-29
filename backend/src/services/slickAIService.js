@@ -6,6 +6,9 @@ import Slick from '../models/slick.js';
 import User from '../models/user.js';
 import perceptionGraph from './graph/perceptionGraph.js';
 import grokService from './grokService.js';
+
+const ALLOW_PLATFORM_WIDE_SLICKS = process.env.ALLOW_PLATFORM_WIDE_SLICKS === 'true';
+
 class SlickAIService {
   constructor() {
     // Use GROK_API_KEY from environment (should be Groq API key, not X.ai)
@@ -119,10 +122,17 @@ class SlickAIService {
           communities: sharedCommunities.map(c => c.name)
         };
       }
+
+      // Slicks are anonymous and their author is encrypted, so shared context is
+      // the only thing preventing targeted harassment of arbitrary strangers.
+      // Platform-wide slicks stay opt-in rather than being the default.
+      if (ALLOW_PLATFORM_WIDE_SLICKS) {
+        return { isValid: true, type: 'platform_member', communities: [] };
+      }
+
       return {
-        isValid: true,
-        type: 'platform_member',
-        communities: [],
+        isValid: false,
+        reason: 'No valid relationship found (must be in same community)',
       };
 
     } catch (error) {
@@ -529,6 +539,7 @@ class SlickAIService {
       console.log('📝 Enhanced prompt built, calling Groq API...');
 
       const aiResponse = await grokService.generateSmart(prompt, {
+        operation: 'other',
         temperature: 0.4,
       });
 

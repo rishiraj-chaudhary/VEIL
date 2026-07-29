@@ -17,7 +17,7 @@
  * Place at: backend/src/services/graph/performanceGraph.js
  */
 
-import DebateTurn from '../../models/DebateTurn.js';
+import DebateTurn from '../../models/debateTurn.js';
 import PersonaSnapshot from '../../models/PersonaSnapshot.js';
 import UserPerformance from '../../models/UserPerformance.js';
 import grokService from '../grokService.js';

@@ -26,6 +26,7 @@
 import Comment from '../../models/comment.js';
 import Community from '../../models/community.js';
 import Post from '../../models/post.js';
+import contentSafetyService from '../contentSafetyService.js';
 import grokService from '../grokService.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,11 +35,8 @@ const REANALYSE_THRESHOLD = 10; // re-run after this many new posts
 const MAX_POSTS           = 50;
 const MAX_COMMENTS        = 100;
 
-// Toxic language signals (heuristic layer)
-const TOXIC_PATTERNS = [
-  /\b(idiot|moron|stupid|dumb|shut up|you('re| are) wrong|garbage|trash|pathetic|loser)\b/gi,
-  /\b(hate|disgusting|disgrace|embarrassing|delusional|brainwashed)\b/gi,
-];
+// Toxicity scoring lives in contentSafetyService, which grades intent instead
+// of matching a keyword list. The list survives there as the last-resort tier.
 
 // ─── Graph ────────────────────────────────────────────────────────────────────
 
@@ -110,16 +108,19 @@ class CommunityHealthGraph {
   async _node_computeToxicityTrend(state) {
     if (state.skipAnalysis) return;
 
-    const toxicityRate = (comments) => {
+    // Scored by contentSafetyService rather than keyword matching, so rephrased
+    // or non-English hostility counts and quoted slurs do not.
+    const toxicityRate = async (comments) => {
       if (!comments.length) return 0;
-      const toxicCount = comments.filter(c =>
-        TOXIC_PATTERNS.some(p => p.test(c.content))
-      ).length;
+      const scored = await contentSafetyService.analyseMany(comments.map(c => c.content || ''));
+      const toxicCount = scored.filter(r => r.isToxic).length;
       return toxicCount / comments.length;
     };
 
-    const recentRate = toxicityRate(state.recentComments);
-    const olderRate  = toxicityRate(state.olderComments);
+    const recentRate = await toxicityRate(state.recentComments);
+    const olderRate  = await toxicityRate(state.olderComments);
+
+    state.toxicCommentIds = new Set();
 
     const delta = recentRate - olderRate;
     state.toxicityRateRecent = recentRate;
@@ -196,9 +197,8 @@ class CommunityHealthGraph {
       const threadIds = Object.keys(commentsByPost);
       for (const pid of threadIds) {
         const threadComments = commentsByPost[pid];
-        const toxicInThread  = threadComments.filter(c =>
-          TOXIC_PATTERNS.some(p => p.test(c.content))
-        ).length;
+        const scored = await contentSafetyService.analyseMany(threadComments.map(c => c.content || ''));
+        const toxicInThread = scored.filter(r => r.isToxic).length;
         if (toxicInThread / threadComments.length > 0.15) escalatedThreads++;
       }
 
@@ -269,6 +269,7 @@ Do not use bullet points. Plain text only.`;
 
         try {
           const suggestion = await grokService.generateFast(prompt, {
+        operation: 'community_analysis',
             systemRole: 'You are a helpful community moderator. Be constructive and brief.',
           });
           interventionSuggestion = suggestion.trim().slice(0, 400);

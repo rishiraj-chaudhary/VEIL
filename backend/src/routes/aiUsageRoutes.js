@@ -1,12 +1,14 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { usageValidators } from '../validators/index.js';
 import AIUsage from '../models/AIUsage.js';
 import AICostService from '../services/aiCostService.js';
 
 const router = express.Router();
 
 // GET /api/ai-usage/my-stats
-router.get('/my-stats', authenticate, async (req, res) => {
+router.get('/my-stats', authenticate, validate(usageValidators.range), async (req, res) => {
   try {
     const userId = req.user._id;
     const { startDate, endDate } = req.query;
@@ -35,7 +37,7 @@ router.get('/my-stats', authenticate, async (req, res) => {
 });
 
 // GET /api/ai-usage/daily
-router.get('/daily', authenticate, async (req, res) => {
+router.get('/daily', authenticate, validate(usageValidators.range), async (req, res) => {
   try {
     const userId = req.user._id;
     const { days = 30 } = req.query;
@@ -97,6 +99,68 @@ router.get('/check-budget', authenticate, async (req, res) => {
       message: 'Failed to check budget',
       error: error.message
     });
+  }
+});
+
+
+/**
+ * GET /api/ai-usage/platform
+ *
+ * True total spend, including the background work that no single user asked for
+ * — graphs, the AI opponent, safety checks. The per-user views below cannot see
+ * any of it, which is why the dashboard understated real cost.
+ */
+router.get('/platform', authenticate, async (req, res) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - Math.min(365, parseInt(req.query.days, 10) || 30));
+
+    const [totals, byAttribution, byOperation, byModel] = await Promise.all([
+      AIUsage.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: {
+          _id: null,
+          calls: { $sum: 1 },
+          tokens: { $sum: '$totalTokens' },
+          cost: { $sum: '$estimatedCost' },
+          failures: { $sum: { $cond: [{ $eq: ['$success', false] }, 1, 0] } },
+          cached: { $sum: { $cond: ['$cached', 1, 0] } },
+        } },
+      ]),
+      AIUsage.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: '$attributed', calls: { $sum: 1 }, cost: { $sum: '$estimatedCost' } } },
+      ]),
+      AIUsage.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: '$operation', calls: { $sum: 1 }, tokens: { $sum: '$totalTokens' }, cost: { $sum: '$estimatedCost' } } },
+        { $sort: { cost: -1 } },
+      ]),
+      AIUsage.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: '$model', calls: { $sum: 1 }, cost: { $sum: '$estimatedCost' } } },
+        { $sort: { cost: -1 } },
+      ]),
+    ]);
+
+    const attributed = byAttribution.find(a => a._id === true) || { calls: 0, cost: 0 };
+    const system     = byAttribution.find(a => a._id !== true) || { calls: 0, cost: 0 };
+
+    res.json({
+      success: true,
+      data: {
+        periodDays: Math.min(365, parseInt(req.query.days, 10) || 30),
+        totals: totals[0] || { calls: 0, tokens: 0, cost: 0, failures: 0, cached: 0 },
+        attribution: {
+          userDriven: { calls: attributed.calls, cost: attributed.cost },
+          background: { calls: system.calls, cost: system.cost },
+        },
+        byOperation: byOperation.map(o => ({ operation: o._id, calls: o.calls, tokens: o.tokens, cost: o.cost })),
+        byModel: byModel.map(m => ({ model: m._id, calls: m.calls, cost: m.cost })),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to load platform usage' });
   }
 });
 

@@ -3,8 +3,8 @@
  * Place at: frontend/src/components/coach/WeeklyInsightPanel.jsx
  */
 
-import axios from 'axios';
 import { useEffect, useState } from 'react';
+import api from '../../services/api';
 
 const BADGE_META = {
   clarifier_1:     { color: 'text-cyan-400',   bg: 'bg-cyan-900/20 border-cyan-700/40' },
@@ -31,22 +31,19 @@ const AchievementPill = ({ a }) => {
   );
 };
 
-const WeeklyInsightPanel = ({ userId, token }) => {
+const WeeklyInsightPanel = () => {
   const [data, setData]           = useState(null);
   const [loading, setLoading]     = useState(true);
   const [running, setRunning]     = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [expanded, setExpanded]   = useState(true);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-  const headers = { Authorization: `Bearer ${token}` };
-
   useEffect(() => { fetchInsight(); }, []); // eslint-disable-line
 
   const fetchInsight = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/api/coach/achievements/weekly?userId=${userId}`, { headers });
+      const res = await api.get('/coach/achievements/weekly');
       setData(res.data.data);
     } catch { /* silent */ } finally { setLoading(false); }
   };
@@ -54,7 +51,7 @@ const WeeklyInsightPanel = ({ userId, token }) => {
   const runAnalysis = async () => {
     setRunning(true);
     try {
-      await axios.post(`${API_URL}/api/coach/achievements/analyse`, {}, { headers });
+      await api.post('/coach/achievements/analyse', {});
       await fetchInsight();
     } catch { /* silent */ } finally { setRunning(false); }
   };

@@ -12,137 +12,119 @@
  * Place at: backend/src/controllers/feedController.js
  */
 
+import { asyncHandler } from '../middleware/errorHandler.js';
 import Post from '../models/post.js';
+import RankedFeed from '../models/RankedFeed.js';
+import feedPrecomputeService from '../services/feedPrecomputeService.js';
 import feedRankingGraph from '../services/graph/feedRankingGraph.js';
+import { notFound, unauthorized } from '../utils/AppError.js';
 
 /**
  * GET /api/feed
  * Returns personalised AI-ranked feed for authenticated user.
- * Falls back to chronological feed if graph fails.
+ *
+ * Reads the precomputed ranking rather than running the graph inline — the
+ * graph's LLM and embedding calls belong in the background worker, not on a
+ * request that a user is waiting on. Falls back to a chronological feed if no
+ * ranking can be produced.
  */
-export const getPersonalisedFeed = async (req, res) => {
+export const getPersonalisedFeed = asyncHandler(async (req, res) => {
+  // Identity comes from the verified token only — a query param would let any
+  // caller pull another user's personalised feed.
+  const userId = req.user?._id;
+  if (!userId) throw unauthorized('Authentication required for personalised feed');
+
+  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit = Math.min(50, parseInt(req.query.limit) || 20);
+
   try {
-    const userId = req.user?._id || req.query.userId;
+    const result = await feedPrecomputeService.getPage(userId, { page, limit });
 
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'Authentication required for personalised feed' });
+    if (result.posts.length > 0 || page > 1) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          posts:       result.posts,
+          total:       result.total,
+          page:        result.page,
+          ranked:      true,
+          generatedAt: result.generatedAt,
+        },
+      });
     }
-
-    const page  = Math.max(1, parseInt(req.query.page)  || 1);
-    const limit = Math.min(50, parseInt(req.query.limit) || 20);
-
-    console.log(`🎯 FeedRankingGraph: running for user ${userId}, page ${page}`);
-
-    const result = await feedRankingGraph.run(userId, { limit, page });
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        posts:      result.feed,
-        total:      result.total,
-        page:       result.page,
-        ranked:     true,
-        generatedAt: new Date().toISOString(),
-      },
-    });
-
   } catch (error) {
-    console.error('Personalised feed error:', error);
-
-    // Fallback: return recent posts
-    const posts = await Post.find({ isDeleted: false })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .populate('author', 'username karma')
-      .populate('community', 'name displayName')
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        posts,
-        total:   posts.length,
-        page:    1,
-        ranked:  false,
-        fallback: true,
-      },
-    });
+    console.error('Personalised feed error:', error.message);
   }
-};
+
+  // Fallback: chronological. Reached when ranking has never succeeded for this
+  // user (brand new account, or the graph is failing).
+  const posts = await Post.find({ isDeleted: false })
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .populate('author', 'username karma')
+    .populate('community', 'name displayName')
+    .lean();
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      posts,
+      total:    posts.length,
+      page,
+      ranked:   false,
+      fallback: true,
+    },
+  });
+});
 
 /**
  * GET /api/feed/why/:postId
  * Returns the ranking explanation for a specific post in the user's feed.
  * Runs a mini feed rank just for this post.
  */
-export const getWhyExplanation = async (req, res) => {
-  try {
-    const userId = req.user?._id || req.query.userId;
-    const { postId } = req.params;
+export const getWhyExplanation = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+  const { postId } = req.params;
 
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
-    }
+  if (!userId) throw unauthorized('Authentication required');
 
-    const post = await Post.findOne({ _id: postId, isDeleted: false })
-      .populate('author', 'username')
-      .populate('community', 'name displayName')
-      .lean();
+  const post = await Post.findOne({ _id: postId, isDeleted: false }).select('_id').lean();
+  if (!post) throw notFound('Post not found');
 
-    if (!post) {
-      return res.status(404).json({ success: false, message: 'Post not found' });
-    }
+  // The explanation is stored alongside the ranking, so this is a single indexed
+  // lookup. It previously re-ran the whole ranking graph to explain one post.
+  const rankedFeed = await RankedFeed.findOne(
+    { user: userId, 'entries.post': postId },
+    { 'entries.$': 1 },
+  ).lean();
 
-    // Run feed graph and find this post in the result
-    const result = await feedRankingGraph.run(userId, { limit: 60 });
-    const found  = result.feed.find(p => p._id?.toString() === postId);
+  const entry = rankedFeed?.entries?.[0];
 
-    if (found) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          postId,
-          why:    found._why,
-          scores: found._rankScores,
-        },
-      });
-    }
-
-    // Post wasn't ranked — give a generic explanation
-    return res.status(200).json({
-      success: true,
-      data: {
-        postId,
-        why:    'This post is from a community you follow.',
-        scores: null,
-      },
-    });
-
-  } catch (error) {
-    console.error('Why explanation error:', error);
-    res.status(500).json({ success: false, message: 'Failed to generate explanation' });
-  }
-};
+  return res.status(200).json({
+    success: true,
+    data: {
+      postId,
+      why:    entry?.why || 'This post is from a community you follow.',
+      scores: entry?.scores || null,
+    },
+  });
+});
 
 /**
  * POST /api/feed/classify/:postId
  * Manually trigger intent classification for a post (admin/dev utility).
  */
-export const classifyPostIntent = async (req, res) => {
-  try {
-    const post = await Post.findOne({ _id: req.params.postId, isDeleted: false }).lean();
-    if (!post) return res.status(404).json({ success: false, message: 'Post not found' });
+export const classifyPostIntent = asyncHandler(async (req, res) => {
+  const post = await Post.findOne({ _id: req.params.postId, isDeleted: false }).lean();
+  if (!post) throw notFound('Post not found');
 
-    // Use internal batch classifier via a single-item array
-    await feedRankingGraph._classifyIntentBatch([post]);
+  // Use internal batch classifier via a single-item array
+  await feedRankingGraph._classifyIntentBatch([post]);
 
-    const updated = await Post.findById(post._id)
-      .select('intentType intentConfidence intentClassifiedAt')
-      .lean();
+  const updated = await Post.findById(post._id)
+    .select('intentType intentConfidence intentClassifiedAt')
+    .lean();
 
-    res.status(200).json({ success: true, data: updated });
-  } catch (error) {
-    console.error('Classify intent error:', error);
-    res.status(500).json({ success: false, message: 'Classification failed' });
-  }
-};
+  res.status(200).json({ success: true, data: updated });
+});

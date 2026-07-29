@@ -41,18 +41,25 @@ class PersonaDriftService {
 
       // ── FIX 2: significantChanges must be plain objects, not serialized strings ──
       // Ensure each element is a plain object before saving
-      const significantChanges = (driftAnalysis?.significantChanges || []).map(c => ({
+      const detectedChanges = (driftAnalysis?.significantChanges || []).map(c => ({
         type:        String(c.type        || ''),
         description: String(c.description || ''),
         impact:      ['low', 'medium', 'high'].includes(c.impact) ? c.impact : 'low',
+        direction:   ['increasing', 'decreasing'].includes(c.direction) ? c.direction : 'stable',
+        magnitude:   Number.isFinite(c.magnitude) ? c.magnitude : 0,
       }));
 
-      // keyChanges uses a different schema shape — map from significantChanges
-      const keyChanges = significantChanges.map(c => ({
+      const significantChanges = detectedChanges.map(({ type, description, impact }) => ({
+        type, description, impact,
+      }));
+
+      // keyChanges uses a different schema shape — same source, renamed fields
+      const keyChanges = detectedChanges.map(c => ({
         trait:       c.type,
-        direction:   'stable',
-        magnitude:   0,
+        direction:   c.direction,
+        magnitude:   c.magnitude,
         description: c.description,
+        impact:      c.impact,
       }));
 
       const snapshot = await PersonaSnapshot.create({
@@ -364,13 +371,15 @@ Format: ["topic1", "topic2", "topic3", "topic4", "topic5"]`;
       const abs = Math.abs(change.newValue - change.oldValue);
       const pct = Math.abs(change.percentChange);
       if (abs >= 15 || pct >= 20) {
-        const direction = change.newValue > change.oldValue ? 'increased' : 'decreased';
-        const impact    = abs >= 30 ? 'high' : abs >= 20 ? 'medium' : 'low';
+        const rising = change.newValue > change.oldValue;
+        const impact = abs >= 30 ? 'high' : abs >= 20 ? 'medium' : 'low';
         // ── Return a plain object — NOT a string ────────────────────────────────
         significant.push({
           type:        change.trait,
-          description: `${this.traitToLabel(change.trait)} ${direction} by ${abs} points`,
+          description: `${this.traitToLabel(change.trait)} ${rising ? 'increased' : 'decreased'} by ${abs} points`,
           impact,
+          direction:   rising ? 'increasing' : 'decreasing',
+          magnitude:   abs,
         });
       }
     }

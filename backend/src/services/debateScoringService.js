@@ -55,8 +55,8 @@ class DebateScoringService {
 
       const roundScores = await this.calculateRoundScores(forTurns, againstTurns);
 
-      const forTotal = Object.values(forScores).reduce((sum, val) => sum + val, 0);
-      const againstTotal = Object.values(againstScores).reduce((sum, val) => sum + val, 0);
+      const forTotal = this.weightedTotal(forScores);
+      const againstTotal = this.weightedTotal(againstScores);
 
       let winner = 'draw';
       if (forTotal > againstTotal) winner = 'for';
@@ -113,11 +113,49 @@ class DebateScoringService {
    * Calculate Side Scores
    * ========================================
    */
+  /**
+   * Combines a side's four dimensions into a single comparable total.
+   *
+   * Summing them unweighted made audience votes worth exactly as much as the
+   * quality of the argument, so a popular but weak case could beat a rigorous
+   * unpopular one. On a platform whose premise is that reasoning is measurable,
+   * the reasoning dimensions have to dominate; the audience still counts, but
+   * as a minority voice rather than a quarter of the verdict.
+   */
+  weightedTotal(scores) {
+    const WEIGHTS = {
+      argumentQuality: 0.40,
+      rebuttalEffectiveness: 0.30,
+      conductClarity: 0.15,
+      audienceSupport: 0.15,
+    };
+
+    return Math.round(
+      Object.entries(WEIGHTS).reduce(
+        (total, [key, weight]) => total + (scores[key] ?? 0) * weight,
+        0,
+      ),
+    );
+  }
+
   async calculateSideScores(debateId, turns, side) {
     const argumentQuality = this.calculateArgumentQuality(turns);
     const rebuttalEffectiveness = this.calculateRebuttalEffectiveness(turns);
     const conductClarity = this.calculateConductClarity(turns);
     const audienceSupport = await this.calculateAudienceSupport(debateId, side);
+
+    // A side that never argued must not score. Each dimension falls back to a
+    // neutral 50 when handed no turns, so a forfeiting side previously totalled
+    // ~200 and could beat an opponent who actually showed up and argued badly.
+    if (!turns || turns.length === 0) {
+      console.log(`   - ${side} submitted no turns — scoring zero across the board`);
+      return {
+        argumentQuality: 0,
+        rebuttalEffectiveness: 0,
+        conductClarity: 0,
+        audienceSupport,
+      };
+    }
 
     console.log(`   - Argument Quality: ${argumentQuality}`);
     console.log(`   - Rebuttal Effectiveness: ${rebuttalEffectiveness}`);
@@ -364,6 +402,7 @@ ${againstTurns.map((t, i) => `${i + 1}. ${t.content}`).join('\n')}
 Provide a 2-3 sentence summary focusing on the main points of contention and the overall quality of argumentation.`;
 
       const summary = await grokService.generateSmart(prompt, {
+        operation: 'debate_analysis',
         maxTokens: 200,
         temperature: 0.7
       });

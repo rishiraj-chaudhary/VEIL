@@ -14,7 +14,7 @@
  */
 
 import Community from '../../models/community.js';
-import Debate from '../../models/Debate.js';
+import Debate from '../../models/debate.js';
 import Post from '../../models/post.js';
 import User from '../../models/user.js';
 import UserPerformance from '../../models/UserPerformance.js';
@@ -358,7 +358,9 @@ class FeedRankingGraph {
     // Sort descending by final score
     ranked.sort((a, b) => b.scores.final - a.scores.final);
 
-    state.rankedPosts = ranked.slice(0, FEED_LIMIT);
+    // Honour the caller's requested size. This was hardcoded to FEED_LIMIT, so
+    // precomputing a deeper ranked list (and paging through it) was impossible.
+    state.rankedPosts = ranked.slice(0, state.limit || FEED_LIMIT);
     console.log(`🎯 [Feed:7] Reranked — top post score: ${state.rankedPosts[0]?.scores.final ?? 0}`);
   }
 
@@ -448,40 +450,59 @@ Rules: one type per post, confidence 0.0-1.0, JSON only`;
 
       try {
         const raw = await grokService.generateFast(prompt, {
+        operation: 'intent_classification',
           systemRole: 'You are a content classifier. Return only valid JSON array.',
         });
 
         const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
         const results = JSON.parse(clean);
 
-        // Apply results and generate embeddings
-        for (const r of results) {
-          const post = batch[r.index - 1];
-          if (!post) continue;
+        const classified = results
+          .map(r => ({ result: r, post: batch[r.index - 1] }))
+          .filter(entry => entry.post);
 
+        // One batched embedding call for the whole batch — this used to be a
+        // sequential network round-trip per post, which dominated feed latency.
+        const texts = classified.map(({ post }) =>
+          `${post.title} ${(post.content || '').slice(0, 200)}`.trim()
+        );
+
+        let embeddings = [];
+        try {
+          embeddings = await embeddingService.embedDocuments(texts);
+        } catch (_) { /* embeddings optional — scoring falls back to intent type */ }
+
+        const writes = [];
+
+        classified.forEach(({ result: r, post }, idx) => {
           const intentType       = INTENT_TYPES.includes(r.intentType) ? r.intentType : 'unknown';
           const intentConfidence = typeof r.confidence === 'number' ? Math.min(1, Math.max(0, r.confidence)) : 0.5;
+          const intentEmbedding  = embeddings[idx] || [];
 
-          // Generate embedding for this post
-          let intentEmbedding = [];
-          try {
-            const embedder = embeddingService.getEmbeddings();
-            const text     = `${post.title} ${(post.content || '').slice(0, 200)}`.trim();
-            intentEmbedding = await embedder.embedQuery(text);
-          } catch (_) { /* embedding optional */ }
-
-          // Persist back to DB (non-blocking per post)
-          Post.findByIdAndUpdate(post._id, {
-            intentType,
-            intentConfidence,
-            intentEmbedding,
-            intentClassifiedAt: new Date(),
-          }).catch(err => console.warn('Intent persist error:', err.message));
+          writes.push({
+            updateOne: {
+              filter: { _id: post._id },
+              update: {
+                $set: {
+                  intentType,
+                  intentConfidence,
+                  intentEmbedding,
+                  intentClassifiedAt: new Date(),
+                },
+              },
+            },
+          });
 
           // Update in-memory too so this run uses it
           post.intentType        = intentType;
           post.intentConfidence  = intentConfidence;
           post.intentEmbedding   = intentEmbedding;
+        });
+
+        // One bulk write instead of N independent updates.
+        if (writes.length > 0) {
+          Post.bulkWrite(writes, { ordered: false })
+            .catch(err => console.warn('Intent persist error:', err.message));
         }
 
       } catch (err) {

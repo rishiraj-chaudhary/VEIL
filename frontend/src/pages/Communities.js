@@ -18,6 +18,7 @@ const Communities = () => {
   const { user } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [joiningId, setJoiningId]     = useState(null);
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     fetchCommunities();
@@ -29,16 +30,15 @@ const Communities = () => {
   const handleJoinLeave = async (e, community) => {
     e.stopPropagation(); // don't navigate when clicking button
     setJoiningId(community._id);
-    try {
-      if (isMember(community)) {
-        await leaveCommunity(community.name);
-      } else {
-        await joinCommunity(community.name);
-      }
-      await fetchCommunities();
-    } catch (err) {
-      console.error('Join/leave error:', err);
-    }
+    setActionError(null);
+
+    // The store resolves rather than throws, and refreshes this community in
+    // place — so failures must be read off the result, not caught.
+    const result = isMember(community)
+      ? await leaveCommunity(community.name)
+      : await joinCommunity(community.name);
+
+    if (!result.success) setActionError(result.error);
     setJoiningId(null);
   };
 
@@ -61,6 +61,10 @@ const Communities = () => {
             + Create Community
           </button>
         </div>
+
+        {actionError && (
+          <p className="text-red-400 text-sm mb-4">{actionError}</p>
+        )}
 
         {/* Grid */}
         {loading ? (

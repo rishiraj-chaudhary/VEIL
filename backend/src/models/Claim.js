@@ -42,6 +42,16 @@ const claimSchema = new mongoose.Schema({
     required: true
   },
 
+  // Who first advanced this claim. A claim's track record is only meaningful if
+  // it is attributable — this is what turns the knowledge graph into a per-user
+  // argument reputation rather than an anonymous pile of statements.
+  author: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true,
+    default: null
+  },
+
   // All debates where this claim was used
   debates: [{
     debate: {
@@ -51,6 +61,11 @@ const claimSchema = new mongoose.Schema({
     turn: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'DebateTurn'
+    },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
     },
     side: {
       type: String,
@@ -97,6 +112,14 @@ const claimSchema = new mongoose.Schema({
        type: Number,
       default: 0,
     },
+    // Stored as a count, not reconstructed from the rate. Deriving
+    // `successes = round(rate × count)` on every write compounds float error
+    // and cannot be updated atomically.
+    refutationSuccesses: {
+      type: Number,
+      default: 0,
+    },
+
     refutationSuccessRate: {
       type: Number,
       default: 0,
@@ -180,6 +203,9 @@ claimSchema.index({ 'stats.successRate': -1 });
 claimSchema.index({ topic: 1, 'stats.totalUses': -1 });
 claimSchema.index({ 'stats.claimResilienceScore': -1 });
 claimSchema.index({ 'authorPersona.argumentativeStyle': 1, topic: 1 });
+// Reputation lookups: every claim a user has advanced, strongest first.
+claimSchema.index({ author: 1, 'stats.claimResilienceScore': -1 });
+claimSchema.index({ 'debates.user': 1 });
 // Update timestamp on save
 claimSchema.pre('save', function(next) {
   this.updatedAt = new Date();
@@ -192,13 +218,17 @@ claimSchema.virtual('successRatePercent').get(function() {
 });
 
 // Method to add usage
-claimSchema.methods.addUsage = async function(debate, turn, side, qualityScore) {
+claimSchema.methods.addUsage = async function(debate, turn, side, qualityScore, userId = null) {
   this.debates.push({
     debate,
     turn,
+    user: userId,
     side,
     usedAt: new Date()
   });
+
+  // A claim first seen before authorship was tracked adopts the first known user.
+  if (!this.author && userId) this.author = userId;
 
   this.stats.totalUses += 1;
 

@@ -73,6 +73,7 @@ const personaSnapshotSchema = new mongoose.Schema({
     direction:   { type: String, enum: ['increasing', 'decreasing', 'stable'] },
     magnitude:   Number,
     description: String,
+    impact:      { type: String, enum: ['low', 'medium', 'high'], default: 'low' },
   }],
 
   driftAnalysis: {

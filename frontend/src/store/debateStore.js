@@ -175,17 +175,6 @@ const useDebateStore = create((set, get) => ({
     }
   },
 
-  // ==================== REACTIONS ====================
-
-  reactToTurn: async (turnId, reactionType, comment) => {
-    try {
-      const result = await debateService.reactToTurn(turnId, reactionType, comment);
-      return result;
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  },
-
   // ==================== SOCKET UPDATES ====================
 
   setViewerCount: (count) => {

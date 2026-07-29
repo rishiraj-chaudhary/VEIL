@@ -11,6 +11,8 @@ import {
     getSnapshots
 } from '../controllers/personaDriftController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { personaValidators } from '../validators/index.js';
 
 const router = express.Router();
 
@@ -30,13 +32,13 @@ router.post('/snapshot', createSnapshot);
 router.get('/snapshot/latest', getLatestSnapshot);
 
 // Get all snapshots
-router.get('/snapshots', getSnapshots);
+router.get('/snapshots', validate(personaValidators.list), getSnapshots);
 
 // Get specific snapshot
-router.get('/snapshot/:id', getSnapshot);
+router.get('/snapshot/:id', validate(personaValidators.byId), getSnapshot);
 
 // Delete snapshot
-router.delete('/snapshot/:id', deleteSnapshot);
+router.delete('/snapshot/:id', validate(personaValidators.byId), deleteSnapshot);
 
 // ============================================
 // DRIFT ANALYSIS
@@ -49,7 +51,7 @@ router.get('/drift/timeline', getDriftTimeline);
 router.get('/drift/significant', getSignificantDrifts);
 
 // Compare two snapshots
-router.get('/compare/:id1/:id2', compareSnapshots);
+router.get('/compare/:id1/:id2', validate(personaValidators.compare), compareSnapshots);
 
 // ============================================
 // EVOLUTION STATS

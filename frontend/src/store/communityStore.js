@@ -5,6 +5,9 @@ const useCommunityStore = create((set, get) => ({
   communities: [],
   currentCommunity: null,
   loading: false,
+  // Tracked separately from `loading` so refreshing one community does not
+  // blank out the communities grid that is rendering off the same store.
+  currentCommunityLoading: false,
   error: null,
 
   // Fetch all communities
@@ -23,15 +26,23 @@ const useCommunityStore = create((set, get) => ({
 
   // Fetch single community
   fetchCommunity: async (name) => {
-    set({ loading: true, error: null });
+    set({ currentCommunityLoading: true, error: null });
     try {
       const data = await communityService.getCommunity(name);
-      set({ currentCommunity: data.data.community, loading: false });
+      const community = data.data.community;
+      set((state) => ({
+        currentCommunity: community,
+        currentCommunityLoading: false,
+        communities: state.communities.map(c => (c._id === community._id ? community : c)),
+      }));
+      return community;
     } catch (error) {
-      set({ 
+      set({
         error: error.response?.data?.message || 'Failed to fetch community',
-        loading: false 
+        currentCommunity: null,
+        currentCommunityLoading: false,
       });
+      return null;
     }
   },
 

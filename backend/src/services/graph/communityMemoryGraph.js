@@ -123,7 +123,7 @@ Return ONLY valid JSON, no preamble:
 }`;
 
     try {
-      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a community analyst. Return only valid JSON.' });
+      const raw   = await grokService.generateFast(prompt, { systemRole: 'You are a community analyst. Return only valid JSON.', operation: 'community_analysis' });
       const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const parsed = JSON.parse(clean);
       state.topicClusters = Array.isArray(parsed.clusters) ? parsed.clusters.slice(0, 5) : [];
@@ -165,7 +165,7 @@ Return ONLY valid JSON, no preamble:
 }`;
 
     try {
-      const raw    = await grokService.generateFast(prompt, { systemRole: 'You are a discourse analyst. Return only valid JSON.' });
+      const raw    = await grokService.generateFast(prompt, { systemRole: 'You are a discourse analyst. Return only valid JSON.', operation: 'community_analysis' });
       const clean  = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const parsed = JSON.parse(clean);
       state.recurringClaims = Array.isArray(parsed.recurringClaims) ? parsed.recurringClaims.slice(0, 4) : [];
@@ -217,7 +217,7 @@ Return ONLY valid JSON, no preamble:
 polarizationScore: 0=complete echo chamber, 50=healthy debate, 100=extreme polarization/battleground`;
 
     try {
-      const raw    = await grokService.generateFast(prompt, { systemRole: 'You are a community analyst. Return only valid JSON.' });
+      const raw    = await grokService.generateFast(prompt, { systemRole: 'You are a community analyst. Return only valid JSON.', operation: 'community_analysis' });
       const clean  = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const parsed = JSON.parse(clean);
 

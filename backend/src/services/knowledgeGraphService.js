@@ -29,17 +29,21 @@ import embeddingService from './embeddingService.js';
  *        "show me claims made by evidence-based users on climate"
  *        "which claims survive when made by aggressive debaters?"
  *
- *   4. String similarity kept as fast fallback
- *      If embedding service is unavailable, falls back to
- *      the original Jaccard approach — no silent failures.
+ *   4. Embedding-only similarity
+ *      The Jaccard fallback was removed once every claim had a vector: word
+ *      overlap linked unrelated claims sharing common vocabulary, and keeping
+ *      two metrics meant keeping two threshold scales that had already been
+ *      compared against each other by mistake.
  */
+// Pseudo-count of "neutral" refutation attempts, so early results carry less weight.
+const RESILIENCE_CONFIDENCE_PRIOR = 5;
+
 class KnowledgeGraphService {
   constructor() {
     this.tokenizer = new natural.WordTokenizer();
     this.stemmer = natural.PorterStemmer;
     this.embeddingThreshold = 0.92;  // cosine similarity — claims above this are "same argument" (near-identical phrasing)
     this.relatedThreshold = 0.45;    // all-MiniLM-L6-v2 scores related claims at 0.45-0.92
-    this.stringThreshold = 0.6;      // Jaccard fallback threshold
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ class KnowledgeGraphService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // SIMILARITY — Embedding-based (primary) + Jaccard (fallback)
+  // SIMILARITY — Embedding-based (cosine)
   // ─────────────────────────────────────────────────────────────────
 
   /**
@@ -90,17 +94,6 @@ class KnowledgeGraphService {
     }
     const denom = Math.sqrt(normA) * Math.sqrt(normB);
     return denom === 0 ? 0 : dot / denom;
-  }
-
-  /**
-   * Jaccard similarity on stemmed tokens (string fallback).
-   */
-  calculateSimilarity(text1, text2) {
-    const tokens1 = new Set(text1.split(' '));
-    const tokens2 = new Set(text2.split(' '));
-    const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
-    const union = new Set([...tokens1, ...tokens2]);
-    return intersection.size / union.size;
   }
 
   /**
@@ -178,7 +171,7 @@ class KnowledgeGraphService {
       // ── Check for exact normalized match first (fast path) ──────
       const exactMatch = await Claim.findOne({ normalizedText: normalized });
       if (exactMatch) {
-        await exactMatch.addUsage(debate, turn, side, qualityScore);
+        await exactMatch.addUsage(debate, turn, side, qualityScore, userId);
         console.log(`♻️  Updated existing claim (uses: ${exactMatch.stats.totalUses})`);
         return exactMatch;
       }
@@ -191,7 +184,7 @@ class KnowledgeGraphService {
       if (hasEmbedding) {
         const semanticMatch = await this._findSemanticDuplicate(embedding, topic);
         if (semanticMatch) {
-          await semanticMatch.addUsage(debate, turn, side, qualityScore);
+          await semanticMatch.addUsage(debate, turn, side, qualityScore, userId);
           console.log(`🧠 Semantic duplicate found — merged into existing claim`);
           return semanticMatch;
         }
@@ -207,9 +200,10 @@ class KnowledgeGraphService {
         topic,
         firstDebate: debate,
         firstTurn: turn,
+        author: userId || null,
         embedding: hasEmbedding ? embedding : [],
         authorPersona: personaMeta || undefined,
-        debates: [{ debate, turn, side, usedAt: new Date() }],
+        debates: [{ debate, turn, user: userId || null, side, usedAt: new Date() }],
         stats: {
           totalUses: 1,
           avgQualityScore: qualityScore,
@@ -285,7 +279,6 @@ class KnowledgeGraphService {
   async linkSimilarClaims(claim, embedding = [], threshold = null) {
     try {
       const hasEmbedding = embedding.length > 0;
-      const effectiveThreshold = threshold ?? (hasEmbedding ? this.relatedThreshold : this.stringThreshold);
 
       // Candidate pool: same topic, exclude self
       const candidates = await Claim.find({
@@ -295,22 +288,25 @@ class KnowledgeGraphService {
 
       const related = [];
 
-      for (const candidate of candidates) {
-        let similarity = 0;
+      // Embedding-only. The Jaccard fallback was removed once every claim had a
+      // vector: word overlap linked unrelated claims that happened to share
+      // vocabulary, and maintaining two metrics meant maintaining two threshold
+      // scales — which had already been compared against each other by mistake.
+      if (!hasEmbedding) {
+        console.warn('linkSimilarClaims called without an embedding — skipping');
+        return [];
+      }
 
-        if (hasEmbedding && candidate.embedding?.length > 0) {
-          // ── Primary: embedding cosine similarity ─────────────────
-          similarity = this.cosineSimilarity(embedding, candidate.embedding);
-        } else {
-          // ── Fallback: Jaccard on normalized text ──────────────────
-          similarity = this.calculateSimilarity(
-            claim.normalizedText,
-            candidate.normalizedText
-          );
-        }
+      for (const candidate of candidates) {
+        if (!candidate.embedding?.length) continue;
+
+        const similarity = this.cosineSimilarity(embedding, candidate.embedding);
+
+        const lowerBound = threshold ?? this.relatedThreshold;
+        const upperBound = this.embeddingThreshold;
 
         // Only link if in "related but distinct" range
-        if (similarity >= effectiveThreshold && similarity < this.embeddingThreshold) {
+        if (similarity >= lowerBound && similarity < upperBound) {
           related.push({
             claim: candidate._id,
             relationship: 'similar',
@@ -344,11 +340,17 @@ class KnowledgeGraphService {
             { $push: { relatedClaims: rel } }
           );
         }
-        console.log(`🔗 Linked ${related.length} similar claims (${hasEmbedding ? 'embedding' : 'string'} similarity)`);
+        console.log(`🔗 Linked ${related.length} similar claims (cosine similarity)`);
       }
+
+      // Returned as well as persisted so callers and tests can assert on the
+      // links; every exit path now returns an array rather than sometimes
+      // undefined.
+      return related;
 
     } catch (error) {
       console.error('Error linking similar claims:', error.message);
+      return [];
     }
   }
 
@@ -380,35 +382,92 @@ class KnowledgeGraphService {
 
       if (!originalClaim) return;
 
-      // ── Update base refutation count ─────────────────────────────
-      await originalClaim.markRefuted();
+      return this.recordRefutation(originalClaim, refutingClaim, effectiveness, rebuttalQuality);
+    } catch (error) {
+      console.error('Error marking refutation:', error.message);
+    }
+  }
 
-      // ── Update refutation strength metrics ───────────────────────
-      const prevCount = originalClaim.stats.refutationCount || 0;
-      const prevAvgQuality = originalClaim.stats.averageRebuttalQuality || 0;
-      const newCount = prevCount + 1;
+  /**
+   * Records a refutation against a claim already resolved to a document.
+   *
+   * Text-based lookup only ever matched a verbatim restatement of the claim,
+   * which real rebuttals never contain — so callers should identify the target
+   * semantically (see refutationDetectionService) and pass the document here.
+   *
+   * @param {Object} originalClaim - Claim document being refuted
+   * @param {Object|null} refutingClaim - Claim document doing the refuting
+   * @param {number} effectiveness - 0-10 effectiveness score
+   * @param {number} rebuttalQuality - 0-100 AI quality score of the rebuttal
+   */
+  /**
+   * Did the rebuttal actually undermine the claim?
+   *
+   * `effectiveness` is the judge's verdict on the rebuttal's force.
+   * `rebuttalQuality` is how well it is *written* — a different question. These
+   * were combined with OR, so any competently written turn counted as
+   * demolishing whatever it addressed, and every contested claim in the
+   * database ended up with a success rate of 0.88-1.00. Quality now only breaks
+   * ties at the threshold rather than substituting for the verdict.
+   */
+  _isRefutationSuccessful(effectiveness, rebuttalQuality) {
+    return effectiveness >= 6 || (effectiveness >= 5 && rebuttalQuality >= 75);
+  }
 
-      // Running average of rebuttal quality
-      const newAvgQuality = ((prevAvgQuality * prevCount) + rebuttalQuality) / newCount;
+  async recordRefutation(originalClaim, refutingClaim = null, effectiveness = 5, rebuttalQuality = 50) {
+    try {
+      if (!originalClaim) return;
 
-      // Successful refutation = effectiveness >= 6 OR rebuttalQuality >= 65
-      const isSuccessful = effectiveness >= 6 || rebuttalQuality >= 65;
-      const prevSuccesses = Math.round((originalClaim.stats.refutationSuccessRate || 0) * prevCount);
-      const newSuccesses = prevSuccesses + (isSuccessful ? 1 : 0);
+      const isSuccessful = this._isRefutationSuccessful(effectiveness, rebuttalQuality);
+
+      // Counters are incremented atomically in a single round trip.
+      //
+      // This previously read the document, computed new totals in JS, then wrote
+      // them back. Two refutations of the same claim arriving together — routine,
+      // since a turn can target three claims and the job queue runs three workers
+      // — both read the same starting count and both wrote count+1, silently
+      // losing one. A measured run recorded 2 of 3 concurrent refutations.
+      //
+      // Successes are also stored as a count rather than reconstructed from the
+      // stored rate, which was lossy and could not be incremented atomically.
+      const updated = await Claim.findOneAndUpdate(
+        { _id: originalClaim._id },
+        {
+          $inc: {
+            'stats.refutationCount': 1,
+            'stats.timesRefuted': 1,
+            'stats.refutationSuccesses': isSuccessful ? 1 : 0,
+          },
+        },
+        { new: true },
+      );
+
+      if (!updated) return null;
+
+      const newCount     = updated.stats.refutationCount;
+      const newSuccesses = updated.stats.refutationSuccesses ?? 0;
       const newSuccessRate = newCount > 0 ? newSuccesses / newCount : 0;
 
-      // Resilience score: starts 100, each successful refutation reduces it
-      // Formula: 100 - (successRate * 60) - (refutationCount * 2) capped at [0,100]
-      const resilienceScore = Math.max(
-        0,
-        Math.min(100, 100 - (newSuccessRate * 60) - (newCount * 2))
-      );
+      // Running average of rebuttal quality, using the post-increment count.
+      const prevAvgQuality = originalClaim.stats.averageRebuttalQuality || 0;
+      const newAvgQuality = newCount > 1
+        ? ((prevAvgQuality * (newCount - 1)) + rebuttalQuality) / newCount
+        : rebuttalQuality;
+
+      // Resilience = how often the claim survives refutation attempts.
+      // Attempt count is a confidence weight, not a penalty: surviving 40
+      // attacks must rank above surviving one, and a claim that has only ever
+      // been attacked once stays near the neutral midpoint either way.
+      const survivalRate = 1 - newSuccessRate;
+      const confidence   = newCount / (newCount + RESILIENCE_CONFIDENCE_PRIOR);
+      const resilienceScore = Math.max(0, Math.min(100,
+        100 * (0.5 + (survivalRate - 0.5) * confidence)
+      ));
 
       await Claim.updateOne(
         { _id: originalClaim._id },
         {
           $set: {
-            'stats.refutationCount': newCount,
             'stats.refutationSuccessRate': newSuccessRate,
             'stats.averageRebuttalQuality': Math.round(newAvgQuality),
             'stats.claimResilienceScore': Math.round(resilienceScore),
@@ -439,8 +498,11 @@ class KnowledgeGraphService {
         console.log(`⚔️  Refutation linked — resilience: ${Math.round(resilienceScore)}/100`);
       }
 
+      return { refutationCount: newCount, resilienceScore: Math.round(resilienceScore), isSuccessful };
+
     } catch (error) {
-      console.error('Error marking refutation:', error.message);
+      console.error('Error recording refutation:', error.message);
+      return null;
     }
   }
 

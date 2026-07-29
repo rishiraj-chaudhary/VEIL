@@ -10,22 +10,24 @@ import {
   revealSlickAuthor,
 } from '../controllers/slickController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { slickValidators } from '../validators/index.js';
 import perceptionGraph from '../services/graph/perceptionGraph.js';
 
 const router = express.Router();
 router.use(authenticate);
 
-router.post('/',              createSlick);
+router.post('/',              validate(slickValidators.create), createSlick);
 router.get('/received',       getReceivedSlicks);
 router.get('/sent',           getSentSlicks);
-router.post('/:id/react',     reactToSlick);
-router.post('/:id/reveal',    revealSlickAuthor);
+router.post('/:id/react',     validate(slickValidators.byId), reactToSlick);
+router.post('/:id/reveal',    validate(slickValidators.byId), revealSlickAuthor);
 router.get('/insights',       getSlickInsights);
-router.get('/suggestions/:targetUserId', getSlickSuggestions);
+router.get('/suggestions/:targetUserId', validate(slickValidators.byTargetUser), getSlickSuggestions);
 router.get('/currency',       getUserCurrency);
 
 // ── Perception endpoint — returns live data + cached fields ──────────────────
-router.get('/perception/:userId', async (req, res) => {
+router.get('/perception/:userId', validate(slickValidators.byUser), async (req, res) => {
   try {
     const User = (await import('../models/user.js')).default;
     const Slick = (await import('../models/slick.js')).default;

@@ -29,17 +29,23 @@ class AICostService {
    * Calculate cost for a Groq API call
    */
   static calculateCost(model, promptTokens, completionTokens) {
-    const pricing = this.GROQ_PRICING[model];
-    
-    if (!pricing) {
-      console.warn(`⚠️ Unknown model: ${model}, using default pricing`);
-      return ((promptTokens * 0.59) + (completionTokens * 0.79)) / 1000000;
+    // An unknown model previously fell back to the most expensive rates, which
+    // silently overstated every cheap call that slipped through. Matching on the
+    // model family is both closer to the truth and visible in the stored rate.
+    const pricing = this.GROQ_PRICING[model] ?? (
+      /8b|instant|mini|small/i.test(model || '')
+        ? this.GROQ_PRICING['llama-3.1-8b-instant']
+        : this.GROQ_PRICING['llama-3.3-70b-versatile']
+    );
+
+    if (!this.GROQ_PRICING[model]) {
+      console.warn(`⚠️ Unknown model "${model}" — priced using the closest known family`);
     }
-    
+
     const inputCost = (promptTokens * pricing.input) / 1000000;
     const outputCost = (completionTokens * pricing.output) / 1000000;
-    
-    return inputCost + outputCost;
+
+    return { cost: inputCost + outputCost, pricing };
   }
 
   /**
@@ -59,10 +65,13 @@ class AICostService {
   }) {
     try {
       const totalTokens = promptTokens + completionTokens;
-      const estimatedCost = cached ? 0 : this.calculateCost(model, promptTokens, completionTokens);
+      const { cost, pricing } = this.calculateCost(model, promptTokens, completionTokens);
+      const estimatedCost = cached ? 0 : cost;
 
       const usage = await AIUsage.create({
-        user: userId,
+        user: userId || null,
+        attributed: !!userId,
+        pricing,
         debate: debateId,
         operation,
         model,
