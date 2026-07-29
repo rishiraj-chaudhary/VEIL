@@ -1,10 +1,22 @@
 import mongoose from 'mongoose';
 
 const aiUsageSchema = new mongoose.Schema({
+  // Nullable: plenty of AI work is not attributable to one user — scheduled
+  // analyses, community graphs, the AI opponent's own turns. Requiring a user
+  // is what forced the tracker to skip those calls entirely, so they cost money
+  // and never appeared in the dashboard.
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    default: null,
+    index: true
+  },
+
+  // Distinguishes "a user asked for this" from background/system work, so the
+  // dashboard can show both a personal total and true platform spend.
+  attributed: {
+    type: Boolean,
+    default: false,
     index: true
   },
   
@@ -25,7 +37,28 @@ const aiUsageSchema = new mongoose.Schema({
       'fact_check',
       'rebuttal_analysis',
       'fallacy_detection',
-      'knowledge_retrieval'
+      'knowledge_retrieval',
+      // Emitted by structuredParserService when it re-prompts a malformed
+      // response. Absent from this list, every self-heal retry threw a
+      // validation error and its cost went untracked.
+      'structured_output',
+      'intent_classification',
+      'refutation_detection',
+      'content_safety',
+      'ai_opponent',
+      'sentiment_analysis',
+      'topic_analysis',
+      'community_analysis',
+      'perception_analysis',
+      'persona_analysis',
+      'reranking',
+      'coaching',
+      'oracle',
+      // The sparring agent makes several calls per session, so leaving it out
+      // would hide the single most expensive operation on the platform from
+      // both the usage dashboard and the daily budget.
+      'sparring_agent',
+      'other'
     ],
     index: true
   },
@@ -53,6 +86,13 @@ const aiUsageSchema = new mongoose.Schema({
     default: 0
   },
   
+  // The per-million rates applied at the time of the call. Without these, a
+  // provider price change silently rewrites the meaning of every past row.
+  pricing: {
+    input:  { type: Number, default: null },
+    output: { type: Number, default: null },
+  },
+
   estimatedCost: {
     type: Number,
     required: true,

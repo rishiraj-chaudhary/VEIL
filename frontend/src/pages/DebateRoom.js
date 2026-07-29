@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LiveAssistantPanel from '../components/debate/LiveAssistantPanel';
 import ScoreBreakdownModal from '../components/debate/ScoreBreakdownModal';
+import SparringPanel from '../components/debate/SparringPanel';
 import VerdictExplainer from '../components/debate/VerdictExplainer';
 import { useLiveAssistant } from '../hooks/useLiveAssistant';
 import debateService from '../services/debateService';
@@ -38,6 +39,7 @@ const DebateRoom = () => {
   
   const [debate, setDebate] = useState(null);
   const [turns, setTurns] = useState([]);
+  const [shareCopied, setShareCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [content, setContent] = useState('');
@@ -55,7 +57,7 @@ const DebateRoom = () => {
   const isParticipant = !!userParticipant;
   const userSide = userParticipant?.side;
 
-  const { insights, analyzing, analyzeDraft } = useLiveAssistant(id, userSide);
+  const { insights, isAnalyzing, analyzeDraft } = useLiveAssistant(id, userSide);
 
   useEffect(() => {
     if (id) {
@@ -108,6 +110,27 @@ const DebateRoom = () => {
       fetchDetailedScore();
     }
   }, [debate?.status]);
+
+  // While the AI is composing, poll as a safety net. The socket broadcast is the
+  // primary signal, but a dropped connection would otherwise leave the user
+  // staring at a spinner for a turn that has already been written.
+  useEffect(() => {
+    if (debate?.status !== 'active') return undefined;
+
+    const opponentIsAI = debate.participants?.some(p => p.isAI);
+    const myTurn = debate.currentTurn && (
+      debate.currentTurn._id === currentUser?.id || debate.currentTurn === currentUser?.id
+    );
+
+    if (!opponentIsAI || myTurn) return undefined;
+
+    const poll = setInterval(() => {
+      loadDebate();
+      loadTurns();
+    }, 4000);
+
+    return () => clearInterval(poll);
+  }, [debate?.status, debate?.currentTurn, debate?.participants, currentUser?.id]); // eslint-disable-line
 
   const loadDebate = async () => {
     try {
@@ -295,9 +318,10 @@ const DebateRoom = () => {
 
   const participants = debate.participants || [];
   const isMyTurn = debate.currentTurn && (
-    debate.currentTurn._id === currentUser?.id || 
+    debate.currentTurn._id === currentUser?.id ||
     debate.currentTurn === currentUser?.id
   );
+  const isAgainstAI = participants.some(p => p.isAI);
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
@@ -454,7 +478,9 @@ const DebateRoom = () => {
             <div className="lg:col-span-2">
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h2 className="text-xl font-bold text-white mb-4">
-                  {isMyTurn ? '✍️ Your Turn' : '⏳ Waiting for Opponent'}
+                  {isMyTurn
+                    ? '✍️ Your Turn'
+                    : isAgainstAI ? '🤖 The AI is composing a reply' : '⏳ Waiting for Opponent'}
                 </h2>
                 
                 {isMyTurn ? (
@@ -478,7 +504,23 @@ const DebateRoom = () => {
                         {submitting ? 'Submitting...' : 'Submit Turn'}
                       </button>
                     </div>
+
+                    {/* Test the draft against your own track record before sending it. */}
+                    <SparringPanel
+                      topic={debate.topic}
+                      side={userSide}
+                      draft={content}
+                      onApplyRevision={setContent}
+                    />
                   </form>
+                ) : isAgainstAI ? (
+                  <div className="text-center py-6">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-3" />
+                    <p className="text-gray-400 text-sm">
+                      Reading your argument and writing a counter-argument. This usually takes
+                      about 15 seconds.
+                    </p>
+                  </div>
                 ) : (
                   <div className="text-gray-400 text-center py-4">
                     It's your opponent's turn to argue.
@@ -492,7 +534,7 @@ const DebateRoom = () => {
               <div className="lg:col-span-1">
                 <LiveAssistantPanel 
                   insights={insights}
-                  analyzing={analyzing}
+                  isAnalyzing={isAnalyzing}
                 />
               </div>
             )}
@@ -540,7 +582,22 @@ const DebateRoom = () => {
           <div className="space-y-6 mb-6">
             {/* Winner Banner */}
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <h2 className="text-xl font-bold text-white mb-4">Debate Concluded</h2>
+              <div className="flex items-start justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">Debate Concluded</h2>
+                {!isAgainstAI && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(`${window.location.origin}/d/${debate._id}`);
+                      setShareCopied(true);
+                      setTimeout(() => setShareCopied(false), 2000);
+                    }}
+                    className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-gray-200 rounded-lg"
+                    title="Anyone can read this debate — no account needed"
+                  >
+                    {shareCopied ? '✓ Link copied' : '🔗 Share publicly'}
+                  </button>
+                )}
+              </div>
               
               {(debate.winner || debate.finalScores || detailedScore) ? (
                 <div className="text-center">

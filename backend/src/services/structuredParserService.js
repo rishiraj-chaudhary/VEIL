@@ -16,6 +16,17 @@ import grokService from './grokService.js';
  *   - Centralized parsing for all LLM structured outputs
  *   - Graceful fallback values when all retries fail
  */
+
+/**
+ * A string field that truncates to `max` instead of failing validation.
+ * Length overruns are a formatting quirk, not a sign the content is wrong.
+ */
+const cappedString = (max, { min = 0 } = {}) =>
+  z.preprocess(
+    value => (typeof value === 'string' ? value.trim().slice(0, max) : value),
+    min > 0 ? z.string().min(min) : z.string(),
+  );
+
 class StructuredParserService {
   constructor() {
     this.maxRetries = 3;
@@ -40,12 +51,17 @@ class StructuredParserService {
       /**
        * Fallacy detection result from LLM.
        */
+      // Only `type` is load-bearing (plus `quote`, which fallacyGraph uses to
+      // verify the finding is grounded in the text). Everything else is
+      // presentational and defaults rather than failing: a missing severity is
+      // no reason to throw away a correctly identified fallacy, retry three
+      // times, and fall back to regex — which is what previously happened.
       fallacies: z.array(z.object({
         type: z.string().min(2).max(60),
-        explanation: z.string().min(10).max(400),
-        severity: z.number().int().min(1).max(10),
-        confidence: z.number().min(0).max(1).optional().default(0.8),
-        quote: z.string().max(200).optional(), // the offending text
+        explanation: cappedString(400).optional().default('No explanation provided.'),
+        severity: z.number().int().min(1).max(10).catch(5).optional().default(5),
+        confidence: z.number().min(0).max(1).catch(0.8).optional().default(0.8),
+        quote: cappedString(200).optional(), // the offending text
       })).max(5),
 
       /**
@@ -99,6 +115,38 @@ class StructuredParserService {
           priority: z.enum(['high', 'medium', 'low']),
         })).max(5),
       }),
+      // ── Sparring agent ──────────────────────────────────────────
+      // Parsed with parseSync rather than parse: the agent enforces a hard LLM
+      // call budget, and self-healing retries would spend from it invisibly.
+
+      /** A single attack the agent mounts against one claim. */
+      sparringAttack: z.object({
+        attack: cappedString(700, { min: 20 }),
+        vector: cappedString(60),
+      }),
+
+      /**
+       * How much damage an attack does, 0-10.
+       *
+       * An earlier version also asked for a `lands` boolean. The model set it
+       * inconsistently with its own score — returning `lands: false` alongside a
+       * 7/10, which its rubric defines as "the claim needs revision" — so two
+       * identical verdicts produced opposite outcomes. The rubric-anchored number
+       * is the reliable signal and is now the only one asked for.
+       */
+      sparringVerdict: z.object({
+        strength: z.preprocess(
+          v => Math.max(0, Math.min(10, Math.round(Number(v) || 0))),
+          z.number().min(0).max(10),
+        ),
+        reason: cappedString(300),
+      }),
+
+      /** A revision that answers the attack. */
+      sparringRepair: z.object({
+        revised: cappedString(700, { min: 20 }),
+        change: cappedString(200),
+      }),
     };
 
     // Fallback values when all retries fail
@@ -106,6 +154,9 @@ class StructuredParserService {
       claims: [],
       rebuttals: [],
       fallacies: [],
+      sparringAttack: null,
+      sparringVerdict: null,
+      sparringRepair: null,
       rerankScores: null, // null = use uniform scores
       personaTraits: {
         tone: 'neutral',
