@@ -1,0 +1,73 @@
+# Render Blueprint — VEIL API
+#
+# The frontend is deployed separately on Vercel; only the backend lives here.
+# It needs a long-lived process rather than a serverless function: Socket.io
+# holds connections open, and the job worker, feed scheduler and persona
+# scheduler all run in-process on an interval.
+#
+# Apply with: Render dashboard → New → Blueprint → point at this repo.
+# Secrets marked `sync: false` are NOT read from this file — set them once in
+# the dashboard so they never enter git.
+
+services:
+  - type: web
+    name: veil-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+
+    # `npm ci` rather than `npm install`: it installs exactly the lockfile and
+    # fails loudly if package.json and package-lock.json have drifted.
+    buildCommand: npm ci
+    startCommand: npm start
+
+    # Render restarts the instance if this stops answering. The route is public
+    # and reports Mongo, the vector store, the scheduler and the job worker.
+    healthCheckPath: /health
+
+    envVars:
+      # Required for correctness, not just tidiness. The refresh token cookie is
+      # set with `secure: true, sameSite: 'none'` only when this is 'production'
+      # — and a cross-site cookie from Vercel to Render needs both. Anything
+      # else and every token refresh silently fails.
+      - key: NODE_ENV
+        value: production
+
+      # Access-token lifetime. Refresh tokens rotate, so this stays short; the
+      # old 7d value let an access token outlive the rotation it exists to allow.
+      - key: JWT_EXPIRE
+        value: 15m
+
+      # Enforce the per-tier daily AI spend cap. Off by default so local work is
+      # not throttled, which means production has to opt in explicitly.
+      - key: AI_BUDGET_ENFORCED
+        value: "true"
+
+      # Generated once by Render and never shown in git. Rotating either of these
+      # later invalidates every existing session / anonymous-feedback mapping.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SLICK_ENCRYPTION_KEY
+        generateValue: true
+
+      # ── Set these in the dashboard ──────────────────────────────────────────
+      # Atlas connection string. Must be Atlas, not a plain mongod: $vectorSearch
+      # is an Atlas feature and RAG stays disabled without it.
+      - key: MONGODB_URI
+        sync: false
+
+      - key: GROK_API_KEY
+        sync: false
+      - key: HUGGINGFACE_API_KEY
+        sync: false
+
+      # Comma-separated extra browser origins. The Vercel domains are already
+      # hardcoded in src/config/cors.js; add any custom domain here.
+      - key: FRONTEND_URL
+        sync: false
+
+      # Optional — toxicity scoring falls back to the LLM, then to a keyword
+      # heuristic, if this is absent.
+      - key: PERSPECTIVE_API_KEY
+        sync: false
