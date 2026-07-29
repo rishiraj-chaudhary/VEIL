@@ -1,5 +1,5 @@
-import axios from 'axios';
 import { create } from 'zustand';
+import api from '../services/api';
 import authService from '../services/authService';
 
 const useAuthStore = create((set) => ({
@@ -45,8 +45,8 @@ const useAuthStore = create((set) => ({
   },
 
   // Logout
-  logout: () => {
-    authService.logout();
+  logout: async () => {
+    await authService.logout();
     set({
       user: null,
       isAuthenticated: false,
@@ -57,12 +57,9 @@ const useAuthStore = create((set) => ({
   // Refresh user data
   refreshUser: async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/auth/me', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('veil_token')}`
-        }
-      });
-      
+      const response = await api.get('/auth/me');
+
+
       if (response.data.success) {
         const updatedUser = response.data.data.user;
         localStorage.setItem('veil_user', JSON.stringify(updatedUser));

@@ -34,8 +34,14 @@ const authService = {
     return response.data;
   },
 
-  // Logout user
-  logout: () => {
+  // Logout user. The server call revokes the refresh token — clearing only
+  // localStorage would leave a valid session credential in the cookie.
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Already expired or offline; the local clear below still applies.
+    }
     localStorage.removeItem('veil_token');
     localStorage.removeItem('veil_user');
   },
