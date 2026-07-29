@@ -32,6 +32,7 @@ const MIN_WORDS_FOR_LLM = 25;
 
 class FallacyGraph {
   constructor() {
+    this.lastRun = { llmUsed: false, model: null };
     this.tokenizer = new natural.WordTokenizer();
 
     // Confidence threshold — below this, discard LLM fallacy
@@ -103,6 +104,10 @@ class FallacyGraph {
     console.log(`🔍 Fallacy graph: regex=${regexSignals.length} signals, LLM=${shouldRunLLM}`);
 
     if (!shouldRunLLM || !grokService.isReady()) {
+      // Regex-only. Deterministic, so a caller checking provenance can still
+      // assert on the result — there is no model to have been downgraded.
+      this.lastRun = { llmUsed: false, model: null };
+
       // Layer 1 only — convert regex signals to fallacy objects
       const fallacies = regexSignals.map(signal => ({
         type: signal.type,
@@ -129,6 +134,13 @@ class FallacyGraph {
       knowledgeContext,
       aiContext
     );
+
+    // Which model actually answered. _runLLMLayer asks for the smart model, but
+    // grokService silently downgrades when the daily token budget is spent, and
+    // the fast model mislabels sound arguments — so a caller judging this
+    // output needs to know which one produced it. Read immediately after the
+    // call, since this is per-instance state rather than per-invocation.
+    this.lastRun = { llmUsed: true, model: grokService.smartServedBy() };
 
     // ── Node 4: Merge + deduplicate ───────────────────────────────
     const merged = this._mergeResults(regexSignals, llmFallacies);

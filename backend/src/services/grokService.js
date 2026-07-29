@@ -99,10 +99,29 @@ class GrokService {
         console.warn(`⏬ Smart-model daily budget reached (${used}/${SMART_DAILY_TOKEN_BUDGET}) — using ${this.fastModel} for the rest of the day`);
         this._budgetWarned = true;
       }
+      this._lastSmartModel = this.fastModel;
       return this.generate(prompt, { ...context, _downgraded: true }, this.fastModel, 500);
     }
 
+    this._lastSmartModel = this.smartModel;
     return this.generate(prompt, context, this.smartModel, 800);
+  }
+
+  /**
+   * Which model actually served the last generateSmart call.
+   *
+   * Callers that depend on smart-model judgment need to distinguish "this
+   * produced a bad answer" from "this was never asked of the smart model".
+   * Both downgrade paths are silent by design — availability is preserved and
+   * quality drops — so without this the difference is invisible.
+   */
+  smartServedBy() {
+    return this._lastSmartModel ?? null;
+  }
+
+  /** True when the last smart request was actually answered by the smart model. */
+  smartWasAvailable() {
+    return this._lastSmartModel === this.smartModel;
   }
 
   /**
@@ -221,6 +240,8 @@ class GrokService {
             ? 'daily token budget exhausted'
             : `cooldown ${Math.round(waitMs / 1000)}s exceeds the ${MAX_RETRY_WAIT_MS / 1000}s wait cap`;
           console.warn(`⏬ ${reason} on ${model} — using ${this.fastModel} instead`);
+
+          if (model === this.smartModel) this._lastSmartModel = this.fastModel;
 
           return this.generate(
             prompt,

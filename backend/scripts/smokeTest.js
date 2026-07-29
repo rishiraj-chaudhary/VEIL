@@ -18,6 +18,21 @@ const check = (name, passed, detail = '') => {
   console.log(`${passed ? '✅' : '❌'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
+/**
+ * Record a check that could not be asserted, rather than passing or failing it.
+ *
+ * Some checks only mean anything on the smart model. When the daily token budget
+ * is spent, grokService silently downgrades to the fast model — availability is
+ * preserved and quality drops — and those checks then pass or fail essentially
+ * at random. Counting a downgraded run as a pass hides regressions; counting it
+ * as a failure cries wolf every time the budget runs out. Neither is honest, so
+ * it is reported as skipped and excluded from the pass count.
+ */
+const skip = (name, reason) => {
+  results.push({ name, skipped: true, detail: reason });
+  console.log(`⏭️  ${name} — skipped: ${reason}`);
+};
+
 await mongoose.connect(process.env.MONGODB_URI);
 console.log(`🔌 Connected to "${mongoose.connection.db.databaseName}"\n`);
 
@@ -26,6 +41,7 @@ const Debate      = (await import('../src/models/debate.js')).default;
 const DebateTurn  = (await import('../src/models/debateTurn.js')).default;
 const Claim       = (await import('../src/models/Claim.js')).default;
 
+const grokService   = (await import('../src/services/grokService.js')).default;
 const vectorStore   = (await import('../src/services/vectorStoreService.js')).default;
 const embeddings    = (await import('../src/services/embeddingService.js')).default;
 const safety        = (await import('../src/services/contentSafetyService.js')).default;
@@ -72,14 +88,42 @@ try {
      otherwise has not looked at the evidence.`,
     { round: 1, userTier: 'free' },
   );
+  const dilemmaRun = { ...fallacyGraph.lastRun };
+
   const clean = await fallacyGraph.detect(
     `Restricting adolescent social media use may help, though the evidence is mixed.
      A 2023 cohort study found modest improvements in sleep quality when usage was
      capped, but no significant change in reported anxiety.`,
     { round: 1, userTier: 'free' },
   );
-  check('Detects an implicit false dilemma', dilemma.length > 0, `${dilemma.length} found`);
-  check('Stays silent on a sound argument', clean.length === 0, `${clean.length} false positives`);
+  const cleanRun = { ...fallacyGraph.lastRun };
+
+  // fallacyGraph asks for the smart model on purpose: the fast one confidently
+  // mislabels sound arguments — citing a study as "appeal to authority", hedging
+  // as "slippery slope" — which is exactly the failure this pair exists to catch.
+  //
+  // grokService downgrades silently once the daily token budget is spent, and on
+  // the fast model this pair passes or fails at random (measured 0/6 one day,
+  // 3/3 the next). Asserting on a downgraded run would make the suite flaky, so
+  // it is skipped and said so. A regex-only run has no model to downgrade and
+  // stays asserted.
+  const assertable = (run) => !run.llmUsed || run.model === grokService.smartModel;
+  const servedBy   = (run) => run.llmUsed ? run.model : 'regex only';
+
+  if (assertable(dilemmaRun)) {
+    check('Detects an implicit false dilemma', dilemma.length > 0,
+      `${dilemma.length} found via ${servedBy(dilemmaRun)}`);
+  } else {
+    skip('Detects an implicit false dilemma', `downgraded to ${dilemmaRun.model}`);
+  }
+
+  if (assertable(cleanRun)) {
+    check('Stays silent on a sound argument', clean.length === 0,
+      `${clean.length} false positives via ${servedBy(cleanRun)}`);
+  } else {
+    skip('Stays silent on a sound argument',
+      `downgraded to ${cleanRun.model} (saw ${clean.length} false positive(s))`);
+  }
 
   // ── Scoring rubric ────────────────────────────────────────────────────────
   console.log('\n── Scoring rubric ──');
@@ -144,14 +188,37 @@ try {
      that wind and solar cannot yet guarantee, and its lifecycle emissions per kilowatt-hour
      are comparable to wind. Excluding it makes the timeline substantially harder to meet.`);
 
-  await respondAsAIIfNeeded(debate._id);
-  const turns = await DebateTurn.find({ debate: debate._id });
-  check('AI produced a counter-argument', turns.length === 2, `${turns.length} turns`);
+  // Both models can be rate-limited at once — the smart model on tokens-per-day
+  // and the fast fallback on tokens-per-minute — and then the opponent cannot
+  // reply for reasons that have nothing to do with this code. Distinguish that
+  // from a genuine failure to produce a turn, on the same principle as the
+  // fallacy checks above: report what could not be asserted rather than
+  // colouring the run red for an upstream quota.
+  let opponentBlocked = null;
+  try {
+    await respondAsAIIfNeeded(debate._id);
+  } catch (err) {
+    if (/rate limit|TPD|TPM|per day|per minute/i.test(err.message)) opponentBlocked = err.message;
+    else throw err;
+  }
 
+  const turns = await DebateTurn.find({ debate: debate._id });
   const aiTurn = turns.find(t => t.side === 'against');
-  check('AI turn was analysed like a human turn',
-    typeof aiTurn?.aiAnalysis?.overallQuality === 'number',
-    `quality ${aiTurn?.aiAnalysis?.overallQuality}/100`);
+
+  // A missing turn with the models exhausted is unproven, not proven broken.
+  if (!opponentBlocked && turns.length < 2 && !grokService.smartWasAvailable()) {
+    opponentBlocked = `models rate-limited (last smart request served by ${grokService.smartServedBy()})`;
+  }
+
+  if (opponentBlocked) {
+    skip('AI produced a counter-argument', opponentBlocked.slice(0, 120));
+    skip('AI turn was analysed like a human turn', 'no AI turn to analyse');
+  } else {
+    check('AI produced a counter-argument', turns.length === 2, `${turns.length} turns`);
+    check('AI turn was analysed like a human turn',
+      typeof aiTurn?.aiAnalysis?.overallQuality === 'number',
+      `quality ${aiTurn?.aiAnalysis?.overallQuality}/100`);
+  }
 
   const debateClaims = await Claim.find({ 'debates.debate': debate._id });
   check('Claims entered the graph with authors',
@@ -169,9 +236,18 @@ try {
   }
 }
 
-const failed = results.filter(r => !r.passed);
+const skipped  = results.filter(r => r.skipped);
+const asserted = results.filter(r => !r.skipped);
+const failed   = asserted.filter(r => !r.passed);
+
 console.log(`\n${'─'.repeat(50)}`);
-console.log(`${results.length - failed.length}/${results.length} checks passed`);
+console.log(`${asserted.length - failed.length}/${asserted.length} checks passed`
+  + (skipped.length ? `, ${skipped.length} skipped` : ''));
+
+if (skipped.length) {
+  console.log('\nSkipped (not asserted — do not read as passing):');
+  skipped.forEach(s => console.log(`  ⏭️  ${s.name} — ${s.detail}`));
+}
 if (failed.length) {
   console.log('\nFailed:');
   failed.forEach(f => console.log(`  ❌ ${f.name} — ${f.detail}`));

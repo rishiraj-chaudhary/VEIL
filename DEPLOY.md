@@ -114,8 +114,20 @@ spend so one person cannot drain it. When the 70B model's daily cap is reached,
 `grokService` downgrades to the 8B model automatically rather than failing —
 expect fallacy detection to get noticeably worse when that happens.
 
-**The 8B fallback makes one smoke check flaky.** `Stays silent on a sound
-argument` passes about 1 run in 6 on the fast model. A red result there is
-expected while the daily 70B budget is exhausted; it is not a regression.
+**Smoke checks that need the smart model report as skipped, not passed.** The
+fallacy pair and the AI-opponent pair pass or fail at random on the 8B fallback
+(measured 0/6 one day, 3/3 the next). Rather than colouring the run red for an
+upstream quota, `npm run smoke` reports them as skipped with the model that
+actually served, and excludes them from the pass count:
+
+```
+14/14 checks passed, 4 skipped
+
+Skipped (not asserted — do not read as passing):
+  ⏭️  Stays silent on a sound argument — downgraded to llama-3.1-8b-instant
+```
+
+A skipped run proves nothing about those paths. Re-run once the daily quota
+resets to get a real result — and treat a run with skips as incomplete, not green.
 
 **Atlas requires `0.0.0.0/0`.** Render free has no static outbound IP.
