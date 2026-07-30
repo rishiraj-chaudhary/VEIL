@@ -298,23 +298,20 @@ class SlickAIService {
     try {
       console.log('🔍 Building author history context');
 
-      // Get all slicks from MongoDB and decrypt to find author's slicks
-      const allSlicks = await Slick.find({ isActive: true })
+      // Indexed lookup on the author's HMAC tag.
+      //
+      // This previously took the newest 100 slicks platform-wide and then
+      // filtered for this author, which is wrong as well as slow: an author
+      // whose slicks fall outside the global newest-100 window got zero
+      // results no matter how many they had sent. Querying by author first
+      // means the limit applies to their own slicks.
+      const sentSlicks = await Slick.find({
+        authorTag: Slick.authorTag(authorId),
+        isActive: true,
+      })
         .sort({ createdAt: -1 })
-        .limit(100) // Limit for performance
+        .limit(10)
         .lean();
-
-      // Decrypt and filter for this author's slicks
-      const sentSlicks = allSlicks
-        .filter(slick => {
-          try {
-            const decryptedAuthorId = Slick.decryptAuthorId(slick.encryptedAuthorId);
-            return decryptedAuthorId === authorId.toString();
-          } catch {
-            return false;
-          }
-        })
-        .slice(0, 10); // Last 10 sent slicks
 
       // Analyze preferred tones
       const toneCounts = sentSlicks.reduce((acc, slick) => {

@@ -19,10 +19,11 @@ export const createSlick = asyncHandler(async (req, res) => {
   if (!aiAnalysis.isAppropriate)
     return res.status(400).json({ success: false, message: 'Content violates community guidelines', aiSuggestion: aiAnalysis.rewrittenVersion, reasoning: aiAnalysis.reasoning });
 
-  const encryptedAuthorId = Slick.encryptAuthorId(req.user._id);
   const slick = await Slick.create({
     content: aiAnalysis.rewrittenVersion || content,
-    encryptedAuthorId,
+    // Cipher for the paid reveal; tag for indexed "slicks I sent" queries.
+    encryptedAuthorId: Slick.encryptAuthorId(req.user._id),
+    authorTag: Slick.authorTag(req.user._id),
     targetUser: targetUserId,
     relationshipType: relationshipCheck.type,
     tone, visibility, aiAnalysis,
@@ -74,12 +75,29 @@ export const getReceivedSlicks = asyncHandler(async (req, res) => {
 
 export const getSentSlicks = asyncHandler(async (req, res) => {
   const { limit = 20, page = 1 } = req.query;
-  const allSlicks = await Slick.find({ isActive: true }).sort({ createdAt: -1 }).populate('targetUser', 'username');
-  const sentSlicks = allSlicks.filter(s => Slick.decryptAuthorId(s.encryptedAuthorId) === req.user._id.toString());
-  const start = (parseInt(page) - 1) * parseInt(limit);
+
+  // Was: load every slick in the collection, decrypt each one, keep the matches.
+  // That is a full scan plus N decryptions per request, and it could not be
+  // indexed because authorship was not a queryable field. The HMAC tag is
+  // deterministic, so this is now a single indexed equality match.
+  const filter = { authorTag: Slick.authorTag(req.user._id), isActive: true };
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+
+  const [slicks, total] = await Promise.all([
+    Slick.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('targetUser', 'username'),
+    Slick.countDocuments(filter),
+  ]);
+
   res.json({
     success: true,
-    data: { slicks: sentSlicks.slice(start, start + parseInt(limit)), pagination: { page: parseInt(page), limit: parseInt(limit), total: sentSlicks.length, pages: Math.ceil(sentSlicks.length / parseInt(limit)) } },
+    data: {
+      slicks,
+      pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / parseInt(limit)) },
+    },
   });
 });
 
@@ -88,7 +106,9 @@ export const reactToSlick = asyncHandler(async (req, res) => {
   if (!['agree', 'disagree', 'funny', 'insightful', 'unfair'].includes(reaction))
     return res.status(400).json({ success: false, message: 'Invalid reaction type' });
 
-  const slick = await Slick.findById(req.params.id);
+  // reactors is select:false — needed here to prevent double-reacting, and
+  // deliberately not returned in the response below.
+  const slick = await Slick.findById(req.params.id).select('+reactors');
   if (!slick) return res.status(404).json({ success: false, message: 'Slick not found' });
 
   const existingIdx = slick.reactors.findIndex(r => r.user.equals(req.user._id));
@@ -102,7 +122,9 @@ export const reactToSlick = asyncHandler(async (req, res) => {
   await slick.save();
 
   if (['agree', 'funny', 'insightful'].includes(reaction)) {
-    const authorId = Slick.decryptAuthorId(slick.encryptedAuthorId);
+    // encryptedAuthorId is select:false, so it must be fetched deliberately.
+    const withAuthor = await Slick.findById(slick._id).select('+encryptedAuthorId');
+    const authorId = Slick.decryptAuthorId(withAuthor?.encryptedAuthorId);
     if (authorId) {
       const cur = await UserCurrency.findOne({ user: authorId });
       if (cur) await cur.addTransaction('earned', 2, `Positive reaction: ${reaction}`, slick._id);
@@ -113,7 +135,9 @@ export const reactToSlick = asyncHandler(async (req, res) => {
 });
 
 export const revealSlickAuthor = asyncHandler(async (req, res) => {
-  const slick = await Slick.findById(req.params.id);
+  // The only endpoint that legitimately needs the plaintext author, and only
+  // after canRevealIdentity() has authorised and charged for it.
+  const slick = await Slick.findById(req.params.id).select('+encryptedAuthorId');
   if (!slick) return res.status(404).json({ success: false, message: 'Slick not found' });
   if (!slick.targetUser.equals(req.user._id))
     return res.status(403).json({ success: false, message: 'Only the target can reveal identity' });
@@ -150,9 +174,12 @@ export const getSlickInsights = asyncHandler(async (req, res) => {
   const { timeframe = '30d' } = req.query;
   const timeAgo = new Date();
   timeAgo.setDate(timeAgo.getDate() - (timeframe === '30d' ? 30 : 7));
-  const receivedSlicks = await Slick.find({ targetUser: req.user._id, createdAt: { $gte: timeAgo }, isActive: true });
-  const allSlicks = await Slick.find({ createdAt: { $gte: timeAgo }, isActive: true });
-  const sentSlicks = allSlicks.filter(s => Slick.decryptAuthorId(s.encryptedAuthorId) === req.user._id.toString());
+  // Both sides are indexed queries. The sent side previously scanned every
+  // slick in the window and decrypted each one to find this user's.
+  const [receivedSlicks, sentSlicks] = await Promise.all([
+    Slick.find({ targetUser: req.user._id, createdAt: { $gte: timeAgo }, isActive: true }),
+    Slick.find({ authorTag: Slick.authorTag(req.user._id), createdAt: { $gte: timeAgo }, isActive: true }),
+  ]);
   const aiInsights = await slickAIService.generateSlickInsights(req.user._id, receivedSlicks, sentSlicks);
   res.json({ success: true, data: { insights: aiInsights, stats: { received: receivedSlicks.length, sent: sentSlicks.length, timeframe } } });
 });

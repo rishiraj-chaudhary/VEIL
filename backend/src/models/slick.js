@@ -1,4 +1,10 @@
 import mongoose from 'mongoose';
+import {
+  authorTag as computeAuthorTag,
+  decryptAuthorId as decryptId,
+  encryptAuthorId as encryptId,
+  isLegacyEncoding,
+} from '../utils/anonymity.js';
 
 const slickSchema = new mongoose.Schema({
   content: {
@@ -9,7 +15,17 @@ const slickSchema = new mongoose.Schema({
     maxlength: [500, 'Slick cannot exceed 500 characters'],
   },
 
-  encryptedAuthorId: { type: String, required: true },
+  // AES-256-GCM ciphertext of the author id. `select: false` because this must
+  // never reach a client: the whole feature is anonymity, and the identity
+  // reveal behind it is a paid action. Reads that genuinely need it opt in with
+  // .select('+encryptedAuthorId').
+  encryptedAuthorId: { type: String, required: true, select: false },
+
+  // Deterministic HMAC of the author id, so "slicks I sent" is an indexed
+  // lookup instead of loading every slick and decoding each one. One-way, but
+  // still hidden: it is stable per author, so a recipient holding two tags
+  // could tell two anonymous notes came from the same person.
+  authorTag: { type: String, required: true, index: true, select: false },
 
   targetUser: {
     type: mongoose.Schema.Types.ObjectId,
@@ -55,10 +71,20 @@ const slickSchema = new mongoose.Schema({
     unfair:    { type: Number, default: 0 },
   },
 
-  reactors: [{
-    user:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    reaction: { type: String, enum: ['agree', 'disagree', 'funny', 'insightful', 'unfair'] },
-  }],
+  // Server-side only: this exists to stop a user reacting twice, and nothing in
+  // the frontend reads it. It was being returned to clients, which exposed who
+  // reacted to anonymous feedback about someone — and if the author reacted to
+  // their own slick, put their id in the payload alongside it.
+  //
+  // The displayed counts live in `reactions`, which stays public.
+  reactors: {
+    type: [{
+      user:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      reaction: { type: String, enum: ['agree', 'disagree', 'funny', 'insightful', 'unfair'] },
+    }],
+    select: false,
+    default: [],
+  },
 
   credibilityScore: { type: Number, min: 0, max: 100, default: 50 },
 
@@ -106,23 +132,25 @@ slickSchema.pre('save', function (next) {
   next();
 });
 
+// These delegate to utils/anonymity.js. The previous implementations were
+// base64 encode/decode under encryption names, with a fallback that also just
+// encoded — so there was no configuration in which authorship was protected.
 slickSchema.statics.encryptAuthorId = function (authorId) {
-  try {
-    const data = JSON.stringify({ id: authorId.toString(), timestamp: Date.now() });
-    return Buffer.from(data).toString('base64');
-  } catch {
-    return Buffer.from(authorId.toString()).toString('base64');
-  }
+  return encryptId(authorId);
 };
 
 slickSchema.statics.decryptAuthorId = function (encryptedId) {
-  try {
-    const decoded = Buffer.from(encryptedId, 'base64').toString();
-    return JSON.parse(decoded).id;
-  } catch {
-    try { return Buffer.from(encryptedId, 'base64').toString(); }
-    catch { return null; }
-  }
+  return decryptId(encryptedId);
+};
+
+/** Deterministic tag for querying an author's own slicks. */
+slickSchema.statics.authorTag = function (authorId) {
+  return computeAuthorTag(authorId);
+};
+
+/** True for rows still written in the old reversible encoding. */
+slickSchema.statics.isLegacyAuthor = function (encryptedId) {
+  return isLegacyEncoding(encryptedId);
 };
 
 slickSchema.methods.canRevealIdentity = function (userId, userCurrency = 0) {
