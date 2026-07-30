@@ -90,6 +90,18 @@ const userPerformanceSchema = new mongoose.Schema({
       skill:   String,
       message: String,
     }],
+
+    // The plan-level output of the coaching LLM call.
+    //
+    // performanceGraph asked the model for drills, a focusArea and a weeklyGoal,
+    // validated all three and filled defaults for missing ones — then persisted
+    // only the drills. These two were generated and discarded on every analysis,
+    // so the tab titled "Your Coaching Plan" showed exercises but never the plan.
+    coachingPlan: {
+      focusArea:  String,
+      weeklyGoal: String,
+      generatedAt: Date,
+    },
   },
 
   // ── Improvement tracking ───────────────────────────────────────────────

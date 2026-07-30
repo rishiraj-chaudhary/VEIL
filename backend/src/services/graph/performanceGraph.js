@@ -450,6 +450,16 @@ Rules:
       perf.peerPercentiles = state.peerPercentiles;
     }
 
+    // Persist the plan-level guidance alongside the drills. Only the drills were
+    // stored previously, so focusArea and weeklyGoal were paid for and thrown away.
+    if (state.coachingPlan?.focusArea || state.coachingPlan?.weeklyGoal) {
+      perf.analysis.coachingPlan = {
+        focusArea:   state.coachingPlan.focusArea,
+        weeklyGoal:  state.coachingPlan.weeklyGoal,
+        generatedAt: new Date(),
+      };
+    }
+
     // Store coaching plan as structured coaching tips
     if (state.coachingPlan?.drills) {
       for (const drill of state.coachingPlan.drills) {

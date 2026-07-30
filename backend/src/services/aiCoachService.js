@@ -205,6 +205,17 @@ class AICoachService {
         blindSpots:       performance.analysis.blindSpots || [],
         personaAligned:   performance.analysis.personaAligned || [],
         peerPercentiles:  performance.peerPercentiles || null,
+        coachingPlan:     performance.analysis.coachingPlan || null,
+
+        // Why peerPercentiles is null, so the UI can explain the gap instead of
+        // rendering an unexplained blank panel. The comparison needs at least
+        // three users carrying a skill profile and five or more turns.
+        peerComparison: {
+          available: Boolean(performance.peerPercentiles),
+          reason: performance.peerPercentiles
+            ? null
+            : 'Not enough active debaters yet to rank against — this needs at least three players with five or more turns each.',
+        },
       };
 
     } catch (error) {

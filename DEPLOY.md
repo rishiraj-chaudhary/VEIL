@@ -131,3 +131,23 @@ A skipped run proves nothing about those paths. Re-run once the daily quota
 resets to get a real result — and treat a run with skips as incomplete, not green.
 
 **Atlas requires `0.0.0.0/0`.** Render free has no static outbound IP.
+
+**Huddles use STUN with no TURN relay.** One-to-one WebRTC calls connect directly,
+which works on most home and mobile networks but fails behind symmetric NAT or
+firewalls that block peer-to-peer UDP — roughly 10-20% of connections. Those calls
+fail at ICE with no media, so the symptom is a call that never starts rather than a
+visible error. Adding a relay is a bandwidth cost, not a code change; set
+`REACT_APP_TURN_URL`, `REACT_APP_TURN_USER` and `REACT_APP_TURN_PASS` in Vercel and
+`src/pages/HuddleRoom.jsx` picks them up. Use short-lived credentials issued by the
+backend — anything in the frontend bundle is public.
+
+**Run the anonymity migration once before or immediately after first deploy:**
+
+```
+node scripts/migrateSlickAnonymity.js
+```
+
+Existing anonymous feedback rows stored the author id as reversible base64. This
+re-encrypts them with AES-256-GCM and adds the indexed HMAC tag the "slicks I sent"
+query now uses. Rows without the tag are invisible to that query, so a gap between
+deploying and migrating looks like a user's sent history disappearing.

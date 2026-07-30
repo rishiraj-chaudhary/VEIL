@@ -377,8 +377,8 @@ const PersonaDriftDashboard = () => {
           <div className="space-y-6">
             {(!evolutionStats || evolutionStats.totalSnapshots < 2) ? (
               <div className="bg-slate-800 rounded-xl p-12 border border-purple-500/30 text-center">
-                <div className="text-6xl mb-4">📊</div><h3 className="text-2xl font-bold text-white mb-3">Evolution Coming Soon</h3>
-                <p className="text-gray-400 mb-4">Create at least 2 snapshots to see your trait evolution stats</p><p className="text-sm text-gray-500">Current snapshots: {evolutionStats?.totalSnapshots || snapshots.length || 0}</p>
+                <div className="text-6xl mb-4">📊</div><h3 className="text-2xl font-bold text-white mb-3">Not Enough Snapshots Yet</h3>
+                <p className="text-gray-400 mb-4">Trait evolution compares snapshots over time, so it needs at least 2. Keep debating and a new one is captured automatically.</p><p className="text-sm text-gray-500">Current snapshots: {evolutionStats?.totalSnapshots || snapshots.length || 0}</p>
               </div>
             ) : (
               <>

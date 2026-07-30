@@ -13,10 +13,35 @@ import Navbar from '../components/common/Navbar';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
 
+/**
+ * STUN only — no TURN relay.
+ *
+ * STUN lets each peer discover its public address so the two can connect
+ * directly. That covers most home and mobile networks, but it cannot traverse
+ * symmetric NAT or firewalls that block peer-to-peer UDP outright, which is
+ * roughly 10-20% of real-world connections. Those calls fail at ICE with no
+ * media rather than degrading, and the user just sees a call that never starts.
+ *
+ * Fixing it properly requires a TURN server to relay the media — self-hosted
+ * coturn, or a managed provider — which is a per-gigabyte bandwidth cost rather
+ * than a code change. Deliberately deferred, not overlooked. To enable:
+ *
+ *   { urls: 'turn:<host>:3478', username: '<user>', credential: '<pass>' }
+ *
+ * Credentials must be short-lived and fetched from the backend, never hardcoded
+ * here — anything in this bundle is public.
+ */
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    ...(process.env.REACT_APP_TURN_URL
+      ? [{
+          urls: process.env.REACT_APP_TURN_URL,
+          username: process.env.REACT_APP_TURN_USER,
+          credential: process.env.REACT_APP_TURN_PASS,
+        }]
+      : []),
   ],
 };
 

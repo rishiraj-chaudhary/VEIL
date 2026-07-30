@@ -362,6 +362,17 @@ const CoachDashboard = () => {
         {/* TAB: SKILLS                                                    */}
         {/* ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'skills' && (
+          <>
+            {summary?.peerComparison && !summary.peerComparison.available && (
+              <div className="mb-6 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+                <div className="text-sm text-gray-300 font-medium mb-1">Peer ranking unavailable</div>
+                <p className="text-sm text-gray-500">{summary.peerComparison.reason}</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'skills' && (
           <div className="space-y-6">
             {/* 6-dimension breakdown */}
             {skillProfile ? (
@@ -443,6 +454,33 @@ const CoachDashboard = () => {
         {/* ══════════════════════════════════════════════════════════════ */}
         {activeTab === 'coaching' && (
           <div className="space-y-6">
+            {/* Plan-level guidance. The model generates a focus area and a weekly
+                goal alongside the drills; both used to be discarded on save. */}
+            {(summary?.coachingPlan?.focusArea || summary?.coachingPlan?.weeklyGoal) && (
+              <div className="bg-gradient-to-br from-purple-900/30 to-slate-800 border border-purple-500/40 rounded-lg p-6">
+                <h2 className="text-xl font-semibold text-white mb-4">🎯 This Week</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {summary.coachingPlan.focusArea && (
+                    <div>
+                      <div className="text-xs uppercase tracking-wider text-purple-300 mb-1">Focus area</div>
+                      <div className="text-white font-medium">{summary.coachingPlan.focusArea}</div>
+                    </div>
+                  )}
+                  {summary.coachingPlan.weeklyGoal && (
+                    <div>
+                      <div className="text-xs uppercase tracking-wider text-purple-300 mb-1">Measurable goal</div>
+                      <div className="text-white font-medium">{summary.coachingPlan.weeklyGoal}</div>
+                    </div>
+                  )}
+                </div>
+                {summary.coachingPlan.generatedAt && (
+                  <div className="text-xs text-gray-500 mt-4">
+                    Generated {new Date(summary.coachingPlan.generatedAt).toLocaleDateString()} from your last 20 turns
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* LLM-generated drills */}
             {graphTips.length > 0 && (
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
