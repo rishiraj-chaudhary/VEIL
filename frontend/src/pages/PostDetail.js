@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ErrorState, LoadingState } from '../components/ui';
 import { Link, useParams } from 'react-router-dom';
 import CommentForm from '../components/comment/CommentForm';
 import CommentList from '../components/comment/CommentList';
@@ -10,7 +11,7 @@ import usePostStore from '../store/postStore';
 
 const PostDetail = () => {
   const { id } = useParams();
-  const { fetchPost, currentPost, loading, votePost } = usePostStore();
+  const { fetchPost, currentPost, loading, error, votePost } = usePostStore();
   const { createComment } = useCommentStore();
 
   const socket = useSocket();
@@ -65,13 +66,26 @@ const PostDetail = () => {
     return `${d}d ago`;
   };
 
-  if (loading || !currentPost) {
+  // Previously `loading || !currentPost` showed a spinner forever when the fetch
+  // failed — the post never arrives, so the page span indefinitely.
+  if (loading) {
     return (
       <div className="min-h-screen bg-veil-dark">
         <Navbar />
-        <div className="flex items-center justify-center h-96">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-veil-purple" />
-        </div>
+        <LoadingState label="Loading post…" />
+      </div>
+    );
+  }
+
+  if (error || !currentPost) {
+    return (
+      <div className="min-h-screen bg-veil-dark">
+        <Navbar />
+        <ErrorState
+          title={error ? "Couldn't load this post" : 'Post not found'}
+          body={error || 'It may have been removed.'}
+          onRetry={error ? () => fetchPost(id) : undefined}
+        />
       </div>
     );
   }
@@ -88,20 +102,20 @@ const PostDetail = () => {
             <div className="bg-slate-900 p-4 flex flex-col items-center space-y-2">
               <button
                 onClick={() => handleVote(1)}
-                className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === 1 ? 'text-orange-500' : 'text-gray-400'}`}
+                className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === 1 ? 'text-orange-500' : 'text-slate-400'}`}
               >
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M5 10l5-5 5 5H5z" />
                 </svg>
               </button>
 
-              <span className={`text-lg font-bold ${currentPost.karma > 0 ? 'text-orange-500' : currentPost.karma < 0 ? 'text-blue-500' : 'text-gray-400'}`}>
+              <span className={`text-lg font-bold ${currentPost.karma > 0 ? 'text-orange-500' : currentPost.karma < 0 ? 'text-slate-500' : 'text-slate-400'}`}>
                 {currentPost.karma}
               </span>
 
               <button
                 onClick={() => handleVote(-1)}
-                className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === -1 ? 'text-blue-500' : 'text-gray-400'}`}
+                className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === -1 ? 'text-slate-500' : 'text-slate-400'}`}
               >
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M15 10l-5 5-5-5h10z" />
@@ -111,7 +125,7 @@ const PostDetail = () => {
 
             {/* Content */}
             <div className="flex-1 p-6">
-              <div className="flex items-center space-x-2 text-sm text-gray-400 mb-3">
+              <div className="flex items-center space-x-2 text-sm text-slate-400 mb-3">
                 <Link to={`/c/${currentPost.community?.name}`} className="font-semibold hover:text-white">
                   c/{currentPost.community?.name}
                 </Link>
@@ -134,10 +148,10 @@ const PostDetail = () => {
               <h1 className="text-2xl font-bold text-white mb-4">{currentPost.title}</h1>
 
               {currentPost.content && (
-                <p className="text-gray-300 mb-4 whitespace-pre-wrap">{currentPost.content}</p>
+                <p className="text-slate-300 mb-4 whitespace-pre-wrap">{currentPost.content}</p>
               )}
 
-              <div className="flex items-center space-x-4 text-sm text-gray-400 border-t border-slate-700 pt-4">
+              <div className="flex items-center space-x-4 text-sm text-slate-400 border-t border-slate-700 pt-4">
                 <span>💬 {currentPost.commentCount} comments</span>
               </div>
             </div>

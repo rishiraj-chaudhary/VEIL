@@ -265,7 +265,7 @@ const ClaimNetworkVisualization = ({ claimId, width = 800, height = 600 }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center" style={{ width, height }}>
-        <div className="text-gray-400">Loading network...</div>
+        <div className="text-slate-400">Loading network...</div>
       </div>
     );
   }
@@ -281,7 +281,7 @@ const ClaimNetworkVisualization = ({ claimId, width = 800, height = 600 }) => {
   if (!data || data.nodes.length === 0) {
     return (
       <div className="flex items-center justify-center" style={{ width, height }}>
-        <div className="text-gray-400">No relationships found</div>
+        <div className="text-slate-400">No relationships found</div>
       </div>
     );
   }
@@ -291,7 +291,7 @@ const ClaimNetworkVisualization = ({ claimId, width = 800, height = 600 }) => {
       <div className="p-4 border-b border-slate-700">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Claim Network</h3>
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-slate-400">
             {data.nodes.length} nodes • {data.links.length} connections
           </div>
         </div>

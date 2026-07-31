@@ -9,7 +9,7 @@
 const COLOR = {
   red:    'bg-red-900/20 border-red-700/50 text-red-300',
   yellow: 'bg-yellow-900/20 border-yellow-700/50 text-yellow-300',
-  blue:   'bg-blue-900/20 border-blue-700/50 text-blue-300',
+  blue:   'bg-slate-900/20 border-slate-700/50 text-slate-300',
 };
 
 const InsightCard = ({ insight, color, icon }) => (
@@ -18,7 +18,7 @@ const InsightCard = ({ insight, color, icon }) => (
       <span className="text-base shrink-0">{icon}</span>
       <div>
         <h4 className="text-sm font-semibold mb-0.5">{insight.title}</h4>
-        <p className="text-xs text-gray-300 leading-relaxed">{insight.message}</p>
+        <p className="text-xs text-slate-300 leading-relaxed">{insight.message}</p>
       </div>
     </div>
   </div>
@@ -29,7 +29,7 @@ const StrengthBar = ({ score }) => {
   const label = score >= 70 ? 'Strong' : score >= 40 ? 'Developing' : 'Weak';
   return (
     <div>
-      <div className="flex justify-between text-xs text-gray-400 mb-1">
+      <div className="flex justify-between text-xs text-slate-400 mb-1">
         <span>Argument Strength</span>
         <span className={score >= 70 ? 'text-green-400' : score >= 40 ? 'text-yellow-400' : 'text-red-400'}>
           {label} · {score}/100
@@ -49,16 +49,27 @@ const LiveAssistantPanel = ({ insights, isAnalyzing }) => {
     insights?.suggestions?.length;
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden h-full">
+    // Insights appear as the user types, with no interaction to anchor them.
+    // `polite` rather than `assertive` so it waits for a pause in typing instead
+    // of interrupting mid-sentence.
+    <section
+      className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden h-full"
+      aria-label="Live assistant"
+      aria-live="polite"
+      aria-busy={Boolean(isAnalyzing)}
+    >
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isAnalyzing ? 'bg-yellow-400 animate-pulse' : hasContent ? 'bg-green-500' : 'bg-slate-600'}`} />
+          <div
+            aria-hidden="true"
+            className={`w-2 h-2 rounded-full ${isAnalyzing ? 'bg-yellow-400 animate-pulse' : hasContent ? 'bg-green-500' : 'bg-slate-600'}`}
+          />
           <span className="text-sm font-semibold text-white">Live Assistant</span>
         </div>
         {isAnalyzing && (
-          <span className="text-xs text-gray-500 animate-pulse">Analysing…</span>
+          <span className="text-xs text-slate-500 animate-pulse">Analysing…</span>
         )}
       </div>
 
@@ -71,7 +82,7 @@ const LiveAssistantPanel = ({ insights, isAnalyzing }) => {
 
         {/* No content yet */}
         {!hasContent && !isAnalyzing && (
-          <p className="text-xs text-gray-500 text-center py-4 leading-relaxed">
+          <p className="text-xs text-slate-500 text-center py-4 leading-relaxed">
             Start typing your argument and I'll provide real-time feedback on fallacies, rebuttals, and evidence.
           </p>
         )}
@@ -93,7 +104,7 @@ const LiveAssistantPanel = ({ insights, isAnalyzing }) => {
 
         {/* Stats footer */}
         {insights?.stats && (
-          <div className="pt-3 border-t border-slate-700 flex items-center gap-4 text-xs text-gray-500">
+          <div className="pt-3 border-t border-slate-700 flex items-center gap-4 text-xs text-slate-500">
             <span>{insights.stats.wordCount} words</span>
             {insights.stats.hasEvidence && (
               <span className="text-green-400">✓ Evidence cited</span>
@@ -101,7 +112,7 @@ const LiveAssistantPanel = ({ insights, isAnalyzing }) => {
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 };
 

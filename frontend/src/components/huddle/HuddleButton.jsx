@@ -63,11 +63,11 @@ const HuddleButton = ({ contextType = 'standalone', contextId = null, compact = 
         <button
           onClick={joinHuddle}
           disabled={loading || !joinCode.trim()}
-          className="px-3 py-1.5 bg-veil-purple hover:bg-veil-indigo text-white text-xs rounded-lg disabled:opacity-50"
+          className="px-3 py-1.5 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent text-xs rounded-lg disabled:opacity-50"
         >
           {loading ? '…' : 'Join'}
         </button>
-        <button onClick={() => { setMode(null); setError(null); }} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
+        <button onClick={() => { setMode(null); setError(null); }} className="text-slate-500 hover:text-slate-300 text-xs">✕</button>
         {error && <span className="text-xs text-red-400">{error}</span>}
       </div>
     );
@@ -79,7 +79,7 @@ const HuddleButton = ({ contextType = 'standalone', contextId = null, compact = 
         <button
           onClick={startHuddle}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-veil-purple hover:bg-veil-indigo text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
         >
           🎙️ {loading ? 'Starting…' : 'Start Huddle'}
         </button>
@@ -89,7 +89,7 @@ const HuddleButton = ({ contextType = 'standalone', contextId = null, compact = 
         >
           🔗 Join with Code
         </button>
-        <button onClick={() => setMode(null)} className="text-gray-500 hover:text-gray-300 text-xs">✕</button>
+        <button onClick={() => setMode(null)} className="text-slate-500 hover:text-slate-300 text-xs">✕</button>
         {error && <span className="text-xs text-red-400">{error}</span>}
       </div>
     );
@@ -98,7 +98,7 @@ const HuddleButton = ({ contextType = 'standalone', contextId = null, compact = 
   return (
     <button
       onClick={() => setMode('menu')}
-      className={`flex items-center gap-1.5 text-gray-400 hover:text-veil-purple transition-colors ${
+      className={`flex items-center gap-1.5 text-slate-400 hover:text-veil-purple transition-colors ${
         compact ? 'text-xs' : 'text-sm px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 hover:border-veil-purple/50'
       }`}
     >

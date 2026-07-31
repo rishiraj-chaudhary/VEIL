@@ -6,8 +6,8 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
   // Safety check
   if (!decisionTrace || !Array.isArray(decisionTrace)) {
     return (
-      <div className="bg-slate-800 rounded-lg p-6 border border-gray-600">
-        <p className="text-gray-400">No decision trace available.</p>
+      <div className="bg-slate-800 rounded-lg p-6 border border-slate-600">
+        <p className="text-slate-400">No decision trace available.</p>
       </div>
     );
   }
@@ -26,7 +26,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
     switch (impact) {
       case 'positive': return 'border-green-500 bg-green-900/20';
       case 'negative': return 'border-red-500 bg-red-900/20';
-      default: return 'border-blue-500 bg-blue-900/20';
+      default: return 'border-slate-500 bg-slate-900/20';
     }
   };
 
@@ -64,14 +64,14 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
 
   if (validTraces.length === 0) {
     return (
-      <div className="bg-slate-800 rounded-lg p-6 border border-gray-600">
-        <p className="text-gray-400">No valid decision steps available.</p>
+      <div className="bg-slate-800 rounded-lg p-6 border border-slate-600">
+        <p className="text-slate-400">No valid decision steps available.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-gray-600">
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-600">
       <h4 className="text-xl font-bold text-white mb-4 flex items-center">
         <span className="mr-2">🌲</span>
         AI Decision Process
@@ -105,17 +105,17 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                         <span className="text-xl">{getImpactIcon(trace.impact)}</span>
                         {trace.score !== undefined && (
                           <span className={`text-sm font-bold ${
-                            trace.score > 0 ? 'text-green-400' : trace.score < 0 ? 'text-red-400' : 'text-gray-400'
+                            trace.score > 0 ? 'text-green-400' : trace.score < 0 ? 'text-red-400' : 'text-slate-400'
                           }`}>
                             {trace.score > 0 ? '+' : ''}{trace.score}
                           </span>
                         )}
                       </div>
-                      <div className="text-gray-300 mt-1">
+                      <div className="text-slate-300 mt-1">
                         {trace.message}
                       </div>
                       {hasDetails && (
-                        <div className="text-xs text-gray-500 mt-2">
+                        <div className="text-xs text-slate-500 mt-2">
                           {isExpanded ? '▼ Click to collapse' : '▶ Click to expand details'}
                         </div>
                       )}
@@ -125,7 +125,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
 
                 {/* Expanded Details */}
                 {isExpanded && hasDetails && (
-                  <div className="mt-4 pl-11 space-y-3 border-t border-gray-700 pt-3">
+                  <div className="mt-4 pl-11 space-y-3 border-t border-slate-700 pt-3">
                     
                     {/* Tips */}
                     {trace.data.tips && Array.isArray(trace.data.tips) && trace.data.tips.length > 0 && (
@@ -133,7 +133,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                         <div className="text-yellow-400 font-semibold mb-2 text-sm">
                           💡 Tips for Improvement
                         </div>
-                        <ul className="space-y-1 text-xs text-gray-300">
+                        <ul className="space-y-1 text-xs text-slate-300">
                           {trace.data.tips.map((tip, idx) => (
                             <li key={idx}>• {tip}</li>
                           ))}
@@ -143,11 +143,11 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
 
                     {/* Reasoning */}
                     {trace.data.reasoning && (
-                      <div className="bg-blue-900/20 rounded p-3 border border-blue-500/30">
-                        <div className="text-blue-400 font-semibold mb-1 text-sm">
+                      <div className="bg-slate-900/20 rounded p-3 border border-slate-500/30">
+                        <div className="text-slate-400 font-semibold mb-1 text-sm">
                           Reasoning
                         </div>
-                        <div className="text-xs text-gray-300">
+                        <div className="text-xs text-slate-300">
                           {trace.data.reasoning}
                         </div>
                       </div>
@@ -155,11 +155,11 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
 
                     {/* Formula */}
                     {trace.data.formula && (
-                      <div className="bg-purple-900/20 rounded p-3 border border-purple-500/30">
-                        <div className="text-purple-400 font-semibold mb-1 text-sm">
+                      <div className="bg-slate-900/20 rounded p-3 border border-slate-500/30">
+                        <div className="text-slate-400 font-semibold mb-1 text-sm">
                           Formula
                         </div>
-                        <code className="text-xs text-gray-300">
+                        <code className="text-xs text-slate-300">
                           {trace.data.formula}
                         </code>
                       </div>
@@ -174,7 +174,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                         <div className="grid grid-cols-2 gap-2">
                           {Object.entries(trace.data.breakdown).map(([key, value]) => (
                             <div key={key} className="bg-slate-600/50 rounded p-2">
-                              <div className="text-xs text-gray-400 capitalize">
+                              <div className="text-xs text-slate-400 capitalize">
                                 {key.replace(/_/g, ' ')}
                               </div>
                               <div className="text-sm text-white font-semibold">
@@ -201,7 +201,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                               <div className="text-white font-semibold text-xs capitalize">
                                 {fallacy.type}
                               </div>
-                              <div className="text-xs text-gray-300 mt-1">
+                              <div className="text-xs text-slate-300 mt-1">
                                 {fallacy.explanation}
                               </div>
                             </div>
@@ -216,7 +216,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                         <div className="text-green-400 font-semibold mb-2 text-sm">
                           Extracted Claims
                         </div>
-                        <ul className="space-y-1 text-xs text-gray-300">
+                        <ul className="space-y-1 text-xs text-slate-300">
                           {trace.data.claims.map((claim, idx) => (
                             <li key={idx}>• {claim}</li>
                           ))}
@@ -230,7 +230,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                         <div className="text-orange-400 font-semibold mb-2 text-sm">
                           Rebuttals
                         </div>
-                        <ul className="space-y-1 text-xs text-gray-300">
+                        <ul className="space-y-1 text-xs text-slate-300">
                           {trace.data.rebuttals.map((rebuttal, idx) => (
                             <li key={idx}>• {rebuttal}</li>
                           ))}
@@ -245,7 +245,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                           <div className="text-green-400 font-semibold mb-2 text-sm">
                             ✅ Strengths
                           </div>
-                          <ul className="space-y-1 text-xs text-gray-300">
+                          <ul className="space-y-1 text-xs text-slate-300">
                             {trace.data.strengths.map((strength, idx) => (
                               <li key={idx}>• {strength}</li>
                             ))}
@@ -258,7 +258,7 @@ const DecisionTreeVisualization = ({ decisionTrace }) => {
                           <div className="text-red-400 font-semibold mb-2 text-sm">
                             ⚠️ Weaknesses
                           </div>
-                          <ul className="space-y-1 text-xs text-gray-300">
+                          <ul className="space-y-1 text-xs text-slate-300">
                             {trace.data.weaknesses.map((weakness, idx) => (
                               <li key={idx}>• {weakness}</li>
                             ))}

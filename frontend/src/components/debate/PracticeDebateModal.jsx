@@ -70,14 +70,14 @@ const PracticeDebateModal = ({ isOpen, onClose }) => {
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-1">
           <h2 className="text-xl font-bold text-white">Debate the AI</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-xl leading-none">×</button>
         </div>
-        <p className="text-sm text-gray-400 mb-5">
+        <p className="text-sm text-slate-400 mb-5">
           No waiting for an opponent. Your arguments are scored the same way, and the claims
           you make still count towards your track record.
         </p>
 
-        <label className="block text-xs font-medium text-gray-400 mb-1">Topic</label>
+        <label className="block text-xs font-medium text-slate-400 mb-1">Topic</label>
         <input
           value={topic}
           onChange={e => setTopic(e.target.value)}
@@ -89,21 +89,21 @@ const PracticeDebateModal = ({ isOpen, onClose }) => {
             <button
               key={t}
               onClick={() => setTopic(t)}
-              className="text-xs px-2 py-1 rounded-md bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700 transition-colors"
+              className="text-xs px-2 py-1 rounded-md bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
             >
               {t.length > 38 ? `${t.slice(0, 38)}…` : t}
             </button>
           ))}
         </div>
 
-        <label className="block text-xs font-medium text-gray-400 mb-1">You argue</label>
+        <label className="block text-xs font-medium text-slate-400 mb-1">You argue</label>
         <div className="grid grid-cols-2 gap-2 mb-5">
           {['for', 'against'].map(s => (
             <button
               key={s}
               onClick={() => setSide(s)}
               className={`py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
-                side === s ? 'bg-veil-purple text-white' : 'bg-slate-800 text-gray-400 hover:text-white'
+                side === s ? 'bg-veil-purple text-veil-on-accent' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
               {s}
@@ -111,7 +111,7 @@ const PracticeDebateModal = ({ isOpen, onClose }) => {
           ))}
         </div>
 
-        <label className="block text-xs font-medium text-gray-400 mb-1">Difficulty</label>
+        <label className="block text-xs font-medium text-slate-400 mb-1">Difficulty</label>
         <div className="space-y-1.5 mb-5">
           {DIFFICULTIES.map(d => (
             <button
@@ -124,19 +124,19 @@ const PracticeDebateModal = ({ isOpen, onClose }) => {
               }`}
             >
               <div className="text-sm text-white">{d.label}</div>
-              <div className="text-xs text-gray-500">{d.hint}</div>
+              <div className="text-xs text-slate-500">{d.hint}</div>
             </button>
           ))}
         </div>
 
-        <label className="block text-xs font-medium text-gray-400 mb-1">Opponent style</label>
+        <label className="block text-xs font-medium text-slate-400 mb-1">Opponent style</label>
         <div className="grid grid-cols-2 gap-2 mb-5">
           {STYLES.map(s => (
             <button
               key={s.id}
               onClick={() => setStyle(s.id)}
               className={`py-2 rounded-lg text-sm transition-colors ${
-                style === s.id ? 'bg-slate-700 text-white' : 'bg-slate-800 text-gray-400 hover:text-white'
+                style === s.id ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
               }`}
             >
               {s.label}
@@ -149,7 +149,7 @@ const PracticeDebateModal = ({ isOpen, onClose }) => {
         <button
           onClick={start}
           disabled={starting}
-          className="w-full py-3 bg-veil-purple hover:bg-veil-indigo disabled:opacity-50 text-white rounded-lg font-semibold transition-colors"
+          className="w-full py-3 bg-veil-purple hover:bg-veil-indigo disabled:opacity-50 text-veil-on-accent rounded-lg font-semibold transition-colors"
         >
           {starting ? 'Setting up…' : 'Start debating'}
         </button>

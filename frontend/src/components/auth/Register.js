@@ -40,7 +40,7 @@ const Register = () => {
           <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-veil-purple to-veil-accent">
             VEIL
           </h1>
-          <p className="mt-2 text-gray-400">Unveiling Truth Through Discourse</p>
+          <p className="mt-2 text-slate-400">Unveiling Truth Through Discourse</p>
           <h2 className="mt-6 text-3xl font-bold text-white">
             Create Account
           </h2>
@@ -56,7 +56,7 @@ const Register = () => {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="username" className="block text-sm font-medium text-slate-300">
                 Username
               </label>
               <input
@@ -65,13 +65,13 @@ const Register = () => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
+                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
                 placeholder="cooluser123"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300">
                 Email
               </label>
               <input
@@ -80,13 +80,13 @@ const Register = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
+                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
                 placeholder="your@email.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300">
                 Password
               </label>
               <input
@@ -95,14 +95,14 @@ const Register = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
+                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
                 placeholder="••••••••"
                 minLength="6"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300">
                 Confirm Password
               </label>
               <input
@@ -111,7 +111,7 @@ const Register = () => {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
+                className="mt-1 block w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-veil-purple focus:border-transparent"
                 placeholder="••••••••"
               />
             </div>
@@ -126,7 +126,7 @@ const Register = () => {
           </button>
 
           <div className="text-center">
-            <p className="text-gray-400">
+            <p className="text-slate-400">
               Already have an account?{' '}
               <Link to="/login" className="text-veil-purple hover:text-veil-accent transition-colors">
                 Sign in

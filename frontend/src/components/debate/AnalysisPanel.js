@@ -31,7 +31,7 @@ const AnalysisPanel = ({ aiAnalysis }) => {
 
   if (!hasContent) {
     return (
-      <div className="text-xs text-gray-500 italic">
+      <div className="text-xs text-slate-500 italic">
         Analysis in progress...
       </div>
     );
@@ -112,7 +112,7 @@ const AnalysisPanel = ({ aiAnalysis }) => {
       {/* Expand/Collapse Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full py-2 px-3 bg-slate-700/50 hover:bg-slate-700 text-gray-300 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
+        className="w-full py-2 px-3 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded text-xs font-medium transition-colors flex items-center justify-center gap-2"
       >
         <span>{isExpanded ? '▼' : '▶'}</span>
         <span>{isExpanded ? 'Hide' : 'Show'} Full Analysis</span>
@@ -132,12 +132,12 @@ const AnalysisPanel = ({ aiAnalysis }) => {
           {/* Claims */}
           {claims.length > 0 && (
             <div className="bg-slate-900/30 rounded-lg p-3">
-              <h5 className="text-xs font-semibold text-gray-400 mb-2">
+              <h5 className="text-xs font-semibold text-slate-400 mb-2">
                 📋 Claims Identified ({claims.length})
               </h5>
               <div className="space-y-1">
                 {claims.map((claim, index) => (
-                  <div key={index} className="text-xs text-gray-300 pl-4">
+                  <div key={index} className="text-xs text-slate-300 pl-4">
                     • {claim}
                   </div>
                 ))}
@@ -148,12 +148,12 @@ const AnalysisPanel = ({ aiAnalysis }) => {
           {/* Rebuttals */}
           {rebuttals.length > 0 && (
             <div className="bg-slate-900/30 rounded-lg p-3">
-              <h5 className="text-xs font-semibold text-gray-400 mb-2">
+              <h5 className="text-xs font-semibold text-slate-400 mb-2">
                 🎯 Rebuttals Identified ({rebuttals.length})
               </h5>
               <div className="space-y-1">
                 {rebuttals.map((rebuttal, index) => (
-                  <div key={index} className="text-xs text-gray-300 pl-4">
+                  <div key={index} className="text-xs text-slate-300 pl-4">
                     • {rebuttal}
                   </div>
                 ))}
@@ -164,7 +164,7 @@ const AnalysisPanel = ({ aiAnalysis }) => {
           {/* Fact Check Details */}
           {factCheck && factCheck.checks && factCheck.checks.length > 0 && (
             <div className="bg-slate-900/30 rounded-lg p-3">
-              <h5 className="text-xs font-semibold text-gray-400 mb-2">
+              <h5 className="text-xs font-semibold text-slate-400 mb-2">
                 🔍 Fact Check Details
               </h5>
               <div className="space-y-2">
@@ -182,15 +182,15 @@ const AnalysisPanel = ({ aiAnalysis }) => {
                         {check.supported ? '✓' : '⚠️'}
                       </span>
                       {' '}
-                      <span className="text-gray-300">
+                      <span className="text-slate-300">
                         {check.claim?.substring(0, 80)}
                         {check.claim?.length > 80 ? '...' : ''}
                       </span>
                     </div>
-                    <div className="text-gray-400 text-xs">
+                    <div className="text-slate-400 text-xs">
                       {check.reasoning}
                     </div>
-                    <div className="text-gray-500 text-xs mt-1">
+                    <div className="text-slate-500 text-xs mt-1">
                       Confidence: {check.confidence ? Math.round(check.confidence * 100) : 0}% ({check.level})
                     </div>
                   </div>
@@ -202,7 +202,7 @@ const AnalysisPanel = ({ aiAnalysis }) => {
           {/* Overall Quality */}
           {overallQuality !== undefined && (
             <div className="bg-slate-900/30 rounded-lg p-3">
-              <h5 className="text-xs font-semibold text-gray-400 mb-2">
+              <h5 className="text-xs font-semibold text-slate-400 mb-2">
                 ⭐ Overall Quality
               </h5>
               <ScoreExplainer

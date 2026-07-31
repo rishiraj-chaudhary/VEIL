@@ -14,7 +14,7 @@ const Home = () => {
           <h2 className="text-4xl font-bold text-white mb-4">
             Welcome to VEIL
           </h2>
-          <p className="text-xl text-gray-400 mb-8">
+          <p className="text-xl text-slate-400 mb-8">
             Unveiling Truth Through Discourse
           </p>
           
@@ -22,7 +22,7 @@ const Home = () => {
           <div className="flex justify-center gap-4 mb-12">
             <Link 
               to="/feed"
-              className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors font-semibold"
+              className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors font-semibold"
             >
               View Feed
             </Link>
@@ -38,17 +38,17 @@ const Home = () => {
             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
               <div className="text-4xl mb-3">🔮</div>
               <h3 className="text-xl font-semibold text-white mb-2">ORACLE</h3>
-              <p className="text-gray-400">AI Assistant Ready</p>
+              <p className="text-slate-400">AI Assistant Ready</p>
             </div>
             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
               <div className="text-4xl mb-3">🌑</div>
               <h3 className="text-xl font-semibold text-white mb-2">SHADOW</h3>
-              <p className="text-gray-400">Devil's Advocate Standby</p>
+              <p className="text-slate-400">Devil's Advocate Standby</p>
             </div>
             <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
               <div className="text-4xl mb-3">✨</div>
               <h3 className="text-xl font-semibold text-white mb-2">REVEAL</h3>
-              <p className="text-gray-400">Truth Unveiled</p>
+              <p className="text-slate-400">Truth Unveiled</p>
             </div>
           </div>
         </div>

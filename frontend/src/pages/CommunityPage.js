@@ -79,14 +79,14 @@ const CommunityPage = () => {
         {/* Back */}
         <button
           onClick={() => navigate('/communities')}
-          className="flex items-center gap-2 text-gray-500 hover:text-gray-300 text-sm mb-6 transition-colors"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-300 text-sm mb-6 transition-colors"
         >
           ← Communities
         </button>
 
         {!community && !currentCommunityLoading && (
           <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
-            <p className="text-gray-400 text-lg">c/{name} does not exist.</p>
+            <p className="text-slate-400 text-lg">c/{name} does not exist.</p>
           </div>
         )}
 
@@ -96,8 +96,8 @@ const CommunityPage = () => {
             <div className="flex items-start justify-between mb-2">
               <div>
                 <h1 className="text-2xl font-bold text-white">c/{community.displayName}</h1>
-                <p className="text-gray-400 text-sm mt-1">{community.description || 'No description available'}</p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                <p className="text-slate-400 text-sm mt-1">{community.description || 'No description available'}</p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                   <span>{community.memberCount} members</span>
                   <span>{community.postCount} posts</span>
                 </div>
@@ -108,7 +108,7 @@ const CommunityPage = () => {
                 className={`px-5 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
                   isMember
                     ? 'bg-slate-600 hover:bg-red-600 text-white'
-                    : 'bg-veil-purple hover:bg-veil-indigo text-white'
+                    : 'bg-veil-purple hover:bg-veil-indigo text-veil-on-accent'
                 }`}
               >
                 {joining ? '...' : isMember ? 'Leave' : 'Join'}
@@ -139,8 +139,8 @@ const CommunityPage = () => {
                   onClick={() => setSortBy(id)}
                   className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                     sortBy === id
-                      ? 'bg-veil-purple text-white'
-                      : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
+                      ? 'bg-veil-purple text-veil-on-accent'
+                      : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
                   }`}
                 >
                   {label}
@@ -155,10 +155,10 @@ const CommunityPage = () => {
               </div>
             ) : posts.length === 0 ? (
               <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
-                <p className="text-gray-400 text-lg mb-4">No posts in c/{name} yet.</p>
+                <p className="text-slate-400 text-lg mb-4">No posts in c/{name} yet.</p>
                 <a
                   href="/create-post"
-                  className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors"
+                  className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors"
                 >
                   Create Post
                 </a>

@@ -93,14 +93,14 @@ const KnowledgeGraphDashboard = () => {
     return (
       <div
         key={claim._id}
-        className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-purple-600 transition-colors cursor-pointer"
+        className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-slate-600 transition-colors cursor-pointer"
       >
         {/* Topic Badge */}
         <div className="flex items-center justify-between mb-2">
-          <span className="px-2 py-1 bg-purple-900/30 border border-purple-700/50 rounded text-xs text-purple-300">
+          <span className="px-2 py-1 bg-slate-900/30 border border-slate-700/50 rounded text-xs text-slate-300">
             {claim.topic}
           </span>
-          <div className="flex items-center space-x-3 text-xs text-gray-400">
+          <div className="flex items-center space-x-3 text-xs text-slate-400">
             <span>🔄 {claim.stats?.totalUses || 0} uses</span>
             {successRate > 0 && (
               <span className={successRate >= 60 ? 'text-green-400' : 'text-yellow-400'}>
@@ -111,7 +111,7 @@ const KnowledgeGraphDashboard = () => {
         </div>
 
         {/* Claim Text */}
-        <p className="text-gray-200 leading-relaxed mb-3">
+        <p className="text-slate-200 leading-relaxed mb-3">
           "{claim.originalText}"
         </p>
 
@@ -123,7 +123,7 @@ const KnowledgeGraphDashboard = () => {
             </span>
           )}
           {claim.stats?.avgQualityScore > 0 && (
-            <span className="text-blue-400">
+            <span className="text-slate-400">
               ⭐ {Math.round(claim.stats.avgQualityScore)}/100 quality
             </span>
           )}
@@ -153,7 +153,7 @@ const KnowledgeGraphDashboard = () => {
           <h1 className="text-3xl font-bold text-white mb-2">
             📊 Argument Knowledge Graph
           </h1>
-          <p className="text-gray-400">
+          <p className="text-slate-400">
             Explore patterns and trends in debate arguments
           </p>
         </div>
@@ -162,31 +162,31 @@ const KnowledgeGraphDashboard = () => {
         {graphStats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
-              <div className="text-3xl font-bold text-purple-400 mb-1">
+              <div className="text-3xl font-bold text-slate-400 mb-1">
                 {graphStats.totalClaims}
               </div>
-              <div className="text-sm text-gray-400">Total Claims Tracked</div>
+              <div className="text-sm text-slate-400">Total Claims Tracked</div>
             </div>
 
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
-              <div className="text-3xl font-bold text-blue-400 mb-1">
+              <div className="text-3xl font-bold text-slate-400 mb-1">
                 {graphStats.totalRelationships}
               </div>
-              <div className="text-sm text-gray-400">Relationships Mapped</div>
+              <div className="text-sm text-slate-400">Relationships Mapped</div>
             </div>
 
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
               <div className="text-3xl font-bold text-green-400 mb-1">
                 {graphStats.topicDistribution?.length || 0}
               </div>
-              <div className="text-sm text-gray-400">Topics Covered</div>
+              <div className="text-sm text-slate-400">Topics Covered</div>
             </div>
 
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
               <div className="text-3xl font-bold text-orange-400 mb-1">
                 {Math.round(graphStats.totalClaims / Math.max(graphStats.topicDistribution?.length || 1, 1))}
               </div>
-              <div className="text-sm text-gray-400">Avg Claims per Topic</div>
+              <div className="text-sm text-slate-400">Avg Claims per Topic</div>
             </div>
           </div>
         )}
@@ -200,11 +200,11 @@ const KnowledgeGraphDashboard = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Search for claims..."
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-purple-600 focus:outline-none"
+              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-slate-600 focus:outline-none"
             />
             <button
               onClick={handleSearch}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              className="px-6 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
             >
               Search
             </button>
@@ -212,7 +212,7 @@ const KnowledgeGraphDashboard = () => {
 
           {searchResults.length > 0 && (
             <div className="mt-4 space-y-2">
-              <div className="text-sm text-gray-400 mb-2">
+              <div className="text-sm text-slate-400 mb-2">
                 Found {searchResults.length} matching claims
               </div>
               {searchResults.map(renderClaim)}
@@ -230,8 +230,8 @@ const KnowledgeGraphDashboard = () => {
               }}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 !selectedTopic
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-800 text-gray-400 hover:bg-slate-700'
+                  ? 'bg-slate-600 text-white'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
               }`}
             >
               All Topics
@@ -242,8 +242,8 @@ const KnowledgeGraphDashboard = () => {
                 onClick={() => filterByTopic(topic.topic)}
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   selectedTopic === topic.topic
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-slate-800 text-gray-400 hover:bg-slate-700'
+                    ? 'bg-slate-600 text-white'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                 }`}
               >
                 {topic.topic} ({topic.count})
@@ -258,8 +258,8 @@ const KnowledgeGraphDashboard = () => {
             onClick={() => setActiveTab('popular')}
             className={`px-4 py-2 transition-colors ${
               activeTab === 'popular'
-                ? 'text-purple-400 border-b-2 border-purple-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-slate-400 border-b-2 border-slate-400'
+                : 'text-slate-400 hover:text-slate-300'
             }`}
           >
             🔥 Most Popular
@@ -268,8 +268,8 @@ const KnowledgeGraphDashboard = () => {
             onClick={() => setActiveTab('successful')}
             className={`px-4 py-2 transition-colors ${
               activeTab === 'successful'
-                ? 'text-purple-400 border-b-2 border-purple-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-slate-400 border-b-2 border-slate-400'
+                : 'text-slate-400 hover:text-slate-300'
             }`}
           >
             🏆 Most Successful
@@ -283,7 +283,7 @@ const KnowledgeGraphDashboard = () => {
 
           {((activeTab === 'popular' && popularClaims.length === 0) ||
             (activeTab === 'successful' && successfulClaims.length === 0)) && (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-slate-400">
               <div className="text-4xl mb-4">📊</div>
               <div className="text-lg">No claims tracked yet</div>
               <div className="text-sm mt-2">

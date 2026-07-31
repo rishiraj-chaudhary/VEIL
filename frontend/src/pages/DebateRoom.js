@@ -14,16 +14,16 @@ const ScoreBar = ({ label, score, maxScore, color }) => {
   const colorClasses = {
     green: 'bg-green-500',
     red: 'bg-red-500',
-    blue: 'bg-blue-500'
+    blue: 'bg-slate-500'
   };
 
   return (
     <div>
       <div className="flex justify-between text-sm mb-1">
-        <span className="text-gray-400">{label}</span>
+        <span className="text-slate-400">{label}</span>
         <span className="text-white font-semibold">{score}/{maxScore}</span>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-2">
+      <div className="w-full bg-slate-700 rounded-full h-2">
         <div
           className={`h-2 rounded-full ${colorClasses[color]} transition-all duration-500`}
           style={{ width: `${percentage}%` }}
@@ -267,16 +267,16 @@ const DebateRoom = () => {
     switch (status) {
       case 'pending': return 'bg-yellow-900 text-yellow-300';
       case 'active': return 'bg-green-900 text-green-300';
-      case 'completed': return 'bg-blue-900 text-blue-300';
+      case 'completed': return 'bg-slate-900 text-slate-300';
       case 'cancelled': return 'bg-red-900 text-red-300';
-      default: return 'bg-gray-700 text-gray-300';
+      default: return 'bg-slate-700 text-slate-300';
     }
   };
 
   // LOADING STATE
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white text-xl">Loading debate...</div>
       </div>
     );
@@ -285,12 +285,12 @@ const DebateRoom = () => {
   // ERROR STATE
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-400 text-xl mb-4">❌ {error}</div>
           <button
             onClick={() => navigate('/debates')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded-lg"
           >
             Back to Debates
           </button>
@@ -302,12 +302,12 @@ const DebateRoom = () => {
   // NULL CHECK
   if (!debate) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-white text-xl mb-4">Debate not found</div>
           <button
             onClick={() => navigate('/debates')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-2 rounded-lg"
           >
             Back to Debates
           </button>
@@ -324,14 +324,14 @@ const DebateRoom = () => {
   const isAgainstAI = participants.some(p => p.isAI);
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
+    <div className="min-h-screen bg-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => navigate('/debates')}
-            className="text-blue-400 hover:text-blue-300 mb-4"
+            className="text-slate-400 hover:text-slate-300 mb-4"
           >
             ← Back to Debates
           </button>
@@ -340,7 +340,7 @@ const DebateRoom = () => {
               <h1 className="text-3xl font-bold text-white mb-2">
                 {debate.topic || 'Untitled Debate'}
               </h1>
-              <p className="text-gray-400">
+              <p className="text-slate-400">
                 {debate.description || 'No description'}
               </p>
             </div>
@@ -358,7 +358,7 @@ const DebateRoom = () => {
               participants.map((participant, idx) => (
                 <div 
                   key={idx} 
-                  className={`bg-gray-800 rounded-lg p-4 border ${
+                  className={`bg-slate-800 rounded-lg p-4 border ${
                     participant.side === 'for' ? 'border-green-700' : 'border-red-700'
                   }`}
                 >
@@ -369,12 +369,12 @@ const DebateRoom = () => {
                     {participant.side === 'for' ? '✓ FOR' : '✗ AGAINST'}
                   </div>
                   {participant.isReady && debate.status === 'pending' && (
-                    <div className="text-xs text-gray-400 mt-1">Ready ✓</div>
+                    <div className="text-xs text-slate-400 mt-1">Ready ✓</div>
                   )}
                 </div>
               ))
             ) : (
-              <div className="col-span-2 text-gray-400 text-center py-4">
+              <div className="col-span-2 text-slate-400 text-center py-4">
                 No participants yet
               </div>
             )}
@@ -383,14 +383,14 @@ const DebateRoom = () => {
 
         {/* Debate Info */}
         {debate.status === 'active' && (
-          <div className="mb-6 bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="mb-6 bg-slate-800 rounded-lg p-4 border border-slate-700">
             <div className="flex justify-between items-center">
               <div>
-                <span className="text-gray-400">Current Round: </span>
+                <span className="text-slate-400">Current Round: </span>
                 <span className="text-white font-semibold">{debate.currentRound || 1}</span>
               </div>
               <div>
-                <span className="text-gray-400">Total Turns: </span>
+                <span className="text-slate-400">Total Turns: </span>
                 <span className="text-white font-semibold">{turns.length}</span>
               </div>
             </div>
@@ -407,7 +407,7 @@ const DebateRoom = () => {
               turns.map((turn, idx) => (
                 <div 
                   key={turn._id || idx} 
-                  className={`bg-gray-800 rounded-lg p-4 border ${
+                  className={`bg-slate-800 rounded-lg p-4 border ${
                     turn.side === 'for' ? 'border-green-700/30' : 'border-red-700/30'
                   }`}
                 >
@@ -420,14 +420,14 @@ const DebateRoom = () => {
                         ({turn.side === 'for' ? 'FOR' : 'AGAINST'})
                       </span>
                     </div>
-                    <span className="text-gray-500 text-sm">Round {turn.round}</span>
+                    <span className="text-slate-500 text-sm">Round {turn.round}</span>
                   </div>
-                  <p className="text-gray-300 mb-2 whitespace-pre-wrap">{turn.content}</p>
+                  <p className="text-slate-300 mb-2 whitespace-pre-wrap">{turn.content}</p>
                   
                   {/* AI Analysis */}
                   {turn.aiAnalysis && (
-                    <div className="mt-3 pt-3 border-t border-gray-700">
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="mt-3 pt-3 border-t border-slate-700">
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
                         <span>
                           Quality: <span className="text-white font-semibold">
                             {turn.aiAnalysis.overallQuality}/100
@@ -446,7 +446,7 @@ const DebateRoom = () => {
                         <div className="mt-2">
                           <button
                             onClick={() => toggleTurnExpanded(turn._id)}
-                            className="text-blue-400 hover:text-blue-300 text-sm"
+                            className="text-slate-400 hover:text-slate-300 text-sm"
                           >
                             {expandedTurns.has(turn._id) ? '▼ Hide Analysis' : '▶ Show Analysis'}
                           </button>
@@ -463,7 +463,7 @@ const DebateRoom = () => {
                 </div>
               ))
             ) : (
-              <div className="text-gray-400 text-center py-8 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="text-slate-400 text-center py-8 bg-slate-800 rounded-lg border border-slate-700">
                 {debate.status === 'pending' 
                   ? 'No arguments yet. Debate will begin once both participants are ready.'
                   : 'No arguments in this debate.'}
@@ -476,7 +476,7 @@ const DebateRoom = () => {
         {isParticipant && debate.status === 'active' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div className="lg:col-span-2">
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                 <h2 className="text-xl font-bold text-white mb-4">
                   {isMyTurn
                     ? '✍️ Your Turn'
@@ -489,17 +489,17 @@ const DebateRoom = () => {
                       value={content}
                       onChange={handleContentChange}
                       placeholder="Write your argument..."
-                      className="w-full bg-gray-700 text-white rounded-lg p-4 mb-4 min-h-[150px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full bg-slate-700 text-white rounded-lg p-4 mb-4 min-h-[150px] focus:outline-none focus:ring-2 focus:ring-slate-500"
                       disabled={submitting}
                     />
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400 text-sm">
+                      <span className="text-slate-400 text-sm">
                         {content.trim().split(/\s+/).filter(w => w).length} words
                       </span>
                       <button
                         type="submit"
                         disabled={submitting || !content.trim()}
-                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+                        className="bg-slate-600 hover:bg-slate-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-semibold transition-colors"
                       >
                         {submitting ? 'Submitting...' : 'Submit Turn'}
                       </button>
@@ -515,14 +515,14 @@ const DebateRoom = () => {
                   </form>
                 ) : isAgainstAI ? (
                   <div className="text-center py-6">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-3" />
-                    <p className="text-gray-400 text-sm">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-slate-500 mb-3" />
+                    <p className="text-slate-400 text-sm">
                       Reading your argument and writing a counter-argument. This usually takes
                       about 15 seconds.
                     </p>
                   </div>
                 ) : (
-                  <div className="text-gray-400 text-center py-4">
+                  <div className="text-slate-400 text-center py-4">
                     It's your opponent's turn to argue.
                   </div>
                 )}
@@ -543,20 +543,20 @@ const DebateRoom = () => {
 
         {/* Join Debate (Pending) */}
         {!isParticipant && debate.status === 'pending' && participants.length < 2 && (
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center mb-6">
+          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 text-center mb-6">
             <h2 className="text-xl font-bold text-white mb-4">Join this debate</h2>
             <div className="flex gap-4 justify-center">
               <button
                 onClick={() => handleJoinSide('for')}
                 disabled={participants.some(p => p.side === 'for')}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-semibold"
+                className="bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-semibold"
               >
                 Join FOR
               </button>
               <button
                 onClick={() => handleJoinSide('against')}
                 disabled={participants.some(p => p.side === 'against')}
-                className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-semibold"
+                className="bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-8 py-3 rounded-lg font-semibold"
               >
                 Join AGAINST
               </button>
@@ -566,11 +566,11 @@ const DebateRoom = () => {
 
         {/* Mark Ready (Pending & Participant) */}
         {isParticipant && debate.status === 'pending' && !userParticipant?.isReady && (
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center mb-6">
+          <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 text-center mb-6">
             <h2 className="text-xl font-bold text-white mb-4">Ready to start?</h2>
             <button
               onClick={handleMarkReady}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold"
+              className="bg-slate-600 hover:bg-slate-700 text-white px-8 py-3 rounded-lg font-semibold"
             >
               I'm Ready
             </button>
@@ -581,7 +581,7 @@ const DebateRoom = () => {
         {debate.status === 'completed' && (
           <div className="space-y-6 mb-6">
             {/* Winner Banner */}
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
               <div className="flex items-start justify-between mb-4">
                 <h2 className="text-xl font-bold text-white">Debate Concluded</h2>
                 {!isAgainstAI && (
@@ -591,7 +591,7 @@ const DebateRoom = () => {
                       setShareCopied(true);
                       setTimeout(() => setShareCopied(false), 2000);
                     }}
-                    className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-gray-200 rounded-lg"
+                    className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg"
                     title="Anyone can read this debate — no account needed"
                   >
                     {shareCopied ? '✓ Link copied' : '🔗 Share publicly'}
@@ -608,7 +608,7 @@ const DebateRoom = () => {
                   </div>
                   
                   {/* Winner Text */}
-                  <div className="text-2xl font-bold text-purple-400 mb-4">
+                  <div className="text-2xl font-bold text-slate-400 mb-4">
                     {(debate.winner || detailedScore?.winner) === 'draw' 
                       ? 'Draw' 
                       : `${(debate.winner || detailedScore?.winner) === 'for' ? 'FOR' : 'AGAINST'} Wins`}
@@ -618,14 +618,14 @@ const DebateRoom = () => {
                   {(debate.finalScores || detailedScore?.scores) && (
                     <div className="flex justify-center gap-8 mb-6">
                       <div>
-                        <div className="text-gray-400 text-sm mb-1">FOR</div>
+                        <div className="text-slate-400 text-sm mb-1">FOR</div>
                         <div className="text-4xl font-bold text-green-400">
                           {debate.finalScores?.for || detailedScore?.scores?.for?.total || 0}
                         </div>
                       </div>
-                      <div className="text-3xl text-gray-500 self-center">-</div>
+                      <div className="text-3xl text-slate-500 self-center">-</div>
                       <div>
-                        <div className="text-gray-400 text-sm mb-1">AGAINST</div>
+                        <div className="text-slate-400 text-sm mb-1">AGAINST</div>
                         <div className="text-4xl font-bold text-red-400">
                           {debate.finalScores?.against || detailedScore?.scores?.against?.total || 0}
                         </div>
@@ -636,10 +636,10 @@ const DebateRoom = () => {
               ) : (
                 <div className="text-center">
                   <div className="text-4xl mb-4">⏳</div>
-                  <div className="text-xl text-purple-400">Calculating results...</div>
+                  <div className="text-xl text-slate-400">Calculating results...</div>
                   <button
                     onClick={fetchDetailedScore}
-                    className="mt-4 text-blue-400 hover:text-blue-300 text-sm"
+                    className="mt-4 text-slate-400 hover:text-slate-300 text-sm"
                   >
                     Refresh Results
                   </button>
@@ -649,12 +649,12 @@ const DebateRoom = () => {
 
             {/* Detailed Score Breakdown */}
             {detailedScore && detailedScore.scores && (
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                 <h3 className="text-lg font-bold text-white mb-4">📊 Score Breakdown</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   {/* FOR Side Scores */}
-                  <div className="bg-gray-900 rounded-lg p-4 border border-green-700/30">
+                  <div className="bg-slate-900 rounded-lg p-4 border border-green-700/30">
                     <h4 className="text-green-400 font-semibold mb-3 text-center">
                       FOR Side
                     </h4>
@@ -683,9 +683,9 @@ const DebateRoom = () => {
                         maxScore={100}
                         color="green"
                       />
-                      <div className="pt-3 border-t border-gray-700">
+                      <div className="pt-3 border-t border-slate-700">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-400 font-semibold">Total Score</span>
+                          <span className="text-slate-400 font-semibold">Total Score</span>
                           <span className="text-2xl font-bold text-green-400">
                             {detailedScore.scores.for.total || 0}
                           </span>
@@ -695,7 +695,7 @@ const DebateRoom = () => {
                   </div>
 
                   {/* AGAINST Side Scores */}
-                  <div className="bg-gray-900 rounded-lg p-4 border border-red-700/30">
+                  <div className="bg-slate-900 rounded-lg p-4 border border-red-700/30">
                     <h4 className="text-red-400 font-semibold mb-3 text-center">
                       AGAINST Side
                     </h4>
@@ -724,9 +724,9 @@ const DebateRoom = () => {
                         maxScore={100}
                         color="red"
                       />
-                      <div className="pt-3 border-t border-gray-700">
+                      <div className="pt-3 border-t border-slate-700">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-400 font-semibold">Total Score</span>
+                          <span className="text-slate-400 font-semibold">Total Score</span>
                           <span className="text-2xl font-bold text-red-400">
                             {detailedScore.scores.against.total || 0}
                           </span>
@@ -740,7 +740,7 @@ const DebateRoom = () => {
                 <div className="text-center">
                   <button
                     onClick={() => setScoreModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+                    className="bg-slate-600 hover:bg-slate-700 text-white px-6 py-3 rounded-lg font-semibold"
                   >
                     📈 View Complete Analysis
                   </button>
@@ -750,14 +750,14 @@ const DebateRoom = () => {
 
             {/* Round-by-Round Breakdown */}
             {detailedScore && detailedScore.roundScores && detailedScore.roundScores.length > 0 && (
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
                 <h3 className="text-lg font-bold text-white mb-4">🎯 Round-by-Round Performance</h3>
                 <div className="space-y-4">
                   {detailedScore.roundScores.map((round, idx) => (
-                    <div key={idx} className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+                    <div key={idx} className="bg-slate-900 rounded-lg p-4 border border-slate-700">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-white font-semibold">Round {round.round}</span>
-                        <span className="text-gray-400 text-sm">
+                        <span className="text-slate-400 text-sm">
                           {round.for > round.against ? '✓ FOR wins' : 
                            round.against > round.for ? '✗ AGAINST wins' : '🤝 Tied'}
                         </span>
@@ -779,7 +779,7 @@ const DebateRoom = () => {
             )}
 
             {/* Participant Performance Summary */}
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
               <h3 className="text-lg font-bold text-white mb-4">👥 Participant Summaries</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {participants.map((participant, idx) => {
@@ -794,7 +794,7 @@ const DebateRoom = () => {
                   return (
                     <div 
                       key={idx}
-                      className={`bg-gray-900 rounded-lg p-4 border ${
+                      className={`bg-slate-900 rounded-lg p-4 border ${
                         participant.side === 'for' ? 'border-green-700/30' : 'border-red-700/30'
                       }`}
                     >
@@ -816,15 +816,15 @@ const DebateRoom = () => {
                       
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Arguments Made:</span>
+                          <span className="text-slate-400">Arguments Made:</span>
                           <span className="text-white font-semibold">{participantTurns.length}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Avg Quality:</span>
+                          <span className="text-slate-400">Avg Quality:</span>
                           <span className="text-white font-semibold">{avgQuality.toFixed(0)}/100</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Total Words:</span>
+                          <span className="text-slate-400">Total Words:</span>
                           <span className="text-white font-semibold">
                             {participantTurns.reduce((sum, t) => sum + (t.wordCount || 0), 0)}
                           </span>

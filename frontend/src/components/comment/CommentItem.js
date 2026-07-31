@@ -40,7 +40,7 @@ const CommentItem = ({ comment, depth = 0 }) => {
         <button
           onClick={() => handleVote(1)}
           className={`p-1 hover:bg-slate-700 rounded transition-colors ${
-            userVote === 1 ? 'text-orange-500' : 'text-gray-400'
+            userVote === 1 ? 'text-orange-500' : 'text-slate-400'
           }`}
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -50,8 +50,8 @@ const CommentItem = ({ comment, depth = 0 }) => {
         
         <span className={`text-xs font-bold ${
           comment.karma > 0 ? 'text-orange-500' : 
-          comment.karma < 0 ? 'text-blue-500' : 
-          'text-gray-400'
+          comment.karma < 0 ? 'text-slate-500' : 
+          'text-slate-400'
         }`}>
           {comment.karma || 0}
         </span>
@@ -59,7 +59,7 @@ const CommentItem = ({ comment, depth = 0 }) => {
         <button
           onClick={() => handleVote(-1)}
           className={`p-1 hover:bg-slate-700 rounded transition-colors ${
-            userVote === -1 ? 'text-blue-500' : 'text-gray-400'
+            userVote === -1 ? 'text-slate-500' : 'text-slate-400'
           }`}
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -70,17 +70,17 @@ const CommentItem = ({ comment, depth = 0 }) => {
 
       {/* Comment content */}
       <div className="flex-1">
-        <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-          <span className="font-semibold text-gray-300">
+        <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+          <span className="font-semibold text-slate-300">
             u/{comment.author?.username || 'deleted'}
           </span>
           <span>•</span>
           <span>{formatTime(comment.createdAt)}</span>
         </div>
 
-        <p className="text-gray-200 text-sm mb-2 whitespace-pre-wrap">{comment.content}</p>
+        <p className="text-slate-200 text-sm mb-2 whitespace-pre-wrap">{comment.content}</p>
 
-        <div className="flex items-center gap-3 text-xs text-gray-400">
+        <div className="flex items-center gap-3 text-xs text-slate-400">
           <button
             onClick={() => setShowReplyForm(!showReplyForm)}
             className="hover:text-white transition-colors font-medium"
@@ -95,7 +95,7 @@ const CommentItem = ({ comment, depth = 0 }) => {
         {/* Reply form with @oracle */}
         {showReplyForm && (
           <div className="mt-3 bg-slate-900 rounded-lg p-3 border border-slate-700">
-            <div className="text-xs text-gray-400 mb-2">
+            <div className="text-xs text-slate-400 mb-2">
               Replying to <span className="text-veil-purple">@{comment.author?.username}</span>
             </div>
             <CommentForm

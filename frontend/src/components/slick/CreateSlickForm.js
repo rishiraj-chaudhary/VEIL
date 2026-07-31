@@ -120,12 +120,12 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-slate-400 hover:text-white transition-colors"
             >
               ✕
             </button>
           </div>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-slate-400 text-sm mt-2">
             Share honest feedback anonymously. Your identity will be encrypted.
           </p>
         </div>
@@ -158,10 +158,10 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
                 {loadingSuggestions ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-veil-purple"></div>
-                    <span className="ml-3 text-gray-400">Generating personalized suggestions...</span>
+                    <span className="ml-3 text-slate-400">Generating personalized suggestions...</span>
                   </div>
                 ) : suggestions.length === 0 ? (
-                  <div className="text-center py-4 text-gray-400">
+                  <div className="text-center py-4 text-slate-400">
                     <p>No suggestions available yet.</p>
                     <button
                       type="button"
@@ -173,7 +173,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
                   </div>
                 ) : (
                   <>
-                    <div className="text-xs text-gray-400 mb-3">
+                    <div className="text-xs text-slate-400 mb-3">
                       Click any suggestion to use it:
                     </div>
                     {suggestions.map((s, i) => (
@@ -184,7 +184,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
                       >
                         <p className="text-sm text-white mb-2">{s.content}</p>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-slate-400">
                             {s.explanation}
                           </span>
                           <span className="text-xs px-2 py-1 bg-slate-700 rounded">
@@ -201,16 +201,16 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
 
           {/* AI Rewrite Suggestion */}
           {aiSuggestion && (
-            <div className="mb-6 p-4 bg-blue-900/20 border border-blue-400 rounded-lg">
-              <p className="text-blue-300 text-sm mb-2">
+            <div className="mb-6 p-4 bg-slate-900/20 border border-slate-400 rounded-lg">
+              <p className="text-slate-300 text-sm mb-2">
                 AI suggests this improved version:
               </p>
-              <p className="text-blue-100 mb-3">{aiSuggestion}</p>
+              <p className="text-slate-100 mb-3">{aiSuggestion}</p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={useAiSuggestion}
-                  className="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
+                  className="text-xs bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded transition-colors"
                 >
                   Use This
                 </button>
@@ -227,7 +227,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
 
           {/* Content Textarea */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Your Feedback
             </label>
             <textarea
@@ -241,7 +241,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
               required
             />
             <div className="flex justify-between mt-1">
-              <span className={`text-xs ${formData.content.length < 10 ? 'text-red-400' : 'text-gray-400'}`}>
+              <span className={`text-xs ${formData.content.length < 10 ? 'text-red-400' : 'text-slate-400'}`}>
                 {formData.content.length < 10 ? `${10 - formData.content.length} more characters needed` : `${formData.content.length}/500`}
               </span>
             </div>
@@ -249,7 +249,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
 
           {/* Tone Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Tone
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -265,8 +265,8 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
                   }
                   className={`p-3 rounded-lg border transition-colors text-left ${
                     formData.tone.category === tone.value
-                      ? 'bg-veil-purple border-veil-purple text-white'
-                      : 'bg-slate-700 border-slate-600 text-gray-300 hover:border-slate-500'
+                      ? 'bg-veil-purple border-veil-purple text-veil-on-accent'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-500'
                   }`}
                 >
                   <div className="font-medium">{tone.label}</div>
@@ -278,7 +278,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
 
           {/* Intensity Slider */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Intensity: {formData.tone.intensity}/10
             </label>
             <input
@@ -301,7 +301,7 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
             <button
               type="submit"
               disabled={submitting || loading || formData.content.length < 10}
-              className="flex-1 bg-veil-purple hover:bg-veil-indigo text-white py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Sending...' : 'Send Anonymous Feedback'}
             </button>

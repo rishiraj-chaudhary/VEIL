@@ -17,7 +17,7 @@ const OracleButton = ({ onGenerate, postId }) => {
       <button
         onClick={() => setShowOptions(!showOptions)}
         disabled={loading}
-        className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors disabled:opacity-50"
+        className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors disabled:opacity-50"
       >
         <span>🔮</span>
         <span>{loading ? 'Generating...' : '@oracle'}</span>
@@ -29,7 +29,7 @@ const OracleButton = ({ onGenerate, postId }) => {
       {/* Options Menu */}
       {showOptions && (
         <div className="absolute bottom-full left-0 mb-2 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-3 z-50">
-          <div className="text-sm text-gray-300 mb-3">
+          <div className="text-sm text-slate-300 mb-3">
             🔮 What should Oracle help with?
           </div>
 
@@ -39,7 +39,7 @@ const OracleButton = ({ onGenerate, postId }) => {
               className="w-full text-left px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
             >
               💼 <span className="font-semibold">Professional</span>
-              <div className="text-xs text-gray-400">Formal, well-structured reply</div>
+              <div className="text-xs text-slate-400">Formal, well-structured reply</div>
             </button>
 
             <button
@@ -47,7 +47,7 @@ const OracleButton = ({ onGenerate, postId }) => {
               className="w-full text-left px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
             >
               😎 <span className="font-semibold">Casual</span>
-              <div className="text-xs text-gray-400">Friendly, conversational tone</div>
+              <div className="text-xs text-slate-400">Friendly, conversational tone</div>
             </button>
 
             <button
@@ -55,7 +55,7 @@ const OracleButton = ({ onGenerate, postId }) => {
               className="w-full text-left px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
             >
               🧠 <span className="font-semibold">Analytical</span>
-              <div className="text-xs text-gray-400">Data-driven, logical argument</div>
+              <div className="text-xs text-slate-400">Data-driven, logical argument</div>
             </button>
 
             <button
@@ -63,13 +63,13 @@ const OracleButton = ({ onGenerate, postId }) => {
               className="w-full text-left px-3 py-2 text-sm bg-slate-700 hover:bg-slate-600 rounded transition-colors"
             >
               ⚡ <span className="font-semibold">Quick Reply</span>
-              <div className="text-xs text-gray-400">2-3 sentences max</div>
+              <div className="text-xs text-slate-400">2-3 sentences max</div>
             </button>
           </div>
 
           <button
             onClick={() => setShowOptions(false)}
-            className="mt-3 w-full text-xs text-gray-400 hover:text-white transition-colors"
+            className="mt-3 w-full text-xs text-slate-400 hover:text-white transition-colors"
           >
             Cancel
           </button>

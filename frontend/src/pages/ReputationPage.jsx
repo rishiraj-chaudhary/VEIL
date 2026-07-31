@@ -16,14 +16,14 @@ const TIER_STYLES = {
   Solid:     'text-cyan-300 border-cyan-500/40 bg-cyan-900/20',
   Contested: 'text-amber-300 border-amber-500/40 bg-amber-900/20',
   Brittle:   'text-rose-300 border-rose-500/40 bg-rose-900/20',
-  Untested:  'text-gray-300 border-slate-600 bg-slate-800/60',
+  Untested:  'text-slate-300 border-slate-600 bg-slate-800/60',
 };
 
 const Stat = ({ label, value, hint }) => (
   <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4">
     <div className="text-2xl font-bold text-white">{value}</div>
-    <div className="text-xs text-gray-400 mt-1">{label}</div>
-    {hint && <div className="text-xs text-gray-600 mt-1">{hint}</div>}
+    <div className="text-xs text-slate-400 mt-1">{label}</div>
+    {hint && <div className="text-xs text-slate-600 mt-1">{hint}</div>}
   </div>
 );
 
@@ -42,8 +42,8 @@ const ClaimRow = ({ claim, tone }) => {
 
   return (
     <div className="py-3 border-b border-slate-800 last:border-0">
-      <p className="text-sm text-gray-200 leading-snug">{claim.originalText}</p>
-      <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+      <p className="text-sm text-slate-200 leading-snug">{claim.originalText}</p>
+      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
         <span className={tone === 'strong' ? 'text-emerald-400' : 'text-rose-400'}>
           {score}/100 resilience
         </span>
@@ -58,7 +58,7 @@ const ClaimRow = ({ claim, tone }) => {
 const Panel = ({ title, subtitle, children }) => (
   <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5">
     <h3 className="text-sm font-semibold text-white">{title}</h3>
-    {subtitle && <p className="text-xs text-gray-500 mt-0.5 mb-2">{subtitle}</p>}
+    {subtitle && <p className="text-xs text-slate-500 mt-0.5 mb-2">{subtitle}</p>}
     {children}
   </div>
 );
@@ -100,7 +100,7 @@ const ReputationPage = () => {
       <div className="min-h-screen bg-veil-dark">
         <Navbar />
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-          <p className="text-gray-400">{error}</p>
+          <p className="text-slate-400">{error}</p>
         </div>
       </div>
     );
@@ -118,7 +118,7 @@ const ReputationPage = () => {
           <h1 className="text-3xl font-bold text-white">
             {data.username ? `${data.username}'s track record` : 'Your argument track record'}
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-slate-400 text-sm mt-1">
             Every claim you make in a debate is recorded. When someone challenges it, how it
             holds up is recorded too.
           </p>
@@ -151,7 +151,7 @@ const ReputationPage = () => {
 
         {!hasContested && (
           <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5 mb-6">
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-slate-300">
               You have made <strong className="text-white">{data.totalClaims}</strong> claims, but none
               have been challenged yet. A track record only means something once your arguments
               have been tested — debate someone (or the AI) and see which of your claims survive.
@@ -163,13 +163,13 @@ const ReputationPage = () => {
           <Panel title="Strongest claims" subtitle="Held up best when challenged">
             {data.notable?.strongest?.length
               ? data.notable.strongest.map(c => <ClaimRow key={c._id} claim={c} tone="strong" />)
-              : <p className="text-xs text-gray-600">Nothing challenged yet.</p>}
+              : <p className="text-xs text-slate-600">Nothing challenged yet.</p>}
           </Panel>
 
           <Panel title="Weakest claims" subtitle="Broke down under challenge">
             {data.notable?.weakest?.length
               ? data.notable.weakest.map(c => <ClaimRow key={c._id} claim={c} tone="weak" />)
-              : <p className="text-xs text-gray-600">Nothing challenged yet.</p>}
+              : <p className="text-xs text-slate-600">Nothing challenged yet.</p>}
           </Panel>
         </div>
 
@@ -178,14 +178,14 @@ const ReputationPage = () => {
             <div className="space-y-2 mt-2">
               {data.topics.map(t => (
                 <div key={t.topic} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-300 capitalize w-32 shrink-0">{t.topic}</span>
+                  <span className="text-sm text-slate-300 capitalize w-32 shrink-0">{t.topic}</span>
                   <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-veil-purple rounded-full"
                       style={{ width: `${Math.min(100, t.avgResilience ?? 0)}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500 w-24 text-right">
+                  <span className="text-xs text-slate-500 w-24 text-right">
                     {t.claims} claim{t.claims === 1 ? '' : 's'}
                   </span>
                 </div>

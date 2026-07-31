@@ -21,10 +21,10 @@ const SlickCard = ({ slick, isReceived = true }) => {
 
   const getToneColor = (tone) => ({
     praise:       'text-green-400 bg-green-900/20',
-    constructive: 'text-blue-400 bg-blue-900/20',
+    constructive: 'text-slate-400 bg-slate-900/20',
     tease:        'text-orange-400 bg-orange-900/20',
-    observation:  'text-purple-400 bg-purple-900/20',
-  }[tone] || 'text-gray-400 bg-gray-900/20');
+    observation:  'text-slate-400 bg-slate-900/20',
+  }[tone] || 'text-slate-400 bg-slate-900/20');
 
   const getCredibilityColor = (score) =>
     score >= 80 ? 'text-green-400' : score >= 60 ? 'text-yellow-400' : 'text-red-400';
@@ -61,16 +61,16 @@ const SlickCard = ({ slick, isReceived = true }) => {
             {slick.credibilityScore}% credible
           </span>
         </div>
-        <div className="text-xs text-gray-400">{formatTimeAgo(slick.createdAt)}</div>
+        <div className="text-xs text-slate-400">{formatTimeAgo(slick.createdAt)}</div>
       </div>
 
       {/* Content */}
       <div className="mb-4">
         <p className="text-white leading-relaxed">{slick.content}</p>
         {slick.aiAnalysis?.rewrittenVersion && slick.aiAnalysis.rewrittenVersion !== slick.content && (
-          <div className="mt-2 p-2 bg-blue-900/20 rounded border-l-2 border-blue-400">
-            <p className="text-xs text-blue-300 mb-1">AI-enhanced version:</p>
-            <p className="text-sm text-blue-100">{slick.aiAnalysis.rewrittenVersion}</p>
+          <div className="mt-2 p-2 bg-slate-900/20 rounded border-l-2 border-slate-400">
+            <p className="text-xs text-slate-300 mb-1">AI-enhanced version:</p>
+            <p className="text-sm text-slate-100">{slick.aiAnalysis.rewrittenVersion}</p>
           </div>
         )}
       </div>
@@ -85,12 +85,12 @@ const SlickCard = ({ slick, isReceived = true }) => {
               </span>
             </div>
             <span className="text-sm text-white font-medium">{slick.revealedAuthor?.username || 'User'}</span>
-            <span className="text-xs text-gray-400">({slick.revealedAuthor?.karma || 0} karma)</span>
+            <span className="text-xs text-slate-400">({slick.revealedAuthor?.karma || 0} karma)</span>
             <span className="text-xs text-green-400">• Revealed</span>
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">Anonymous</span>
+            <span className="text-sm text-slate-400">Anonymous</span>
             {canReveal && (
               slick.revealOption?.canReveal ? (
                 <button
@@ -100,7 +100,7 @@ const SlickCard = ({ slick, isReceived = true }) => {
                   Reveal ({slick.revealOption.cost} coins)
                 </button>
               ) : (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-slate-500">
                   Reveal in {Math.max(0, Math.ceil((new Date(slick.unlockAt) - Date.now()) / 86400000))}d
                 </span>
               )
@@ -116,7 +116,7 @@ const SlickCard = ({ slick, isReceived = true }) => {
             <button
               key={reaction}
               onClick={() => handleReaction(reaction)}
-              className="flex items-center space-x-1 text-sm text-gray-400 hover:text-white transition-colors"
+              className="flex items-center space-x-1 text-sm text-slate-400 hover:text-white transition-colors"
             >
               <span>{getReactionEmoji(reaction)}</span>
               <span>{count}</span>
@@ -124,7 +124,7 @@ const SlickCard = ({ slick, isReceived = true }) => {
           ))}
         </div>
         {!isReceived && (
-          <div className="text-xs text-gray-500">To: {slick.targetUser?.username}</div>
+          <div className="text-xs text-slate-500">To: {slick.targetUser?.username}</div>
         )}
       </div>
 
@@ -133,14 +133,14 @@ const SlickCard = ({ slick, isReceived = true }) => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 max-w-sm">
             <h3 className="text-lg font-semibold text-white mb-3">Reveal Author?</h3>
-            <p className="text-gray-300 mb-4">
+            <p className="text-slate-300 mb-4">
               This will cost {slick.revealOption?.cost || 0} VeilCoins. You have {currency.balance} coins.
             </p>
             <div className="flex space-x-3">
               <button
                 onClick={handleReveal}
                 disabled={loading}
-                className="flex-1 bg-veil-purple hover:bg-veil-indigo text-white py-2 px-4 rounded disabled:opacity-50"
+                className="flex-1 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent py-2 px-4 rounded disabled:opacity-50"
               >
                 {loading ? 'Revealing…' : 'Confirm'}
               </button>

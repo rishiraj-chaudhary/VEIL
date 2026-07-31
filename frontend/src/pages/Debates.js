@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ErrorState, LoadingState } from '../components/ui';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import DebateCard from '../components/debate/DebateCard';
@@ -21,7 +22,7 @@ const FILTERS = [
 ];
 
 const Debates = () => {
-  const { debates, fetchDebates, loading } = useDebateStore();
+  const { debates, fetchDebates, loading, error } = useDebateStore();
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [filter, setFilter] = useState('all');
 
@@ -51,7 +52,7 @@ const Debates = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Debates</h1>
-            <p className="text-gray-400">Structured discourse & reasoning</p>
+            <p className="text-slate-400">Structured discourse & reasoning</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -63,7 +64,7 @@ const Debates = () => {
             </button>
             <Link
               to="/debates/create"
-              className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors font-semibold"
+              className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors font-semibold"
             >
               + Start Debate
             </Link>
@@ -80,12 +81,12 @@ const Debates = () => {
                   onClick={() => setFilter(id)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     filter === id
-                      ? 'bg-veil-purple text-white'
-                      : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
+                      ? 'bg-veil-purple text-veil-on-accent'
+                      : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
                   }`}
                 >
                   {label}
-                  <span className={`ml-2 text-xs ${filter === id ? 'text-purple-200' : 'text-gray-600'}`}>
+                  <span className={`ml-2 text-xs ${filter === id ? 'text-slate-200' : 'text-slate-600'}`}>
                     {count}
                   </span>
                 </button>
@@ -95,19 +96,23 @@ const Debates = () => {
         )}
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-veil-purple"></div>
-          </div>
+          <LoadingState label="Loading debates…" />
+
+        ) : error ? (
+          // The store already tracked this; the page simply never read it, so a
+          // failed fetch rendered an empty list indistinguishable from "none yet".
+          <ErrorState title="Couldn't load debates" body={error} onRetry={fetchDebates} />
+
         ) : debates.length === 0 ? (
           <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
-            <p className="text-gray-400 text-lg mb-2">No debates yet</p>
-            <p className="text-gray-500 text-sm mb-5">
+            <p className="text-slate-400 text-lg mb-2">No debates yet</p>
+            <p className="text-slate-500 text-sm mb-5">
               You don't need an opponent to start — the AI will argue back right now.
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => setPracticeOpen(true)}
-                className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg font-semibold"
+                className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold"
               >
                 🤖 Debate the AI
               </button>
@@ -131,8 +136,8 @@ const Debates = () => {
                     <h2 className="text-lg font-semibold text-white">
                       {section.icon} {section.label}
                     </h2>
-                    <span className="text-sm text-gray-500">{items.length}</span>
-                    <span className="text-xs text-gray-600">— {section.hint}</span>
+                    <span className="text-sm text-slate-500">{items.length}</span>
+                    <span className="text-xs text-slate-600">— {section.hint}</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -146,7 +151,7 @@ const Debates = () => {
 
             {SECTIONS.every(s => (filter !== 'all' && filter !== s.id) || grouped[s.id].length === 0) && (
               <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
-                <p className="text-gray-400">Nothing here right now.</p>
+                <p className="text-slate-400">Nothing here right now.</p>
               </div>
             )}
           </div>

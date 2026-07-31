@@ -52,11 +52,11 @@ const Communities = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Communities</h1>
-            <p className="text-gray-400">Join communities and start discussions</p>
+            <p className="text-slate-400">Join communities and start discussions</p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors font-semibold"
+            className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors font-semibold"
           >
             + Create Community
           </button>
@@ -73,7 +73,7 @@ const Communities = () => {
           </div>
         ) : communities.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-400 text-lg">No communities yet. Be the first to create one!</p>
+            <p className="text-slate-400 text-lg">No communities yet. Be the first to create one!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -88,10 +88,10 @@ const Communities = () => {
                     <h3 className="text-lg font-semibold text-white mb-1 truncate">
                       c/{community.displayName}
                     </h3>
-                    <p className="text-gray-400 text-sm mb-3 line-clamp-2">
+                    <p className="text-slate-400 text-sm mb-3 line-clamp-2">
                       {community.description || 'No description available'}
                     </p>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex items-center gap-4 text-xs text-slate-500">
                       <span>{community.memberCount} members</span>
                       <span>{community.postCount} posts</span>
                     </div>
@@ -103,7 +103,7 @@ const Communities = () => {
                     className={`shrink-0 px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
                       isMember(community)
                         ? 'bg-slate-600 hover:bg-red-600 text-white'
-                        : 'bg-veil-purple hover:bg-veil-indigo text-white'
+                        : 'bg-veil-purple hover:bg-veil-indigo text-veil-on-accent'
                     }`}
                   >
                     {joiningId === community._id ? '...' : isMember(community) ? 'Leave' : 'Join'}

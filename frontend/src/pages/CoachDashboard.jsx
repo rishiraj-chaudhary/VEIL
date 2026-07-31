@@ -25,7 +25,7 @@ const TREND_META = {
   improving:    { label: 'Improving',    color: '#10b981', bg: 'bg-emerald-900/30 border-emerald-700/50', icon: '📈' },
   plateau:      { label: 'Plateau',      color: '#f59e0b', bg: 'bg-amber-900/30 border-amber-700/50',   icon: '➡️' },
   declining:    { label: 'Declining',    color: '#ef4444', bg: 'bg-red-900/30 border-red-700/50',       icon: '📉' },
-  inconsistent: { label: 'Inconsistent', color: '#8b5cf6', bg: 'bg-purple-900/30 border-purple-700/50', icon: '〰️' },
+  inconsistent: { label: 'Inconsistent', color: '#8b5cf6', bg: 'bg-slate-900/30 border-slate-700/50', icon: '〰️' },
   stable:       { label: 'Stable',       color: '#6b7280', bg: 'bg-slate-800 border-slate-700',          icon: '⚖️' },
   new:          { label: 'New',          color: '#6b7280', bg: 'bg-slate-800 border-slate-700',          icon: '✨' },
 };
@@ -59,7 +59,7 @@ const DiffBadge = ({ delta }) => {
   if (!delta && delta !== 0) return null;
   if (delta > 0)  return <span className="text-xs text-emerald-400 ml-1">+{delta}</span>;
   if (delta < 0)  return <span className="text-xs text-red-400 ml-1">{delta}</span>;
-  return <span className="text-xs text-gray-500 ml-1">—</span>;
+  return <span className="text-xs text-slate-500 ml-1">—</span>;
 };
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -136,9 +136,9 @@ const CoachDashboard = () => {
         <div className="max-w-4xl mx-auto px-4 py-16 text-center">
           <div className="text-6xl mb-4">🎓</div>
           <h1 className="text-3xl font-bold text-white mb-4">Welcome to Your AI Coach</h1>
-          <p className="text-gray-400 mb-8">Start debating to unlock personalized coaching!</p>
+          <p className="text-slate-400 mb-8">Start debating to unlock personalized coaching!</p>
           <button onClick={() => navigate('/debates')}
-            className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg font-semibold transition-colors">
+            className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold transition-colors">
             Find a Debate
           </button>
         </div>
@@ -191,11 +191,11 @@ const CoachDashboard = () => {
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">🎓 AI Debate Coach</h1>
-            <p className="text-gray-400">Your personalized performance tracker</p>
+            <p className="text-slate-400">Your personalized performance tracker</p>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold text-veil-purple">{summary.rank}</div>
-            <div className="text-sm text-gray-400">Current Rank</div>
+            <div className="text-sm text-slate-400">Current Rank</div>
             {trend && <div className="mt-1"><TrendBadge trend={trend} /></div>}
           </div>
         </div>
@@ -207,13 +207,13 @@ const CoachDashboard = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
             { label: 'Total Debates', value: summary.stats.totalDebates, color: 'text-green-400' },
-            { label: 'Win Rate',      value: `${Math.round(summary.stats.winRate)}%`, color: 'text-blue-400' },
-            { label: 'Avg Quality',   value: Math.round(summary.qualityMetrics.avgOverallQuality), color: 'text-purple-400' },
+            { label: 'Win Rate',      value: `${Math.round(summary.stats.winRate)}%`, color: 'text-slate-400' },
+            { label: 'Avg Quality',   value: Math.round(summary.qualityMetrics.avgOverallQuality), color: 'text-slate-400' },
             { label: 'Achievements',  value: achievements.length, color: 'text-orange-400' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-slate-800 border border-slate-700 rounded-lg p-5">
               <div className={`text-3xl font-bold mb-1 ${color}`}>{value}</div>
-              <div className="text-sm text-gray-400">{label}</div>
+              <div className="text-sm text-slate-400">{label}</div>
             </div>
           ))}
         </div>
@@ -246,8 +246,8 @@ const CoachDashboard = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-veil-purple text-white'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-veil-purple text-veil-on-accent'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               {tab.label}
@@ -270,7 +270,7 @@ const CoachDashboard = () => {
                     {Object.entries(SKILL_META).map(([key, meta]) => (
                       <div key={key}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm text-gray-300">{meta.icon} {meta.label}</span>
+                          <span className="text-sm text-slate-300">{meta.icon} {meta.label}</span>
                           <span className={`text-sm font-semibold ${scoreColor(skillProfile[key])}`}>
                             {skillProfile[key]}
                             <DiffBadge delta={skillDeltas[key]} />
@@ -310,7 +310,7 @@ const CoachDashboard = () => {
                           <span className="text-orange-400 mt-0.5">⚠</span>
                           <div>
                             <div className="text-sm text-white">{w.description}</div>
-                            <div className="text-xs text-gray-400">💡 {w.improvementTip}</div>
+                            <div className="text-xs text-slate-400">💡 {w.improvementTip}</div>
                           </div>
                         </div>
                       ))}
@@ -347,7 +347,7 @@ const CoachDashboard = () => {
                         <span className="text-xl">{a.icon}</span>
                         <div>
                           <div className="text-sm font-semibold text-white">{a.name}</div>
-                          <div className="text-xs text-gray-400">{a.description}</div>
+                          <div className="text-xs text-slate-400">{a.description}</div>
                         </div>
                       </div>
                     ))}
@@ -365,8 +365,8 @@ const CoachDashboard = () => {
           <>
             {summary?.peerComparison && !summary.peerComparison.available && (
               <div className="mb-6 bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-                <div className="text-sm text-gray-300 font-medium mb-1">Peer ranking unavailable</div>
-                <p className="text-sm text-gray-500">{summary.peerComparison.reason}</p>
+                <div className="text-sm text-slate-300 font-medium mb-1">Peer ranking unavailable</div>
+                <p className="text-sm text-slate-500">{summary.peerComparison.reason}</p>
               </div>
             )}
           </>
@@ -389,7 +389,7 @@ const CoachDashboard = () => {
                       </div>
                       <div className="text-sm font-semibold text-white mb-1">{meta.label}</div>
                       <ScoreBar value={score} color={meta.color} />
-                      <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+                      <div className="flex items-center justify-between mt-2 text-xs text-slate-400">
                         {delta != null && (
                           <span>Since last: <DiffBadge delta={delta} /></span>
                         )}
@@ -402,7 +402,7 @@ const CoachDashboard = () => {
                 })}
               </div>
             ) : (
-              <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center text-gray-400">
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center text-slate-400">
                 Complete a debate to generate your skill profile.
               </div>
             )}
@@ -411,7 +411,7 @@ const CoachDashboard = () => {
             {blindSpots.length > 0 && (
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">🔍 Blind Spots</h2>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-slate-400 mb-4">
                   Areas where your self-perception and actual debate performance diverge.
                 </p>
                 <div className="space-y-3">
@@ -423,7 +423,7 @@ const CoachDashboard = () => {
                           <div className="text-sm font-semibold text-amber-300 mb-1">
                             {SKILL_META[bs.skill]?.label || bs.skill} — {bs.skillScore}/100
                           </div>
-                          <p className="text-sm text-gray-300">{bs.insight}</p>
+                          <p className="text-sm text-slate-300">{bs.insight}</p>
                         </div>
                       </div>
                     </div>
@@ -457,24 +457,24 @@ const CoachDashboard = () => {
             {/* Plan-level guidance. The model generates a focus area and a weekly
                 goal alongside the drills; both used to be discarded on save. */}
             {(summary?.coachingPlan?.focusArea || summary?.coachingPlan?.weeklyGoal) && (
-              <div className="bg-gradient-to-br from-purple-900/30 to-slate-800 border border-purple-500/40 rounded-lg p-6">
+              <div className="bg-gradient-to-br from-slate-900/30 to-slate-800 border border-slate-500/40 rounded-lg p-6">
                 <h2 className="text-xl font-semibold text-white mb-4">🎯 This Week</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {summary.coachingPlan.focusArea && (
                     <div>
-                      <div className="text-xs uppercase tracking-wider text-purple-300 mb-1">Focus area</div>
+                      <div className="text-xs uppercase tracking-wider text-slate-300 mb-1">Focus area</div>
                       <div className="text-white font-medium">{summary.coachingPlan.focusArea}</div>
                     </div>
                   )}
                   {summary.coachingPlan.weeklyGoal && (
                     <div>
-                      <div className="text-xs uppercase tracking-wider text-purple-300 mb-1">Measurable goal</div>
+                      <div className="text-xs uppercase tracking-wider text-slate-300 mb-1">Measurable goal</div>
                       <div className="text-white font-medium">{summary.coachingPlan.weeklyGoal}</div>
                     </div>
                   )}
                 </div>
                 {summary.coachingPlan.generatedAt && (
-                  <div className="text-xs text-gray-500 mt-4">
+                  <div className="text-xs text-slate-500 mt-4">
                     Generated {new Date(summary.coachingPlan.generatedAt).toLocaleDateString()} from your last 20 turns
                   </div>
                 )}
@@ -485,7 +485,7 @@ const CoachDashboard = () => {
             {graphTips.length > 0 && (
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
                 <h2 className="text-xl font-semibold text-white mb-2">🧠 Your Coaching Plan</h2>
-                <p className="text-sm text-gray-400 mb-5">
+                <p className="text-sm text-slate-400 mb-5">
                   Generated by your AI coach after analysing your last 20 debate turns.
                 </p>
                 <div className="space-y-4">
@@ -496,7 +496,7 @@ const CoachDashboard = () => {
                           ? 'bg-red-900/10 border-red-700/40'
                           : tip.priority === 'medium'
                           ? 'bg-amber-900/10 border-amber-700/40'
-                          : 'bg-blue-900/10 border-blue-700/40'
+                          : 'bg-slate-900/10 border-slate-700/40'
                       }`}>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -505,12 +505,12 @@ const CoachDashboard = () => {
                               style={{ backgroundColor: SKILL_META[tip.category]?.color + '30', color: SKILL_META[tip.category]?.color }}>
                               {SKILL_META[tip.category]?.label || tip.category}
                             </span>
-                            <span className="text-xs text-gray-500 capitalize">{tip.priority} priority</span>
+                            <span className="text-xs text-slate-500 capitalize">{tip.priority} priority</span>
                           </div>
                           <div className="text-sm font-semibold text-white mb-1">{tip.message}</div>
-                          <p className="text-sm text-gray-300">💡 {tip.actionable}</p>
+                          <p className="text-sm text-slate-300">💡 {tip.actionable}</p>
                         </div>
-                        <button onClick={() => dismissTip(tip._id)} className="ml-4 text-gray-500 hover:text-gray-400 text-lg">✕</button>
+                        <button onClick={() => dismissTip(tip._id)} className="ml-4 text-slate-500 hover:text-slate-400 text-lg">✕</button>
                       </div>
                     </div>
                   ))}
@@ -530,14 +530,14 @@ const CoachDashboard = () => {
                           ? 'bg-red-900/10 border-red-700/40'
                           : tip.priority === 'medium'
                           ? 'bg-amber-900/10 border-amber-700/40'
-                          : 'bg-blue-900/10 border-blue-700/40'
+                          : 'bg-slate-900/10 border-slate-700/40'
                       }`}>
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="text-sm font-semibold text-white mb-1">{tip.message}</div>
-                          <p className="text-sm text-gray-300">💡 {tip.actionable}</p>
+                          <p className="text-sm text-slate-300">💡 {tip.actionable}</p>
                         </div>
-                        <button onClick={() => dismissTip(tip._id)} className="ml-4 text-gray-500 hover:text-gray-400">✕</button>
+                        <button onClick={() => dismissTip(tip._id)} className="ml-4 text-slate-500 hover:text-slate-400">✕</button>
                       </div>
                     </div>
                   ))}
@@ -549,7 +549,7 @@ const CoachDashboard = () => {
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-10 text-center">
                 <div className="text-4xl mb-3">✅</div>
                 <div className="text-white font-semibold mb-1">No active coaching tips</div>
-                <p className="text-gray-400 text-sm">Complete a debate and your AI coach will generate a personalised plan.</p>
+                <p className="text-slate-400 text-sm">Complete a debate and your AI coach will generate a personalised plan.</p>
               </div>
             )}
           </div>
@@ -583,7 +583,7 @@ const CoachDashboard = () => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center text-gray-400">
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 text-center text-slate-400">
                 Complete more debates to see your progress chart.
               </div>
             )}
@@ -594,12 +594,12 @@ const CoachDashboard = () => {
                 <h2 className="text-xl font-semibold text-white mb-4">⚡ Improvement Velocity</h2>
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-2xl font-bold text-white">{summary.improvement.overallGrowth > 0 ? '+' : ''}{summary.improvement.overallGrowth}</span>
-                  <span className="text-gray-400">overall growth</span>
+                  <span className="text-slate-400">overall growth</span>
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                     summary.improvement.velocity === 'rapid' ? 'bg-emerald-900/40 text-emerald-300' :
-                    summary.improvement.velocity === 'steady' ? 'bg-blue-900/40 text-blue-300' :
+                    summary.improvement.velocity === 'steady' ? 'bg-slate-900/40 text-slate-300' :
                     summary.improvement.velocity === 'declining' ? 'bg-red-900/40 text-red-300' :
-                    'bg-slate-700 text-gray-400'
+                    'bg-slate-700 text-slate-400'
                   }`}>{summary.improvement.velocity}</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -610,10 +610,10 @@ const CoachDashboard = () => {
                     { label: 'Logic',    value: summary.improvement.fallacyReduction },
                   ].map(({ label, value }) => (
                     <div key={label} className="bg-slate-900/60 rounded-lg p-3 text-center">
-                      <div className={`text-xl font-bold ${value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-gray-400'}`}>
+                      <div className={`text-xl font-bold ${value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-slate-400'}`}>
                         {value > 0 ? '+' : ''}{value}
                       </div>
-                      <div className="text-xs text-gray-400">{label}</div>
+                      <div className="text-xs text-slate-400">{label}</div>
                     </div>
                   ))}
                 </div>
@@ -629,7 +629,7 @@ const CoachDashboard = () => {
         {activeTab === 'achievements' && (
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
             <h2 className="text-xl font-semibold text-white mb-2">🏆 Achievements</h2>
-            <p className="text-sm text-gray-400 mb-6">{achievements.length} earned</p>
+            <p className="text-sm text-slate-400 mb-6">{achievements.length} earned</p>
             {achievements.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...achievements].sort((a, b) => new Date(b.earnedAt) - new Date(a.earnedAt)).map((a) => (
@@ -637,8 +637,8 @@ const CoachDashboard = () => {
                     <span className="text-3xl">{a.icon}</span>
                     <div>
                       <div className="text-sm font-bold text-white">{a.name}</div>
-                      <div className="text-xs text-gray-400">{a.description}</div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-slate-400">{a.description}</div>
+                      <div className="text-xs text-slate-500 mt-1">
                         {new Date(a.earnedAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -646,7 +646,7 @@ const CoachDashboard = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-400">
+              <div className="text-center py-8 text-slate-400">
                 <div className="text-4xl mb-3">🎯</div>
                 <p>Complete debates and improve your skills to earn achievements.</p>
               </div>

@@ -94,7 +94,7 @@ const CommentForm = ({
             {aiEnabled && (
               <OracleButton onGenerate={handleOracleGenerate} />
             )}
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-slate-500">
               {content.length} characters
             </span>
           </div>
@@ -104,7 +104,7 @@ const CommentForm = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="text-gray-400 hover:text-white"
+                className="text-slate-400 hover:text-white"
               >
                 Cancel
               </button>
@@ -112,7 +112,7 @@ const CommentForm = ({
             <button
               type="submit"
               disabled={!content.trim()}
-              className="bg-veil-purple text-white px-4 py-2 rounded"
+              className="bg-veil-purple text-veil-on-accent px-4 py-2 rounded"
             >
               {parentId ? 'Reply' : 'Comment'}
             </button>

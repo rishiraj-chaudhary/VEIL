@@ -22,7 +22,7 @@ const ScorePill = ({ label, value }) => {
 
   const tone = value >= 70 ? 'text-emerald-400' : value >= 45 ? 'text-amber-400' : 'text-rose-400';
   return (
-    <span className="text-xs text-gray-500">
+    <span className="text-xs text-slate-500">
       {label} <span className={tone}>{value}</span>
     </span>
   );
@@ -61,7 +61,7 @@ const PublicDebate = () => {
     return (
       <div className="min-h-screen bg-veil-dark flex items-center justify-center p-6">
         <div className="text-center">
-          <p className="text-gray-400 mb-4">{error}</p>
+          <p className="text-slate-400 mb-4">{error}</p>
           <Link to="/" className="text-veil-purple hover:underline text-sm">Go to VEIL</Link>
         </div>
       </div>
@@ -85,7 +85,7 @@ const PublicDebate = () => {
           <Link to="/" className="text-white font-bold">VEIL</Link>
           <Link
             to="/register"
-            className="text-xs px-4 py-2 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg"
+            className="text-xs px-4 py-2 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg"
           >
             Argue something yourself
           </Link>
@@ -98,7 +98,7 @@ const PublicDebate = () => {
             <h1 className="text-2xl font-bold text-white">{debate.topic}</h1>
             <button
               onClick={share}
-              className="shrink-0 text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-lg"
+              className="shrink-0 text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
             >
               {copied ? 'Link copied' : 'Share'}
             </button>
@@ -111,20 +111,20 @@ const PublicDebate = () => {
                 className={`px-3 py-1 rounded-lg border ${SIDE_STYLES[p.side] || 'border-slate-700'}`}
               >
                 <span className="text-white">{p.username}</span>
-                {p.isAI && <span className="text-gray-500 text-xs"> (AI)</span>}
-                <span className="text-gray-500 text-xs uppercase ml-2">{p.side}</span>
+                {p.isAI && <span className="text-slate-500 text-xs"> (AI)</span>}
+                <span className="text-slate-500 text-xs uppercase ml-2">{p.side}</span>
               </span>
             ))}
           </div>
 
           {debate.winner && (
-            <p className="text-sm text-gray-400 mt-3">
+            <p className="text-sm text-slate-400 mt-3">
               Verdict:{' '}
               <span className="text-white font-medium">
                 {debate.winner === 'draw' ? 'Draw' : `${debate.winner.toUpperCase()} side`}
               </span>
               {debate.finalScores && (
-                <span className="text-gray-600">
+                <span className="text-slate-600">
                   {' '}· for {debate.finalScores.for} — against {debate.finalScores.against}
                 </span>
               )}
@@ -141,12 +141,12 @@ const PublicDebate = () => {
               <div className="flex items-center justify-between mb-2 text-sm">
                 <span className="text-white font-medium">
                   {turn.username}
-                  <span className="text-gray-500 text-xs uppercase ml-2">{turn.side}</span>
+                  <span className="text-slate-500 text-xs uppercase ml-2">{turn.side}</span>
                 </span>
-                <span className="text-xs text-gray-600">Round {turn.round}</span>
+                <span className="text-xs text-slate-600">Round {turn.round}</span>
               </div>
 
-              <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{turn.content}</p>
+              <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{turn.content}</p>
 
               <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-slate-800">
                 <ScorePill label="quality" value={turn.scores.overall} />
@@ -163,12 +163,12 @@ const PublicDebate = () => {
         </div>
 
         <div className="mt-10 text-center border-t border-slate-800 pt-8">
-          <p className="text-gray-400 text-sm mb-3">
+          <p className="text-slate-400 text-sm mb-3">
             Every claim made here is scored and tracked. Arguments have a record.
           </p>
           <Link
             to="/register"
-            className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg font-semibold"
+            className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold"
           >
             Debate the AI in 60 seconds
           </Link>

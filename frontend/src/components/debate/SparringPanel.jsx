@@ -20,7 +20,7 @@ const BAND_STYLES = {
   contested: 'text-amber-300 border-amber-500/40 bg-amber-900/20',
   brittle:   'text-orange-300 border-orange-500/40 bg-orange-900/20',
   fragile:   'text-rose-300 border-rose-500/40 bg-rose-900/20',
-  untested:  'text-gray-300 border-gray-600 bg-gray-800/60',
+  untested:  'text-slate-300 border-slate-600 bg-slate-800/60',
 };
 
 /**
@@ -63,11 +63,11 @@ const Finding = ({ finding, draft, onApply, applied }) => {
   };
 
   return (
-    <div className="border border-gray-700 rounded-lg overflow-hidden bg-gray-900/40">
-      <div className="px-4 py-3 border-b border-gray-700/60">
+    <div className="border border-slate-700 rounded-lg overflow-hidden bg-slate-900/40">
+      <div className="px-4 py-3 border-b border-slate-700/60">
         <p className="text-sm text-white">{finding.claim}</p>
 
-        <div className="flex items-center gap-2 mt-2 text-xs text-gray-400 flex-wrap">
+        <div className="flex items-center gap-2 mt-2 text-xs text-slate-400 flex-wrap">
           {finding.trackRecord?.found ? (
             <>
               <Badge band={finding.trackRecord.band} />
@@ -93,7 +93,7 @@ const Finding = ({ finding, draft, onApply, applied }) => {
           <div className="text-xs uppercase tracking-wide text-rose-400 mb-1">
             {finding.vector || 'Attack'}
           </div>
-          <p className="text-sm text-gray-300">{finding.attack}</p>
+          <p className="text-sm text-slate-300">{finding.attack}</p>
         </div>
 
         {finding.repair && (
@@ -101,8 +101,8 @@ const Finding = ({ finding, draft, onApply, applied }) => {
             <div className="text-xs uppercase tracking-wide text-emerald-400 mb-1">
               Suggested revision
             </div>
-            <p className="text-sm text-gray-200">{finding.repair.revised}</p>
-            <p className="text-xs text-gray-500 mt-1">{finding.repair.change}</p>
+            <p className="text-sm text-slate-200">{finding.repair.revised}</p>
+            <p className="text-xs text-slate-500 mt-1">{finding.repair.change}</p>
 
             <div className="flex items-center gap-3 mt-2">
               {applied ? (
@@ -116,7 +116,7 @@ const Finding = ({ finding, draft, onApply, applied }) => {
                   Apply to draft
                 </button>
               ) : (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-slate-500">
                   This claim no longer matches your draft — copy the revision instead.
                 </span>
               )}
@@ -124,7 +124,7 @@ const Finding = ({ finding, draft, onApply, applied }) => {
               <button
                 type="button"
                 onClick={copy}
-                className="text-xs text-gray-400 hover:text-gray-200"
+                className="text-xs text-slate-400 hover:text-slate-200"
               >
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -175,18 +175,18 @@ const SparringPanel = ({ topic, side, draft, onApplyRevision }) => {
   };
 
   return (
-    <div className="mt-4 border-t border-gray-700 pt-4">
+    <div className="mt-4 border-t border-slate-700 pt-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <button
             type="button"
             onClick={run}
             disabled={loading || tooShort}
-            className="text-sm px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-medium transition-colors"
+            className="text-sm px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-medium transition-colors"
           >
             {loading ? 'Sparring…' : '🥊 Spar with this draft'}
           </button>
-          <p className="text-xs text-gray-500 mt-1.5">
+          <p className="text-xs text-slate-500 mt-1.5">
             {tooShort
               ? `Write at least ${MIN_DRAFT} characters to spar.`
               : 'Attacks your weakest claims using how they have actually been beaten here.'}
@@ -197,7 +197,7 @@ const SparringPanel = ({ topic, side, draft, onApplyRevision }) => {
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
-            className="text-xs text-gray-400 hover:text-gray-200"
+            className="text-xs text-slate-400 hover:text-slate-200"
           >
             {open ? 'Hide results' : 'Show results'}
           </button>
@@ -205,23 +205,23 @@ const SparringPanel = ({ topic, side, draft, onApplyRevision }) => {
       </div>
 
       {loading && (
-        <p className="text-xs text-gray-500 mt-3">
+        <p className="text-xs text-slate-500 mt-3" role="status" aria-live="polite">
           Looking up your track record, then attacking the weakest claims…
         </p>
       )}
 
       {error && (
-        <div className="mt-3 border border-rose-500/40 bg-rose-900/20 text-rose-200 rounded-lg px-3 py-2 text-xs">
+        <div className="mt-3 border border-rose-500/40 bg-rose-900/20 text-rose-200 rounded-lg px-3 py-2 text-xs" role="alert">
           {error}
         </div>
       )}
 
       {result && open && (
-        <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+        <div className="mt-4 space-y-3" aria-live="polite">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
             <span><strong className="text-white">{result.summary.claimsTested}</strong> tested</span>
             <span><strong className="text-rose-300">{result.summary.claimsNeedingWork}</strong> need revision</span>
-            <span className="text-gray-600">
+            <span className="text-slate-600">
               {result.summary.llmCalls}/{result.summary.budget} model calls
             </span>
             {result.summary.budgetExhausted && (
@@ -236,9 +236,9 @@ const SparringPanel = ({ topic, side, draft, onApplyRevision }) => {
               </div>
               <ul className="space-y-0.5">
                 {result.fallacies.map((f, i) => (
-                  <li key={i} className="text-xs text-gray-300">
+                  <li key={i} className="text-xs text-slate-300">
                     <span className="text-amber-300">{f.type}</span>
-                    {f.quote && <span className="text-gray-500"> — “{f.quote}”</span>}
+                    {f.quote && <span className="text-slate-500"> — “{f.quote}”</span>}
                   </li>
                 ))}
               </ul>
@@ -246,7 +246,7 @@ const SparringPanel = ({ topic, side, draft, onApplyRevision }) => {
           )}
 
           {result.findings.length === 0 ? (
-            <p className="text-sm text-gray-400 py-2">
+            <p className="text-sm text-slate-400 py-2">
               Nothing here needed testing — every claim already has a strong track record.
             </p>
           ) : (

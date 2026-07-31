@@ -9,9 +9,9 @@ import api from '../../services/api';
 const BADGE_META = {
   clarifier_1:     { color: 'text-cyan-400',   bg: 'bg-cyan-900/20 border-cyan-700/40' },
   rebutter_1:      { color: 'text-orange-400', bg: 'bg-orange-900/20 border-orange-700/40' },
-  synthesizer_1:   { color: 'text-purple-400', bg: 'bg-purple-900/20 border-purple-700/40' },
+  synthesizer_1:   { color: 'text-slate-400', bg: 'bg-slate-900/20 border-slate-700/40' },
   mediator_1:      { color: 'text-green-400',  bg: 'bg-green-900/20 border-green-700/40' },
-  evidence_master_1: { color: 'text-blue-400', bg: 'bg-blue-900/20 border-blue-700/40' },
+  evidence_master_1: { color: 'text-slate-400', bg: 'bg-slate-900/20 border-slate-700/40' },
   logic_shield_1:  { color: 'text-red-400',    bg: 'bg-red-900/20 border-red-700/40' },
   first_win:       { color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/40' },
   five_debates:    { color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/40' },
@@ -19,13 +19,13 @@ const BADGE_META = {
 };
 
 const AchievementPill = ({ a }) => {
-  const meta = BADGE_META[a.id] || { color: 'text-gray-300', bg: 'bg-slate-700/50 border-slate-600' };
+  const meta = BADGE_META[a.id] || { color: 'text-slate-300', bg: 'bg-slate-700/50 border-slate-600' };
   return (
     <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${meta.bg}`}>
       <span className="text-xl shrink-0">{a.icon}</span>
       <div className="min-w-0">
         <div className={`text-xs font-semibold ${meta.color} truncate`}>{a.name}</div>
-        <div className="text-xs text-gray-500 truncate">{a.description}</div>
+        <div className="text-xs text-slate-500 truncate">{a.description}</div>
       </div>
     </div>
   );
@@ -78,13 +78,13 @@ const WeeklyInsightPanel = () => {
             </div>
             <div>
               <p className="text-sm font-semibold text-white">Weekly AI Analysis</p>
-              <p className="text-xs text-gray-400">Unlock personalised insights and achievement badges</p>
+              <p className="text-xs text-slate-400">Unlock personalised insights and achievement badges</p>
             </div>
           </div>
           <button
             onClick={runAnalysis}
             disabled={running}
-            className="flex items-center gap-2 px-4 py-2 bg-veil-purple hover:bg-veil-indigo text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent text-sm font-medium rounded-lg transition-colors disabled:opacity-50 shrink-0"
           >
             {running
               ? <><div className="w-3 h-3 border-t border-white rounded-full animate-spin" /> Analysing…</>
@@ -113,7 +113,7 @@ const WeeklyInsightPanel = () => {
           <button
             onClick={runAnalysis}
             disabled={running}
-            className="text-xs text-gray-500 hover:text-veil-purple transition-colors disabled:opacity-40 flex items-center gap-1"
+            className="text-xs text-slate-500 hover:text-veil-purple transition-colors disabled:opacity-40 flex items-center gap-1"
           >
             {running
               ? <><div className="w-2.5 h-2.5 border-t border-veil-purple rounded-full animate-spin" /> Refreshing</>
@@ -121,13 +121,13 @@ const WeeklyInsightPanel = () => {
           </button>
           <button
             onClick={() => setExpanded(e => !e)}
-            className="text-gray-500 hover:text-gray-300 transition-colors"
+            className="text-slate-500 hover:text-slate-300 transition-colors"
           >
             <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <button onClick={() => setDismissed(true)} className="text-gray-600 hover:text-gray-400">✕</button>
+          <button onClick={() => setDismissed(true)} className="text-slate-600 hover:text-slate-400">✕</button>
         </div>
       </div>
 
@@ -138,14 +138,14 @@ const WeeklyInsightPanel = () => {
           {hasHighlight && (
             <div className="flex items-start gap-3">
               <span className="text-veil-purple mt-0.5 shrink-0 text-sm">✦</span>
-              <p className="text-sm text-gray-200 leading-relaxed">{data.highlight}</p>
+              <p className="text-sm text-slate-200 leading-relaxed">{data.highlight}</p>
             </div>
           )}
 
           {/* New badges earned this week */}
           {hasNewBadges && (
             <div>
-              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2.5">
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2.5">
                 🎖 Earned this week
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -156,7 +156,7 @@ const WeeklyInsightPanel = () => {
 
           {/* Has highlight but no new badges */}
           {hasHighlight && !hasNewBadges && (
-            <p className="text-xs text-gray-500 flex items-center gap-2 pt-1">
+            <p className="text-xs text-slate-500 flex items-center gap-2 pt-1">
               <span>🎯</span>
               Keep debating this week to unlock new achievement badges.
             </p>

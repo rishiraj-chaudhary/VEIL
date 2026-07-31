@@ -35,7 +35,7 @@ const CreateCommunityModal = ({ isOpen, onClose }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Community Name
             </label>
             <input
@@ -48,13 +48,13 @@ const CreateCommunityModal = ({ isOpen, onClose }) => {
               pattern="[a-z0-9_]+"
               title="Lowercase letters, numbers, and underscores only"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Lowercase, no spaces (use underscores)
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Display Name
             </label>
             <input
@@ -68,7 +68,7 @@ const CreateCommunityModal = ({ isOpen, onClose }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Description
             </label>
             <textarea
@@ -84,7 +84,7 @@ const CreateCommunityModal = ({ isOpen, onClose }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 py-2 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? 'Creating...' : 'Create'}
             </button>

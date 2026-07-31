@@ -11,7 +11,7 @@ const ScoreExplainer = ({ score, type, explanation }) => {
 
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-green-400';
-    if (score >= 60) return 'text-blue-400';
+    if (score >= 60) return 'text-slate-400';
     if (score >= 40) return 'text-yellow-400';
     return 'text-red-400';
   };
@@ -78,7 +78,7 @@ const ScoreExplainer = ({ score, type, explanation }) => {
           <span className={getScoreColor(score)}>
             {getScoreIcon(score)}
           </span>
-          <span className="text-gray-300">
+          <span className="text-slate-300">
             {getTypeLabel(type)}:
           </span>
           <span className={`font-semibold ${getScoreColor(score)}`}>
@@ -88,14 +88,14 @@ const ScoreExplainer = ({ score, type, explanation }) => {
             ({getScoreLabel(score)})
           </span>
         </div>
-        <span className="text-gray-500 text-xs">
+        <span className="text-slate-500 text-xs">
           {isOpen ? '▼' : '▶'} Why?
         </span>
       </button>
 
       {isOpen && (
         <div className="bg-slate-800/30 rounded px-3 py-2 ml-4 space-y-2">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-slate-400">
             {explanation || getTypeExplanation(type, score)}
           </p>
 
@@ -105,14 +105,14 @@ const ScoreExplainer = ({ score, type, explanation }) => {
               <div
                 className={`h-full ${
                   score >= 80 ? 'bg-green-500' :
-                  score >= 60 ? 'bg-blue-500' :
+                  score >= 60 ? 'bg-slate-500' :
                   score >= 40 ? 'bg-yellow-500' :
                   'bg-red-500'
                 }`}
                 style={{ width: `${score}%` }}
               />
             </div>
-            <span className="text-xs text-gray-500 w-12 text-right">
+            <span className="text-xs text-slate-500 w-12 text-right">
               {score}%
             </span>
           </div>

@@ -25,14 +25,14 @@ const RISK_CONFIG = {
 
 const TREND_CONFIG = {
   rising:  { color: 'text-red-400',    icon: '↑', label: 'Rising' },
-  stable:  { color: 'text-gray-400',   icon: '→', label: 'Stable' },
+  stable:  { color: 'text-slate-400',   icon: '→', label: 'Stable' },
   falling: { color: 'text-green-400',  icon: '↓', label: 'Falling' },
 };
 
 const MetricRow = ({ label, value, color, suffix = '' }) => (
   <div className="flex items-center justify-between py-1.5 border-b border-slate-700/50 last:border-0">
-    <span className="text-xs text-gray-400">{label}</span>
-    <span className={`text-xs font-medium ${color || 'text-gray-300'}`}>{value}{suffix}</span>
+    <span className="text-xs text-slate-400">{label}</span>
+    <span className={`text-xs font-medium ${color || 'text-slate-300'}`}>{value}{suffix}</span>
   </div>
 );
 
@@ -100,7 +100,7 @@ const CommunityHealthPanel = ({ communityName }) => {
 
   if (loading && !health) {
     return (
-      <div className="flex items-center gap-2 text-gray-500 text-sm py-2">
+      <div className="flex items-center gap-2 text-slate-500 text-sm py-2">
         <div className="animate-spin h-3 w-3 border-t-2 border-veil-purple rounded-full" />
         Analysing community health…
       </div>
@@ -121,7 +121,7 @@ const CommunityHealthPanel = ({ communityName }) => {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Community Health</span>
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Community Health</span>
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${risk.border} ${risk.color}`}>
             {risk.label}
           </span>
@@ -137,7 +137,7 @@ const CommunityHealthPanel = ({ communityName }) => {
             <span className={`text-xs font-bold ${risk.color}`}>{health.healthScore}/100</span>
           </div>
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -167,33 +167,33 @@ const CommunityHealthPanel = ({ communityName }) => {
                 <MetricRow
                   label="Polarization"
                   value={`${health.polarizationScore ?? 0}/100`}
-                  color={health.polarizationScore > 65 ? 'text-orange-400' : 'text-gray-300'}
+                  color={health.polarizationScore > 65 ? 'text-orange-400' : 'text-slate-300'}
                 />
               </div>
             </div>
 
             {/* Participation metrics */}
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Participation</h4>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Participation</h4>
               <MetricRow
                 label="Contributors"
                 value={health.uniqueContributors ?? '—'}
-                color="text-gray-300"
+                color="text-slate-300"
               />
               <MetricRow
                 label="Top user share"
                 value={`${health.dominantUserShare ?? 0}%`}
-                color={health.dominantUserShare > 50 ? 'text-orange-400' : 'text-gray-300'}
+                color={health.dominantUserShare > 50 ? 'text-orange-400' : 'text-slate-300'}
               />
               <MetricRow
                 label="Imbalance"
                 value={`${health.participationImbalance ?? 0}%`}
-                color={health.participationImbalance > 70 ? 'text-orange-400' : 'text-gray-300'}
+                color={health.participationImbalance > 70 ? 'text-orange-400' : 'text-slate-300'}
               />
               <MetricRow
                 label="Thread escalation"
                 value={`${health.escalationRate ?? 0}%`}
-                color={health.escalationRate > 30 ? 'text-red-400' : 'text-gray-300'}
+                color={health.escalationRate > 30 ? 'text-red-400' : 'text-slate-300'}
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ const CommunityHealthPanel = ({ communityName }) => {
             <div className={`mt-4 p-3 rounded-lg border ${risk.border} bg-slate-900/50`}>
               <div className="flex items-start gap-2">
                 <span className={`text-sm shrink-0 mt-0.5 ${risk.color}`}>💡</span>
-                <p className="text-xs text-gray-300 leading-relaxed">
+                <p className="text-xs text-slate-300 leading-relaxed">
                   {health.interventionSuggestion}
                 </p>
               </div>
@@ -212,13 +212,13 @@ const CommunityHealthPanel = ({ communityName }) => {
 
           {/* Footer */}
           <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-700/50">
-            <span className="text-xs text-gray-600">
+            <span className="text-xs text-slate-600">
               {health.analysedAt && `Analysed ${new Date(health.analysedAt).toLocaleDateString()}`}
             </span>
             <button
               onClick={() => fetchHealth(true)}
               disabled={loading}
-              className="text-xs text-gray-500 hover:text-veil-purple transition-colors disabled:opacity-50"
+              className="text-xs text-slate-500 hover:text-veil-purple transition-colors disabled:opacity-50"
             >
               {loading ? 'Refreshing…' : '↻ Refresh'}
             </button>

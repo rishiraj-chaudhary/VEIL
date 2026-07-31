@@ -26,9 +26,9 @@ const BudgetIndicator = ({ showDetails = false }) => {
 
   if (loading) {
     return (
-      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 animate-pulse">
-        <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-        <div className="h-8 bg-gray-700 rounded w-1/2"></div>
+      <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 animate-pulse">
+        <div className="h-4 bg-slate-700 rounded w-3/4 mb-2"></div>
+        <div className="h-8 bg-slate-700 rounded w-1/2"></div>
       </div>
     );
   }
@@ -65,21 +65,21 @@ const BudgetIndicator = ({ showDetails = false }) => {
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+    <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
       
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
         <div>
-          <div className="text-gray-400 text-sm">Daily AI Budget</div>
+          <div className="text-slate-400 text-sm">Daily AI Budget</div>
           <div className={`text-xl font-bold ${getStatusColor()}`}>
             ${remaining.toFixed(2)} left
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-500 uppercase tracking-wider">
+          <div className="text-xs text-slate-500 uppercase tracking-wider">
             {tier} tier
           </div>
-          <div className="text-xs text-gray-400 mt-1">
+          <div className="text-xs text-slate-400 mt-1">
             ${budget.budget.toFixed(2)}/day
           </div>
         </div>
@@ -87,7 +87,7 @@ const BudgetIndicator = ({ showDetails = false }) => {
 
       {/* Progress Bar */}
       <div className="mb-3">
-        <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
           <div
             className={`h-full transition-all duration-500 ${getProgressColor()}`}
             style={{ width: `${Math.min(percentUsed, 100)}%` }}
@@ -97,7 +97,7 @@ const BudgetIndicator = ({ showDetails = false }) => {
           <span className={getStatusColor()}>
             {getStatusMessage()}
           </span>
-          <span className="text-gray-400">
+          <span className="text-slate-400">
             {percentUsed.toFixed(1)}% used
           </span>
         </div>
@@ -105,15 +105,15 @@ const BudgetIndicator = ({ showDetails = false }) => {
 
       {/* Details */}
       {showDetails && (
-        <div className="space-y-2 pt-3 border-t border-gray-700">
+        <div className="space-y-2 pt-3 border-t border-slate-700">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Spent Today:</span>
+            <span className="text-slate-400">Spent Today:</span>
             <span className="text-white font-semibold">
               ${budget.spent.toFixed(4)}
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Remaining:</span>
+            <span className="text-slate-400">Remaining:</span>
             <span className={`font-semibold ${getStatusColor()}`}>
               ${remaining.toFixed(4)}
             </span>

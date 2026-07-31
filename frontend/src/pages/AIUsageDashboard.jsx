@@ -170,9 +170,9 @@ const AIUsageDashboard = () => {
         <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">💰 AI Usage Dashboard</h1>
-            <p className="text-gray-400 text-sm">Track your AI costs and optimize your budget</p>
+            <p className="text-slate-400 text-sm">Track your AI costs and optimize your budget</p>
             {lastRefreshed && (
-              <p className="text-gray-600 text-xs mt-1">
+              <p className="text-slate-600 text-xs mt-1">
                 Last updated: {lastRefreshed.toLocaleTimeString()}
                 {refreshing && <span className="ml-2 text-veil-purple">↻ Refreshing…</span>}
               </p>
@@ -181,7 +181,7 @@ const AIUsageDashboard = () => {
           <button
             onClick={() => loadData(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-gray-300 hover:text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             <span className={refreshing ? 'animate-spin inline-block' : ''}>↻</span>
             {refreshing ? 'Refreshing…' : 'Refresh'}
@@ -196,14 +196,14 @@ const AIUsageDashboard = () => {
               onClick={() => setTimeRange(days)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === days
-                  ? 'bg-veil-purple text-white'
-                  : 'bg-slate-800 text-gray-400 hover:bg-slate-700 hover:text-white border border-slate-700'
+                  ? 'bg-veil-purple text-veil-on-accent'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700'
               }`}
             >
               {days} Days
             </button>
           ))}
-          <span className="ml-auto text-xs text-gray-500">
+          <span className="ml-auto text-xs text-slate-500">
             Auto-refreshes every 30s
           </span>
         </div>
@@ -216,13 +216,13 @@ const AIUsageDashboard = () => {
 
           <div className="md:col-span-2 grid grid-cols-2 gap-4">
             <div className="bg-slate-800 rounded-lg p-5 border border-slate-700">
-              <div className="text-gray-400 text-sm mb-1">Total AI Calls</div>
+              <div className="text-slate-400 text-sm mb-1">Total AI Calls</div>
               <div className="text-3xl font-bold text-white">{totalCalls.toLocaleString()}</div>
               <div className="text-xs text-green-400 mt-1">{cachedCalls} cached (free)</div>
             </div>
 
             <div className="bg-slate-800 rounded-lg p-5 border border-slate-700">
-              <div className="text-gray-400 text-sm mb-1">Total Cost</div>
+              <div className="text-slate-400 text-sm mb-1">Total Cost</div>
               <div className="text-3xl font-bold text-white">
                 {totalCost < 0.001
                   ? `$${totalCost.toFixed(6)}`
@@ -230,17 +230,17 @@ const AIUsageDashboard = () => {
                   ? `$${totalCost.toFixed(5)}`
                   : `$${totalCost.toFixed(4)}`}
               </div>
-              <div className="text-xs text-gray-400 mt-1">{totalTokens.toLocaleString()} tokens</div>
+              <div className="text-xs text-slate-400 mt-1">{totalTokens.toLocaleString()} tokens</div>
             </div>
 
             <div className="bg-slate-800 rounded-lg p-5 border border-slate-700">
-              <div className="text-gray-400 text-sm mb-1">Avg Response Time</div>
+              <div className="text-slate-400 text-sm mb-1">Avg Response Time</div>
               <div className="text-3xl font-bold text-white">{(avgResponseTime / 1000).toFixed(2)}s</div>
-              <div className="text-xs text-gray-400 mt-1">per request</div>
+              <div className="text-xs text-slate-400 mt-1">per request</div>
             </div>
 
             <div className="bg-slate-800 rounded-lg p-5 border border-slate-700">
-              <div className="text-gray-400 text-sm mb-1">Cache Hit Rate</div>
+              <div className="text-slate-400 text-sm mb-1">Cache Hit Rate</div>
               <div className="text-3xl font-bold text-white">{cacheHitRate}%</div>
               <div className="text-xs text-green-400 mt-1">
                 {cachedCalls > 0 ? `${cachedCalls} free calls` : 'No cached calls yet'}
@@ -254,7 +254,7 @@ const AIUsageDashboard = () => {
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
             <h2 className="text-lg font-bold text-white mb-4">📊 Daily Usage Trend</h2>
             {dailyUsage.length === 0 ? (
-              <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
+              <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
                 No usage data for this period
               </div>
             ) : (
@@ -267,7 +267,7 @@ const AIUsageDashboard = () => {
           <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
             <h2 className="text-lg font-bold text-white mb-4">🎯 Cost by Operation</h2>
             {operationBreakdown.length === 0 ? (
-              <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
+              <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
                 No operation data for this period
               </div>
             ) : (
@@ -286,11 +286,11 @@ const AIUsageDashboard = () => {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-700">
-                    <th className="pb-3 text-gray-400 font-semibold">Operation</th>
-                    <th className="pb-3 text-gray-400 font-semibold text-right">Calls</th>
-                    <th className="pb-3 text-gray-400 font-semibold text-right">Tokens</th>
-                    <th className="pb-3 text-gray-400 font-semibold text-right">Cost</th>
-                    <th className="pb-3 text-gray-400 font-semibold text-right">Avg Time</th>
+                    <th className="pb-3 text-slate-400 font-semibold">Operation</th>
+                    <th className="pb-3 text-slate-400 font-semibold text-right">Calls</th>
+                    <th className="pb-3 text-slate-400 font-semibold text-right">Tokens</th>
+                    <th className="pb-3 text-slate-400 font-semibold text-right">Cost</th>
+                    <th className="pb-3 text-slate-400 font-semibold text-right">Avg Time</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -299,10 +299,10 @@ const AIUsageDashboard = () => {
                       <td className="py-3 text-white capitalize">
                         {op._id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                       </td>
-                      <td className="py-3 text-gray-300 text-right">{op.calls}</td>
-                      <td className="py-3 text-gray-300 text-right">{op.tokens.toLocaleString()}</td>
+                      <td className="py-3 text-slate-300 text-right">{op.calls}</td>
+                      <td className="py-3 text-slate-300 text-right">{op.tokens.toLocaleString()}</td>
                       <td className="py-3 text-veil-purple text-right font-semibold">${op.cost.toFixed(6)}</td>
-                      <td className="py-3 text-gray-300 text-right">{(op.avgResponseTime / 1000).toFixed(2)}s</td>
+                      <td className="py-3 text-slate-300 text-right">{(op.avgResponseTime / 1000).toFixed(2)}s</td>
                     </tr>
                   ))}
                 </tbody>
@@ -329,7 +329,7 @@ const AIUsageDashboard = () => {
         {/* Tips */}
         <div className="bg-veil-purple/10 border border-veil-purple/30 rounded-lg p-6">
           <h3 className="text-base font-bold text-veil-purple mb-3">💡 Tips to Reduce AI Costs</h3>
-          <ul className="space-y-1.5 text-gray-300 text-sm">
+          <ul className="space-y-1.5 text-slate-300 text-sm">
             <li>✓ Use caching when possible — it's free</li>
             <li>✓ Upgrade to Pro for higher daily budget ($2/day vs $0.25/day)</li>
             <li>✓ The system automatically uses cheaper models when approaching budget limits</li>

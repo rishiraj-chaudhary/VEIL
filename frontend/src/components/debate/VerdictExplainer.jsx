@@ -4,8 +4,8 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
   // Safety check
   if (!verdict) {
     return (
-      <div className="mt-4 bg-gray-900 rounded-lg p-4 border border-gray-700">
-        <p className="text-gray-400 text-sm">No analysis data available</p>
+      <div className="mt-4 bg-slate-900 rounded-lg p-4 border border-slate-700">
+        <p className="text-slate-400 text-sm">No analysis data available</p>
       </div>
     );
   }
@@ -18,12 +18,12 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
   // No trace data
   if (!decisionTrace || (isArray && decisionTrace.length === 0)) {
     return (
-      <div className="mt-4 bg-gray-900 rounded-lg p-4 border border-gray-700">
+      <div className="mt-4 bg-slate-900 rounded-lg p-4 border border-slate-700">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-white mb-2">AI Analysis Summary</h3>
           {overallQuality && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">Overall Quality:</span>
+              <span className="text-slate-400">Overall Quality:</span>
               <span className={`text-lg font-bold ${
                 overallQuality >= 70 ? 'text-green-400' : 
                 overallQuality >= 50 ? 'text-yellow-400' : 
@@ -34,7 +34,7 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
             </div>
           )}
         </div>
-        <p className="text-gray-400 text-sm">No detailed trace available</p>
+        <p className="text-slate-400 text-sm">No detailed trace available</p>
       </div>
     );
   }
@@ -188,16 +188,16 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
     });
 
     return (
-      <div className="mt-4 bg-gray-900 rounded-lg p-4 border border-gray-700">
+      <div className="mt-4 bg-slate-900 rounded-lg p-4 border border-slate-700">
         
         {/* Header */}
-        <div className="mb-4 pb-4 border-b border-gray-700">
+        <div className="mb-4 pb-4 border-b border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-2">
             🤖 AI Analysis Breakdown
           </h3>
           {overallQuality && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">Overall Quality:</span>
+              <span className="text-slate-400">Overall Quality:</span>
               <span className={`text-xl font-bold ${
                 overallQuality >= 70 ? 'text-green-400' : 
                 overallQuality >= 50 ? 'text-yellow-400' : 
@@ -218,7 +218,7 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
                 step.isGood ? 'bg-green-900/20 border border-green-700/30' :
                 step.impact === 'negative' ? 'bg-red-900/20 border border-red-700/30' :
                 step.impact === 'positive' ? 'bg-green-900/20 border border-green-700/30' :
-                'bg-gray-800 border border-gray-700'
+                'bg-slate-800 border border-slate-700'
               }`}
             >
               <div className="flex items-start gap-2">
@@ -239,7 +239,7 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
                     )}
                     {step.count !== undefined && (
                       <span className={`text-sm font-bold flex-shrink-0 ${
-                        step.count === 0 ? 'text-gray-400' :
+                        step.count === 0 ? 'text-slate-400' :
                         step.count >= 3 ? 'text-green-400' :
                         'text-yellow-400'
                       }`}>
@@ -247,7 +247,7 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-300 text-xs break-words">
+                  <p className="text-slate-300 text-xs break-words">
                     {step.details}
                   </p>
                 </div>
@@ -261,9 +261,9 @@ const VerdictExplainer = ({ verdict, overallQuality }) => {
 
   // Fallback
   return (
-    <div className="mt-4 bg-gray-900 rounded-lg p-4 border border-gray-700">
+    <div className="mt-4 bg-slate-900 rounded-lg p-4 border border-slate-700">
       <h3 className="text-lg font-semibold text-white mb-2">AI Analysis</h3>
-      <p className="text-gray-400 text-sm">Analysis format not recognized</p>
+      <p className="text-slate-400 text-sm">Analysis format not recognized</p>
     </div>
   );
 };

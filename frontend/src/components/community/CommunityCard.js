@@ -36,10 +36,10 @@ const CommunityCard = ({ community, onJoinLeave }) => {
             <h3 className="text-xl font-semibold text-white mb-2">
               c/{community.displayName}
             </h3>
-            <p className="text-gray-400 text-sm mb-3">
+            <p className="text-slate-400 text-sm mb-3">
               {community.description || 'No description available'}
             </p>
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <div className="flex items-center space-x-4 text-sm text-slate-500">
               <span>{community.memberCount} members</span>
               <span>{community.postCount} posts</span>
             </div>
@@ -51,7 +51,7 @@ const CommunityCard = ({ community, onJoinLeave }) => {
             className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 shrink-0 ${
               isMember
                 ? 'bg-slate-600 hover:bg-red-600 text-white'
-                : 'bg-veil-purple hover:bg-veil-indigo text-white'
+                : 'bg-veil-purple hover:bg-veil-indigo text-veil-on-accent'
             }`}
           >
             {loading ? 'Loading...' : isMember ? 'Leave' : 'Join'}

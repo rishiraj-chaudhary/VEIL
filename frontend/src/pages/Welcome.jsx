@@ -69,27 +69,27 @@ const Welcome = () => {
           <h1 className="text-3xl font-bold text-white mb-3">
             Welcome{user?.username ? `, ${user.username}` : ''}.
           </h1>
-          <p className="text-gray-400 mb-2">
+          <p className="text-slate-400 mb-2">
             VEIL scores how well you argue — not whether people agree with you.
           </p>
-          <p className="text-gray-400 mb-8">
+          <p className="text-slate-400 mb-8">
             Every claim you make is stored. When someone challenges it later, how it holds up
             becomes part of your record. That record is the point.
           </p>
           <button
             onClick={() => setStep(1)}
-            className="w-full py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg font-semibold"
+            className="w-full py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold"
           >
             Make your first argument
           </button>
-          <button onClick={skip} className="w-full py-3 text-gray-500 hover:text-gray-300 text-sm mt-2">
+          <button onClick={skip} className="w-full py-3 text-slate-500 hover:text-slate-300 text-sm mt-2">
             Skip for now
           </button>
         </Step>
 
         <Step index={1} current={step}>
           <h2 className="text-2xl font-bold text-white mb-2">Pick something to argue</h2>
-          <p className="text-gray-400 text-sm mb-5">
+          <p className="text-slate-400 text-sm mb-5">
             You'll debate the AI, so there's no waiting for an opponent.
           </p>
 
@@ -101,7 +101,7 @@ const Welcome = () => {
                 className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-colors ${
                   topic === t
                     ? 'border-veil-purple bg-veil-purple/10 text-white'
-                    : 'border-slate-700 text-gray-300 hover:border-slate-600'
+                    : 'border-slate-700 text-slate-300 hover:border-slate-600'
                 }`}
               >
                 {t}
@@ -110,12 +110,12 @@ const Welcome = () => {
           </div>
 
           <div className="flex gap-2">
-            <button onClick={() => setStep(0)} className="px-5 py-3 text-gray-400 hover:text-white text-sm">
+            <button onClick={() => setStep(0)} className="px-5 py-3 text-slate-400 hover:text-white text-sm">
               Back
             </button>
             <button
               onClick={() => setStep(2)}
-              className="flex-1 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg font-semibold"
+              className="flex-1 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold"
             >
               Continue
             </button>
@@ -124,8 +124,8 @@ const Welcome = () => {
 
         <Step index={2} current={step}>
           <h2 className="text-2xl font-bold text-white mb-2">Which side?</h2>
-          <p className="text-gray-400 text-sm mb-1">"{topic}"</p>
-          <p className="text-gray-500 text-xs mb-5">
+          <p className="text-slate-400 text-sm mb-1">"{topic}"</p>
+          <p className="text-slate-500 text-xs mb-5">
             Arguing the side you disagree with is the better workout.
           </p>
 
@@ -137,7 +137,7 @@ const Welcome = () => {
                 className={`py-4 rounded-lg border capitalize font-medium transition-colors ${
                   side === s
                     ? 'border-veil-purple bg-veil-purple/10 text-white'
-                    : 'border-slate-700 text-gray-400 hover:border-slate-600'
+                    : 'border-slate-700 text-slate-400 hover:border-slate-600'
                 }`}
               >
                 {s}
@@ -148,13 +148,13 @@ const Welcome = () => {
           {error && <p className="text-rose-400 text-sm mb-3">{error}</p>}
 
           <div className="flex gap-2">
-            <button onClick={() => setStep(1)} className="px-5 py-3 text-gray-400 hover:text-white text-sm">
+            <button onClick={() => setStep(1)} className="px-5 py-3 text-slate-400 hover:text-white text-sm">
               Back
             </button>
             <button
               onClick={start}
               disabled={starting}
-              className="flex-1 py-3 bg-veil-purple hover:bg-veil-indigo disabled:opacity-50 text-white rounded-lg font-semibold"
+              className="flex-1 py-3 bg-veil-purple hover:bg-veil-indigo disabled:opacity-50 text-veil-on-accent rounded-lg font-semibold"
             >
               {starting ? 'Setting up…' : 'Start debating'}
             </button>

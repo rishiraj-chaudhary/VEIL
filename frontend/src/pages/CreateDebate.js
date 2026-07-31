@@ -62,7 +62,7 @@ const CreateDebate = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Topic */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Debate Topic *
               </label>
               <input
@@ -77,14 +77,14 @@ const CreateDebate = () => {
                 required
                 minLength="3"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 {formData.topic.length}/300 characters
               </p>
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Description (optional)
               </label>
               <textarea
@@ -98,7 +98,7 @@ const CreateDebate = () => {
 
             {/* Side Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Your Side
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -111,7 +111,7 @@ const CreateDebate = () => {
                   className={`p-3 rounded-lg border transition-colors ${
                     formData.initiatorSide === 'for'
                       ? 'bg-green-900/20 border-green-700 text-green-400'
-                      : 'bg-slate-700 border-slate-600 text-gray-300 hover:bg-slate-600'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
                   }`}
                 >
                   ✓ For
@@ -125,20 +125,20 @@ const CreateDebate = () => {
                   className={`p-3 rounded-lg border transition-colors ${
                     formData.initiatorSide === 'against'
                       ? 'bg-red-900/20 border-red-700 text-red-400'
-                      : 'bg-slate-700 border-slate-600 text-gray-300 hover:bg-slate-600'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
                   }`}
                 >
                   ✗ Against
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-slate-500 mt-2">
                 Currently selected: <span className="text-white font-medium">{formData.initiatorSide.toUpperCase()}</span>
               </p>
             </div>
 
             {/* Info */}
-            <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
-              <p className="text-sm text-blue-300">
+            <div className="bg-slate-900/20 border border-slate-700 rounded-lg p-4">
+              <p className="text-sm text-slate-300">
                 💡 <strong>How it works:</strong> Once someone joins the opposing side and both mark ready, the debate begins!
               </p>
             </div>
@@ -148,7 +148,7 @@ const CreateDebate = () => {
               <button
                 type="submit"
                 disabled={loading || formData.topic.length < 3}
-                className="flex-1 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors disabled:opacity-50 font-semibold"
+                className="flex-1 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors disabled:opacity-50 font-semibold"
               >
                 {loading ? (
                   <span className="flex items-center justify-center">
@@ -174,8 +174,8 @@ const CreateDebate = () => {
 
           {/* Debug Info */}
           <div className="mt-6 p-4 bg-slate-900 rounded-lg border border-slate-700">
-            <p className="text-xs text-gray-400 font-mono mb-2">Debug Info:</p>
-            <pre className="text-xs text-gray-500">
+            <p className="text-xs text-slate-400 font-mono mb-2">Debug Info:</p>
+            <pre className="text-xs text-slate-500">
               {JSON.stringify({ loading, hasError: !!error, formData }, null, 2)}
             </pre>
           </div>

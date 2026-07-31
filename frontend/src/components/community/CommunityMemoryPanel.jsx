@@ -17,15 +17,15 @@ const TONE_COLORS = {
 };
 
 const STYLE_COLORS = {
-  technical: 'text-blue-400',
-  balanced:  'text-gray-300',
+  technical: 'text-slate-400',
+  balanced:  'text-slate-300',
   emotional: 'text-orange-400',
 };
 
 const FREQ_COLORS = {
   high:   'bg-veil-purple/20 text-veil-purple border-veil-purple/30',
-  medium: 'bg-slate-700 text-gray-300 border-slate-600',
-  low:    'bg-slate-800 text-gray-500 border-slate-700',
+  medium: 'bg-slate-700 text-slate-300 border-slate-600',
+  low:    'bg-slate-800 text-slate-500 border-slate-700',
 };
 
 const PolarizationBar = ({ score }) => {
@@ -35,8 +35,8 @@ const PolarizationBar = ({ score }) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-400">Polarization</span>
-        <span className="text-xs text-gray-500">{label} · {score}/100</span>
+        <span className="text-xs text-slate-400">Polarization</span>
+        <span className="text-xs text-slate-500">{label} · {score}/100</span>
       </div>
       <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${score}%` }} />
@@ -85,7 +85,7 @@ const CommunityMemoryPanel = ({ communityName }) => {
 
   if (loading && !memory) {
     return (
-      <div className="flex items-center gap-2 text-gray-500 text-sm py-3">
+      <div className="flex items-center gap-2 text-slate-500 text-sm py-3">
         <div className="animate-spin h-4 w-4 border-t-2 border-veil-purple rounded-full" />
         Analysing community…
       </div>
@@ -99,17 +99,17 @@ const CommunityMemoryPanel = ({ communityName }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-veil-purple text-sm">✦</span>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Community Intelligence</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Community Intelligence</span>
           </div>
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="text-xs text-gray-500 hover:text-veil-purple transition-colors disabled:opacity-50"
+            className="text-xs text-slate-500 hover:text-veil-purple transition-colors disabled:opacity-50"
           >
             {loading ? 'Analysing…' : '↻ Analyse'}
           </button>
         </div>
-        <p className="text-xs text-gray-600 mt-1.5">
+        <p className="text-xs text-slate-600 mt-1.5">
           {error || 'No analysis yet — click Analyse to generate community insights.'}
         </p>
       </div>
@@ -117,8 +117,8 @@ const CommunityMemoryPanel = ({ communityName }) => {
   }
 
   const tone      = memory.toneProfile;
-  const civColor  = TONE_COLORS[tone?.civility]  || 'text-gray-400';
-  const styleColor = STYLE_COLORS[tone?.style]   || 'text-gray-400';
+  const civColor  = TONE_COLORS[tone?.civility]  || 'text-slate-400';
+  const styleColor = STYLE_COLORS[tone?.style]   || 'text-slate-400';
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 overflow-hidden mt-4">
@@ -133,10 +133,10 @@ const CommunityMemoryPanel = ({ communityName }) => {
             <span className="text-veil-purple text-sm">✦</span>
             <span className="text-xs font-semibold text-veil-purple uppercase tracking-wider">Community Intelligence</span>
           </div>
-          <p className="text-sm text-gray-300 leading-relaxed line-clamp-2">{memory.onboardingSummary}</p>
+          <p className="text-sm text-slate-300 leading-relaxed line-clamp-2">{memory.onboardingSummary}</p>
         </div>
         <svg
-          className={`w-4 h-4 text-gray-500 shrink-0 mt-1 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-slate-500 shrink-0 mt-1 transition-transform ${expanded ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -149,19 +149,19 @@ const CommunityMemoryPanel = ({ communityName }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tone</h4>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Tone</h4>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-16">Civility</span>
+                  <span className="text-xs text-slate-500 w-16">Civility</span>
                   <span className={`text-xs font-medium ${civColor}`}>{tone?.civility || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-16">Style</span>
+                  <span className="text-xs text-slate-500 w-16">Style</span>
                   <span className={`text-xs font-medium ${styleColor}`}>{tone?.style || '—'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-16">Depth</span>
-                  <span className="text-xs text-gray-300">{tone?.depth || '—'}</span>
+                  <span className="text-xs text-slate-500 w-16">Depth</span>
+                  <span className="text-xs text-slate-300">{tone?.depth || '—'}</span>
                 </div>
               </div>
             </div>
@@ -172,7 +172,7 @@ const CommunityMemoryPanel = ({ communityName }) => {
 
           {memory.topicClusters?.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Main Topics</h4>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Main Topics</h4>
               <div className="flex flex-wrap gap-2">
                 {memory.topicClusters.map((cluster, i) => (
                   <div key={i} className="group relative">
@@ -180,7 +180,7 @@ const CommunityMemoryPanel = ({ communityName }) => {
                       {cluster.name}
                     </span>
                     {cluster.description && (
-                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-slate-900 border border-slate-600 rounded-lg p-2 text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-slate-900 border border-slate-600 rounded-lg p-2 text-xs text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                         {cluster.description}
                       </div>
                     )}
@@ -192,17 +192,17 @@ const CommunityMemoryPanel = ({ communityName }) => {
 
           {memory.recurringClaims?.length > 0 && (
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recurring Debates</h4>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Recurring Debates</h4>
               <div className="space-y-2">
                 {memory.recurringClaims.map((claim, i) => (
                   <div key={i} className="flex items-start gap-2 p-2 bg-slate-900/50 rounded-lg">
                     <span className="text-veil-purple text-xs mt-0.5 shrink-0">⚖</span>
                     <div>
-                      <p className="text-xs text-gray-300">{claim.claim}</p>
+                      <p className="text-xs text-slate-300">{claim.claim}</p>
                       {claim.sides?.length === 2 && (
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-green-500">For: {claim.sides[0]}</span>
-                          <span className="text-gray-600">·</span>
+                          <span className="text-slate-600">·</span>
                           <span className="text-xs text-red-400">Against: {claim.sides[1]}</span>
                         </div>
                       )}
@@ -214,14 +214,14 @@ const CommunityMemoryPanel = ({ communityName }) => {
           )}
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
-            <span className="text-xs text-gray-600">
+            <span className="text-xs text-slate-600">
               Based on {memory.postCountAtAnalysis} posts
               {memory.analysedAt && ` · ${new Date(memory.analysedAt).toLocaleDateString()}`}
             </span>
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="text-xs text-gray-500 hover:text-veil-purple transition-colors disabled:opacity-50"
+              className="text-xs text-slate-500 hover:text-veil-purple transition-colors disabled:opacity-50"
             >
               {loading ? 'Refreshing…' : '↻ Refresh'}
             </button>

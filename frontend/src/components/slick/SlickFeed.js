@@ -84,14 +84,14 @@ const SlickFeed = () => {
               <h1 className="text-2xl font-bold text-white mb-2">
                 🎭 Slicks - Anonymous Feedback
               </h1>
-              <p className="text-gray-400">
+              <p className="text-slate-400">
                 Give and receive honest, anonymous feedback from your community
               </p>
             </div>
 
             {/* Currency */}
             <div className="text-right">
-              <div className="text-sm text-gray-400">VeilCoins</div>
+              <div className="text-sm text-slate-400">VeilCoins</div>
               <div className="text-xl font-bold text-veil-purple">
                 {currency.balance || 0}
               </div>
@@ -113,7 +113,7 @@ const SlickFeed = () => {
                     alert('Join communities with other members to send feedback!');
                 }
               }}
-              className="bg-veil-purple hover:bg-veil-indigo text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-veil-purple hover:bg-veil-indigo text-veil-on-accent px-4 py-2 rounded-lg transition-colors"
             >
               ✨ Send Feedback
             </button>
@@ -138,8 +138,8 @@ const SlickFeed = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-veil-purple text-white'
-                  : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  ? 'bg-veil-purple text-veil-on-accent'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
               {tab.label}
@@ -155,7 +155,7 @@ const SlickFeed = () => {
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-veil-purple"></div>
-            <p className="text-gray-400 mt-2">Loading...</p>
+            <p className="text-slate-400 mt-2">Loading...</p>
           </div>
         ) : (
           <>
@@ -186,7 +186,7 @@ const SlickFeed = () => {
                     <h3 className="text-xl font-semibold text-white mb-2">
                       No feedback sent
                     </h3>
-                    <p className="text-gray-400 mb-6">
+                    <p className="text-slate-400 mb-6">
                       Start giving constructive anonymous feedback
                     </p>
                     <button
@@ -197,7 +197,7 @@ const SlickFeed = () => {
                           alert('Join communities first!');
                         }
                       }}
-                      className="bg-veil-purple hover:bg-veil-indigo text-white px-6 py-3 rounded-lg transition-colors"
+                      className="bg-veil-purple hover:bg-veil-indigo text-veil-on-accent px-6 py-3 rounded-lg transition-colors"
                     >
                       Send Your First Slick
                     </button>
@@ -232,7 +232,7 @@ const SlickFeed = () => {
                         ))}
                       </InsightBlock>
 
-                      <InsightBlock title="🎯 Growth Areas" color="text-blue-400">
+                      <InsightBlock title="🎯 Growth Areas" color="text-slate-400">
                         {insights.growthAreas?.map((g, i) => (
                           <p key={i}>• {g}</p>
                         ))}
@@ -256,11 +256,11 @@ const SlickFeed = () => {
       {potentialTargets.length > 1 && (
         <div className="fixed bottom-6 right-6">
           <div className="relative group">
-            <button className="bg-veil-purple hover:bg-veil-indigo text-white p-4 rounded-full shadow-lg">
+            <button className="bg-veil-purple hover:bg-veil-indigo text-veil-on-accent p-4 rounded-full shadow-lg">
               ✨
             </button>
             <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 border border-slate-700 rounded-lg p-2 min-w-48">
-              <p className="text-xs text-gray-400 mb-2">Send feedback to:</p>
+              <p className="text-xs text-slate-400 mb-2">Send feedback to:</p>
               {potentialTargets.slice(0, 5).map((target) => (
                 <button
                   key={target.id}
@@ -295,11 +295,11 @@ const EmptyState = ({ emoji, title, desc, action }) => (
   <div className="text-center py-12">
     <div className="text-6xl mb-4">{emoji}</div>
     <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
-    <p className="text-gray-400 mb-6">{desc}</p>
+    <p className="text-slate-400 mb-6">{desc}</p>
     {action && (
       <Link
         to={action}
-        className="bg-veil-purple hover:bg-veil-indigo text-white px-6 py-3 rounded-lg"
+        className="bg-veil-purple hover:bg-veil-indigo text-veil-on-accent px-6 py-3 rounded-lg"
       >
         Explore Communities
       </Link>
@@ -310,7 +310,7 @@ const EmptyState = ({ emoji, title, desc, action }) => (
 const InsightBlock = ({ title, children, color = 'text-white' }) => (
   <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
     <h3 className={`text-lg font-semibold mb-4 ${color}`}>{title}</h3>
-    <div className="space-y-2 text-gray-300">{children}</div>
+    <div className="space-y-2 text-slate-300">{children}</div>
   </div>
 );
 

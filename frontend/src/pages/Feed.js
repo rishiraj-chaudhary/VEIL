@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { ErrorState, LoadingState } from '../components/ui';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import CommunityMemoryPanel from '../components/community/CommunityMemoryPanel';
@@ -23,7 +24,7 @@ const AIBadge = ({ generatedAt }) => (
     <span className="text-veil-purple text-sm">✦</span>
     <span className="text-xs text-veil-purple font-medium">AI-ranked feed</span>
     {generatedAt && (
-      <span className="text-xs text-gray-500 ml-auto">
+      <span className="text-xs text-slate-500 ml-auto">
         {new Date(generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </span>
     )}
@@ -38,8 +39,8 @@ const CommunityFilterBar = ({ communities, selected, onSelect }) => (
       onClick={() => onSelect(null)}
       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
         !selected
-          ? 'bg-veil-purple border-veil-purple text-white'
-          : 'bg-slate-800 border-slate-700 text-gray-400 hover:text-white hover:border-slate-500'
+          ? 'bg-veil-purple border-veil-purple text-veil-on-accent'
+          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'
       }`}
     >
       All
@@ -50,8 +51,8 @@ const CommunityFilterBar = ({ communities, selected, onSelect }) => (
         onClick={() => onSelect(c)}
         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
           selected?._id === c._id
-            ? 'bg-veil-purple border-veil-purple text-white'
-            : 'bg-slate-800 border-slate-700 text-gray-400 hover:text-white hover:border-slate-500'
+            ? 'bg-veil-purple border-veil-purple text-veil-on-accent'
+            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white hover:border-slate-500'
         }`}
       >
         c/{c.name}
@@ -64,7 +65,7 @@ const CommunityFilterBar = ({ communities, selected, onSelect }) => (
 
 const Feed = () => {
   const navigate = useNavigate();
-  const { posts, fetchPosts, fetchFeed, feedRanked, feedGeneratedAt, loading } = usePostStore();
+  const { posts, fetchPosts, fetchFeed, feedRanked, feedGeneratedAt, loading, error } = usePostStore();
   const { communities, fetchCommunities } = useCommunityStore();
 
   const [sortBy, setSortBy]                   = useState('hot');
@@ -131,7 +132,7 @@ const Feed = () => {
         {selectedCommunity && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400 font-medium">
+              <span className="text-sm text-slate-400 font-medium">
                 c/{selectedCommunity.displayName}
               </span>
               <button
@@ -158,9 +159,9 @@ const Feed = () => {
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                 sortBy === id
                   ? id === 'ai'
-                    ? 'bg-veil-purple text-white shadow-lg shadow-veil-purple/20'
-                    : 'bg-veil-purple text-white'
-                  : 'bg-slate-800 text-gray-400 hover:text-white hover:bg-slate-700'
+                    ? 'bg-veil-purple text-veil-on-accent shadow-lg shadow-veil-purple/20'
+                    : 'bg-veil-purple text-veil-on-accent'
+                  : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
             >
               {label}
@@ -177,16 +178,14 @@ const Feed = () => {
 
         {/* Loading */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-veil-purple" />
-            {sortBy === 'ai' && (
-              <p className="text-gray-500 text-sm mt-4">Personalising your feed…</p>
-            )}
-          </div>
+          <LoadingState label={sortBy === 'ai' ? 'Personalising your feed…' : 'Loading posts…'} />
+
+        ) : error ? (
+          <ErrorState title="Couldn't load your feed" body={error} onRetry={() => (sortBy === 'ai' ? fetchFeed() : fetchPosts())} />
 
         ) : posts.length === 0 ? (
           <div className="text-center py-12 bg-slate-800 rounded-lg border border-slate-700">
-            <p className="text-gray-400 text-lg mb-4">
+            <p className="text-slate-400 text-lg mb-4">
               {sortBy === 'ai'
                 ? 'Start debating and posting to unlock your personalised feed.'
                 : selectedCommunity
@@ -195,7 +194,7 @@ const Feed = () => {
             </p>
             <a
               href="/create-post"
-              className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg transition-colors"
+              className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg transition-colors"
             >
               Create Post
             </a>

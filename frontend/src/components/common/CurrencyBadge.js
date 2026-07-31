@@ -17,7 +17,7 @@ const CurrencyBadge = () => {
       >
         <span className="text-yellow-400">💰</span>
         <span className="text-white font-medium">{currency.balance || 0}</span>
-        <span className="text-xs text-gray-400">VeilCoins</span>
+        <span className="text-xs text-slate-400">VeilCoins</span>
       </button>
 
       {showDetails && (
@@ -26,26 +26,26 @@ const CurrencyBadge = () => {
           
           <div className="space-y-2 mb-4">
             <div className="flex justify-between">
-              <span className="text-gray-400">Current Balance:</span>
+              <span className="text-slate-400">Current Balance:</span>
               <span className="text-white">{currency.balance}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Total Earned:</span>
+              <span className="text-slate-400">Total Earned:</span>
               <span className="text-green-400">{currency.earnings?.totalEarned || 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Daily Streak:</span>
+              <span className="text-slate-400">Daily Streak:</span>
               <span className="text-veil-purple">{currency.earnings?.dailyStreak || 0} days</span>
             </div>
           </div>
 
           {currency.recentTransactions?.length > 0 && (
             <div>
-              <h4 className="text-gray-300 text-sm mb-2">Recent Activity</h4>
+              <h4 className="text-slate-300 text-sm mb-2">Recent Activity</h4>
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {currency.recentTransactions.slice(0, 3).map((tx, index) => (
                   <div key={index} className="text-xs flex justify-between">
-                    <span className="text-gray-400">{tx.reason}</span>
+                    <span className="text-slate-400">{tx.reason}</span>
                     <span className={tx.type === 'earned' ? 'text-green-400' : 'text-red-400'}>
                       {tx.type === 'earned' ? '+' : '-'}{tx.amount}
                     </span>

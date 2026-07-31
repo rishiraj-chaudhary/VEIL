@@ -29,9 +29,9 @@ const DecisionTrace = ({ trace, sources }) => {
       return 'text-yellow-400';
     }
     if (stepLower.includes('no ') || stepLower.includes('none') || stepLower.includes('lack')) {
-      return 'text-gray-400';
+      return 'text-slate-400';
     }
-    return 'text-blue-400';
+    return 'text-slate-400';
   };
 
   return (
@@ -61,14 +61,14 @@ const DecisionTrace = ({ trace, sources }) => {
       {/* Sources Used */}
       {sources && sources.length > 0 && (
         <div className="pt-3 border-t border-slate-700">
-          <h5 className="text-xs font-semibold text-gray-400 mb-2">
+          <h5 className="text-xs font-semibold text-slate-400 mb-2">
             Knowledge Sources Used:
           </h5>
           <div className="space-y-1">
             {sources.slice(0, 5).map((source, index) => (
               <div
                 key={index}
-                className="text-xs text-gray-500 flex items-center gap-2"
+                className="text-xs text-slate-500 flex items-center gap-2"
               >
                 <span className="text-veil-purple">📚</span>
                 <span>{source}</span>
@@ -80,7 +80,7 @@ const DecisionTrace = ({ trace, sources }) => {
 
       {/* RAG Info */}
       <div className="pt-2 border-t border-slate-700">
-        <p className="text-xs text-gray-500 italic">
+        <p className="text-xs text-slate-500 italic">
           Analysis powered by RAG (Retrieval-Augmented Generation) using {sources?.length || 0} knowledge sources
         </p>
       </div>

@@ -16,7 +16,7 @@ import api from '../services/api';
 
 const RANK_STYLES = {
   1: { color: 'text-yellow-400', icon: '🥇' },
-  2: { color: 'text-gray-300',   icon: '🥈' },
+  2: { color: 'text-slate-300',   icon: '🥈' },
   3: { color: 'text-orange-400', icon: '🥉' },
 };
 
@@ -24,17 +24,17 @@ const RankDisplay = ({ rank }) => {
   const style = RANK_STYLES[rank];
   return style
     ? <span className={`text-xl font-bold ${style.color}`}>{style.icon}</span>
-    : <span className="text-sm font-bold text-gray-500 w-8 text-center">#{rank}</span>;
+    : <span className="text-sm font-bold text-slate-500 w-8 text-center">#{rank}</span>;
 };
 
 const TIER_CONFIG = {
-  novice:     { color: 'bg-gray-600',    icon: '🌱' },
-  apprentice: { color: 'bg-blue-600',    icon: '📚' },
-  expert:     { color: 'bg-purple-600',  icon: '⭐' },
+  novice:     { color: 'bg-slate-600',    icon: '🌱' },
+  apprentice: { color: 'bg-slate-600',    icon: '📚' },
+  expert:     { color: 'bg-slate-600',  icon: '⭐' },
   master:     { color: 'bg-red-600',     icon: '👑' },
   legend:     { color: 'bg-yellow-500',  icon: '🏆' },
-  beginner:   { color: 'bg-gray-600',    icon: '🌱' },
-  skilled:    { color: 'bg-blue-500',    icon: '⚔️' },
+  beginner:   { color: 'bg-slate-600',    icon: '🌱' },
+  skilled:    { color: 'bg-slate-500',    icon: '⚔️' },
 };
 
 const TierBadge = ({ tier }) => {
@@ -48,7 +48,7 @@ const TierBadge = ({ tier }) => {
 };
 
 const EmptyState = ({ message }) => (
-  <div className="text-center py-16 text-gray-500">
+  <div className="text-center py-16 text-slate-500">
     <div className="text-4xl mb-3">📊</div>
     <p className="text-sm">{message}</p>
   </div>
@@ -110,7 +110,7 @@ const Leaderboard = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-1">🏆 Leaderboard</h1>
-          <p className="text-gray-400 text-sm">Ranked by reputation, debate performance, and skill</p>
+          <p className="text-slate-400 text-sm">Ranked by reputation, debate performance, and skill</p>
         </div>
 
         {/* Tabs */}
@@ -121,8 +121,8 @@ const Leaderboard = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-veil-purple text-white'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-veil-purple text-veil-on-accent'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               {tab.label}
@@ -135,7 +135,7 @@ const Leaderboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700">
               <h2 className="text-base font-semibold text-white">⚡ Karma Leaders</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Post votes + debate wins + quality bonuses</p>
+              <p className="text-xs text-slate-400 mt-0.5">Post votes + debate wins + quality bonuses</p>
             </div>
             {!karmaBoard?.length ? (
               <EmptyState message="No karma data yet. Start posting and debating!" />
@@ -155,7 +155,7 @@ const Leaderboard = () => {
                       <p className={`text-xl font-bold ${u.karma >= 0 ? 'text-veil-purple' : 'text-red-400'}`}>
                         {u.karma >= 0 ? '+' : ''}{u.karma}
                       </p>
-                      <p className="text-xs text-gray-500">karma</p>
+                      <p className="text-xs text-slate-500">karma</p>
                     </div>
                   </div>
                 ))}
@@ -169,7 +169,7 @@ const Leaderboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700">
               <h2 className="text-base font-semibold text-white">🏆 Top Debaters</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Ranked by win rate (min 3 debates)</p>
+              <p className="text-xs text-slate-400 mt-0.5">Ranked by win rate (min 3 debates)</p>
             </div>
             {!leaderboards?.overall?.length ? (
               <EmptyState message="No debate data yet. Complete a debate to appear here!" />
@@ -185,13 +185,13 @@ const Leaderboard = () => {
                         <p className="font-semibold text-white text-sm">{u.username}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <TierBadge tier={u.tier} />
-                          <span className="text-xs text-gray-500">{u.totalDebates} debates</span>
+                          <span className="text-xs text-slate-500">{u.totalDebates} debates</span>
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-green-400">{u.winRate}%</p>
-                      <p className="text-xs text-gray-500">win rate</p>
+                      <p className="text-xs text-slate-500">win rate</p>
                     </div>
                   </div>
                 ))}
@@ -205,7 +205,7 @@ const Leaderboard = () => {
           <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-700">
               <h2 className="text-base font-semibold text-white">📈 Top Improvers</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Biggest performance growth over time</p>
+              <p className="text-xs text-slate-400 mt-0.5">Biggest performance growth over time</p>
             </div>
             {!leaderboards?.improvers?.length ? (
               <EmptyState message="No improvement data yet. Keep debating to track your growth!" />
@@ -225,8 +225,8 @@ const Leaderboard = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-bold text-blue-400">+{u.growth}</p>
-                      <p className="text-xs text-gray-500">growth score</p>
+                      <p className="text-xl font-bold text-slate-400">+{u.growth}</p>
+                      <p className="text-xs text-slate-500">growth score</p>
                     </div>
                   </div>
                 ))}
@@ -240,8 +240,8 @@ const Leaderboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {[
               { key: 'tone',     label: '🤝 Tone',     color: 'text-green-400' },
-              { key: 'clarity',  label: '💬 Clarity',  color: 'text-blue-400' },
-              { key: 'evidence', label: '📊 Evidence', color: 'text-purple-400' },
+              { key: 'clarity',  label: '💬 Clarity',  color: 'text-slate-400' },
+              { key: 'evidence', label: '📊 Evidence', color: 'text-slate-400' },
               { key: 'logic',    label: '🧠 Logic',    color: 'text-yellow-400' },
             ].map(({ key, label, color }) => (
               <div key={key} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
@@ -249,7 +249,7 @@ const Leaderboard = () => {
                   <h3 className="text-sm font-semibold text-white">{label}</h3>
                 </div>
                 {!leaderboards?.categoryLeaders?.[key]?.length ? (
-                  <div className="px-4 py-6 text-center text-xs text-gray-500">No data yet</div>
+                  <div className="px-4 py-6 text-center text-xs text-slate-500">No data yet</div>
                 ) : (
                   <div className="divide-y divide-slate-700/50">
                     {leaderboards.categoryLeaders[key].map(u => (
@@ -258,7 +258,7 @@ const Leaderboard = () => {
                           <div className="w-6 flex justify-center">
                             <RankDisplay rank={u.rank} />
                           </div>
-                          <span className="text-sm text-gray-200">{u.username}</span>
+                          <span className="text-sm text-slate-200">{u.username}</span>
                         </div>
                         <span className={`font-bold text-sm ${color}`}>{u.score}</span>
                       </div>

@@ -17,15 +17,15 @@ const StreakBadge = ({ streak }) => (
   <div className="flex items-center gap-4">
     <div className="text-center">
       <div className="text-2xl font-bold text-orange-400">{streak.current}</div>
-      <div className="text-xs text-gray-500">day streak</div>
+      <div className="text-xs text-slate-500">day streak</div>
     </div>
     <div className="text-center">
-      <div className="text-2xl font-bold text-gray-300">{streak.longest}</div>
-      <div className="text-xs text-gray-500">best</div>
+      <div className="text-2xl font-bold text-slate-300">{streak.longest}</div>
+      <div className="text-xs text-slate-500">best</div>
     </div>
     <div className="text-center">
-      <div className="text-2xl font-bold text-gray-300">{streak.total}</div>
-      <div className="text-xs text-gray-500">total</div>
+      <div className="text-2xl font-bold text-slate-300">{streak.total}</div>
+      <div className="text-xs text-slate-500">total</div>
     </div>
   </div>
 );
@@ -36,11 +36,11 @@ const ScoreRow = ({ label, value }) => {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs text-gray-400 w-20 shrink-0 capitalize">{label}</span>
+      <span className="text-xs text-slate-400 w-20 shrink-0 capitalize">{label}</span>
       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${tone}`} style={{ width: `${value}%` }} />
       </div>
-      <span className="text-xs text-gray-400 w-8 text-right">{value}</span>
+      <span className="text-xs text-slate-400 w-8 text-right">{value}</span>
     </div>
   );
 };
@@ -105,7 +105,7 @@ const DailyDrill = () => {
         <header className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white">Today's drill</h1>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-slate-400 mt-1">
               One argument. A few minutes. Scored the same way a debate turn is.
             </p>
           </div>
@@ -128,13 +128,13 @@ const DailyDrill = () => {
             />
 
             <div className="flex items-center justify-between mt-3">
-              <span className={`text-xs ${words >= MIN_WORDS ? 'text-gray-500' : 'text-amber-400'}`}>
+              <span className={`text-xs ${words >= MIN_WORDS ? 'text-slate-500' : 'text-amber-400'}`}>
                 {words} words{words < MIN_WORDS && ` · ${MIN_WORDS - words} more needed`}
               </span>
               <button
                 onClick={submit}
                 disabled={!canSubmit}
-                className="px-6 py-2.5 bg-veil-purple hover:bg-veil-indigo disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg font-semibold text-sm"
+                className="px-6 py-2.5 bg-veil-purple hover:bg-veil-indigo disabled:opacity-40 disabled:cursor-not-allowed text-veil-on-accent rounded-lg font-semibold text-sm"
               >
                 {submitting ? 'Scoring…' : 'Submit'}
               </button>
@@ -146,8 +146,8 @@ const DailyDrill = () => {
           <div className="space-y-5">
             <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-5">
               <div className="flex items-baseline justify-between mb-4">
-                <span className="text-sm text-gray-400">Your score</span>
-                <span className="text-3xl font-bold text-white">{drill.scores?.overall ?? '—'}<span className="text-base text-gray-500">/100</span></span>
+                <span className="text-sm text-slate-400">Your score</span>
+                <span className="text-3xl font-bold text-white">{drill.scores?.overall ?? '—'}<span className="text-base text-slate-500">/100</span></span>
               </div>
 
               <div className="space-y-2">
@@ -158,7 +158,7 @@ const DailyDrill = () => {
               </div>
 
               {drill.feedback && (
-                <p className="text-sm text-gray-300 mt-4 pt-4 border-t border-slate-800">{drill.feedback}</p>
+                <p className="text-sm text-slate-300 mt-4 pt-4 border-t border-slate-800">{drill.feedback}</p>
               )}
 
               {drill.fallacies?.length > 0 && (
@@ -169,17 +169,17 @@ const DailyDrill = () => {
             </div>
 
             <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-5">
-              <p className="text-sm text-gray-300 mb-1">Your answer</p>
-              <p className="text-sm text-gray-400 whitespace-pre-wrap">{drill.response}</p>
+              <p className="text-sm text-slate-300 mb-1">Your answer</p>
+              <p className="text-sm text-slate-400 whitespace-pre-wrap">{drill.response}</p>
             </div>
 
             <div className="text-center py-4">
-              <p className="text-gray-400 text-sm mb-3">
+              <p className="text-slate-400 text-sm mb-3">
                 Done for today. Come back tomorrow to keep the streak.
               </p>
               <Link
                 to="/debates"
-                className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-white rounded-lg font-semibold"
+                className="inline-block px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold"
               >
                 Want more? Debate the AI
               </Link>

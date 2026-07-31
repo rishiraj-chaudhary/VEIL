@@ -7,12 +7,12 @@ import usePostStore from '../../store/postStore';
 // ── Intent pill ───────────────────────────────────────────────────────────────
 const INTENT_COLORS = {
   argument:       'bg-red-900/30 text-red-400 border-red-800/50',
-  question:       'bg-blue-900/30 text-blue-400 border-blue-800/50',
+  question:       'bg-slate-900/30 text-slate-400 border-slate-800/50',
   discussion:     'bg-green-900/30 text-green-400 border-green-800/50',
   evidence:       'bg-cyan-900/30 text-cyan-400 border-cyan-800/50',
   opinion:        'bg-orange-900/30 text-orange-400 border-orange-800/50',
   humor:          'bg-yellow-900/30 text-yellow-400 border-yellow-800/50',
-  news:           'bg-purple-900/30 text-purple-400 border-purple-800/50',
+  news:           'bg-slate-900/30 text-slate-400 border-slate-800/50',
   rant:           'bg-pink-900/30 text-pink-400 border-pink-800/50',
   call_to_action: 'bg-teal-900/30 text-teal-400 border-teal-800/50',
 };
@@ -20,7 +20,7 @@ const INTENT_COLORS = {
 const IntentPill = ({ intentType }) => {
   if (!intentType || intentType === 'unknown') return null;
   const label = intentType.replace(/_/g, ' ');
-  const cls   = INTENT_COLORS[intentType] || 'bg-slate-700 text-gray-400 border-slate-600';
+  const cls   = INTENT_COLORS[intentType] || 'bg-slate-700 text-slate-400 border-slate-600';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${cls}`}>
       {label}
@@ -63,7 +63,7 @@ const WhyTooltip = ({ postId, why: initialWhy }) => {
       <button
         onClick={handleOpen}
         title="Why am I seeing this?"
-        className="flex items-center gap-1 text-xs text-gray-500 hover:text-veil-purple transition-colors px-2 py-1 rounded-md hover:bg-slate-700/50"
+        className="flex items-center gap-1 text-xs text-slate-500 hover:text-veil-purple transition-colors px-2 py-1 rounded-md hover:bg-slate-700/50"
       >
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -76,7 +76,7 @@ const WhyTooltip = ({ postId, why: initialWhy }) => {
         <div className="absolute bottom-full left-0 mb-2 w-64 bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-xl z-50">
           <div className="flex items-start gap-2">
             <span className="text-veil-purple mt-0.5 shrink-0">✦</span>
-            <p className="text-xs text-gray-300 leading-relaxed">
+            <p className="text-xs text-slate-300 leading-relaxed">
               {loading ? 'Loading...' : (why || 'Shown based on your activity.')}
             </p>
           </div>
@@ -159,18 +159,18 @@ const PostCard = ({ post, ranked = false, onCommunityClick }) => {
         <div className="bg-slate-900 p-2 flex flex-col items-center justify-start space-y-1 rounded-l-lg">
           <button
             onClick={() => handleVote(1)}
-            className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === 1 ? 'text-orange-500' : 'text-gray-400'}`}
+            className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === 1 ? 'text-orange-500' : 'text-slate-400'}`}
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
               <path d="M5 10l5-5 5 5H5z" />
             </svg>
           </button>
-          <span className={`text-sm font-bold ${karma > 0 ? 'text-orange-500' : karma < 0 ? 'text-blue-500' : 'text-gray-400'}`}>
+          <span className={`text-sm font-bold ${karma > 0 ? 'text-orange-500' : karma < 0 ? 'text-slate-500' : 'text-slate-400'}`}>
             {karma}
           </span>
           <button
             onClick={() => handleVote(-1)}
-            className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === -1 ? 'text-blue-500' : 'text-gray-400'}`}
+            className={`p-1 rounded hover:bg-slate-800 transition-colors ${userVote === -1 ? 'text-slate-500' : 'text-slate-400'}`}
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
               <path d="M15 10l-5 5-5-5h10z" />
@@ -182,7 +182,7 @@ const PostCard = ({ post, ranked = false, onCommunityClick }) => {
         <div className="flex-1 p-4">
 
           {/* Meta row */}
-          <div className="flex items-center space-x-2 text-xs text-gray-400 mb-2">
+          <div className="flex items-center space-x-2 text-xs text-slate-400 mb-2">
             <button
               onClick={handleCommunityClick}
               className="font-semibold hover:text-veil-purple transition-colors"
@@ -202,10 +202,10 @@ const PostCard = ({ post, ranked = false, onCommunityClick }) => {
           </Link>
 
           {post.content && (
-            <p className="text-gray-300 text-sm mb-3 line-clamp-3">{post.content}</p>
+            <p className="text-slate-300 text-sm mb-3 line-clamp-3">{post.content}</p>
           )}
 
-          <div className="flex items-center space-x-4 text-sm text-gray-400">
+          <div className="flex items-center space-x-4 text-sm text-slate-400">
             <Link to={`/post/${post._id}`} className="hover:text-white transition-colors">
               💬 {post.commentCount} comments
             </Link>
@@ -226,7 +226,7 @@ const PostCard = ({ post, ranked = false, onCommunityClick }) => {
                         style={{ width: `${scores.final}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500">{scores.final}%</span>
+                    <span className="text-xs text-slate-500">{scores.final}%</span>
                   </div>
                   <WhyTooltip postId={post._id} why={post._why} />
                 </div>

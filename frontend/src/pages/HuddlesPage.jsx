@@ -14,9 +14,9 @@ const StatusBadge = ({ status }) => {
   const cfg = {
     waiting:   { color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/40', label: 'Waiting' },
     active:    { color: 'text-green-400',  bg: 'bg-green-900/20 border-green-700/40',   label: 'Active' },
-    ended:     { color: 'text-gray-400',   bg: 'bg-slate-700/50 border-slate-600',      label: 'Ended' },
+    ended:     { color: 'text-slate-400',   bg: 'bg-slate-700/50 border-slate-600',      label: 'Ended' },
     cancelled: { color: 'text-red-400',    bg: 'bg-red-900/20 border-red-700/40',       label: 'Cancelled' },
-  }[status] || { color: 'text-gray-400', bg: 'bg-slate-700', label: status };
+  }[status] || { color: 'text-slate-400', bg: 'bg-slate-700', label: status };
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.bg} ${cfg.color}`}>
@@ -43,7 +43,7 @@ const HuddleCard = ({ huddle, currentUserId, onOpen }) => {
             <p className="text-sm font-semibold text-white">
               {isHost ? 'Your huddle' : `Huddle with ${huddle.host?.username}`}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-500">
               {peer ? `with ${peer.username}` : 'No peer joined'}
               {duration && ` · ${duration}`}
             </p>
@@ -54,13 +54,13 @@ const HuddleCard = ({ huddle, currentUserId, onOpen }) => {
 
       {/* AI summary snippet */}
       {hasSummary && (
-        <p className="text-xs text-gray-400 line-clamp-2 mb-3 border-l-2 border-veil-purple/30 pl-2">
+        <p className="text-xs text-slate-400 line-clamp-2 mb-3 border-l-2 border-veil-purple/30 pl-2">
           {huddle.aiSummary.summary}
         </p>
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-600">
+        <span className="text-xs text-slate-600">
           {new Date(huddle.createdAt).toLocaleDateString()}
         </span>
         <div className="flex items-center gap-2">
@@ -145,7 +145,7 @@ const HuddlesPage = () => {
         {/* Header */}
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-white mb-2">🎙️ Huddles</h1>
-          <p className="text-gray-400">Real-time audio/video conversations with AI-powered summaries and post generation.</p>
+          <p className="text-slate-400">Real-time audio/video conversations with AI-powered summaries and post generation.</p>
         </div>
 
         {/* Start / Join */}
@@ -157,16 +157,16 @@ const HuddlesPage = () => {
               <div className="w-10 h-10 rounded-full bg-veil-purple/20 flex items-center justify-center text-xl">🎙️</div>
               <div>
                 <h2 className="text-base font-semibold text-white">Start a Huddle</h2>
-                <p className="text-xs text-gray-400">Create a room and share the code</p>
+                <p className="text-xs text-slate-400">Create a room and share the code</p>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mb-4">
+            <p className="text-xs text-slate-500 mb-4">
               Your conversation will be transcribed and AI will generate a summary, extract key claims, and offer to publish a post.
             </p>
             <button
               onClick={startHuddle}
               disabled={starting}
-              className="w-full py-2.5 bg-veil-purple hover:bg-veil-indigo text-white font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {starting
                 ? <><div className="w-4 h-4 border-t-2 border-white rounded-full animate-spin" /> Starting…</>
@@ -180,7 +180,7 @@ const HuddlesPage = () => {
               <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-xl">🔗</div>
               <div>
                 <h2 className="text-base font-semibold text-white">Join a Huddle</h2>
-                <p className="text-xs text-gray-400">Enter a 6-character join code</p>
+                <p className="text-xs text-slate-400">Enter a 6-character join code</p>
               </div>
             </div>
             <input
@@ -226,7 +226,7 @@ const HuddlesPage = () => {
                   {icon}
                 </div>
                 <p className="text-xs font-semibold text-white">{label}</p>
-                <p className="text-xs text-gray-500">{desc}</p>
+                <p className="text-xs text-slate-500">{desc}</p>
               </div>
             ))}
           </div>
@@ -247,7 +247,7 @@ const HuddlesPage = () => {
         {/* Past huddles */}
         <div>
           <h2 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
-            Past Huddles {pastHuddles.length > 0 && <span className="text-gray-500 font-normal normal-case">({pastHuddles.length})</span>}
+            Past Huddles {pastHuddles.length > 0 && <span className="text-slate-500 font-normal normal-case">({pastHuddles.length})</span>}
           </h2>
 
           {loading ? (
@@ -257,8 +257,8 @@ const HuddlesPage = () => {
           ) : pastHuddles.length === 0 ? (
             <div className="text-center py-12 bg-slate-800/50 rounded-xl border border-slate-700/50">
               <div className="text-4xl mb-3">🎙️</div>
-              <p className="text-gray-400 text-sm">No past huddles yet.</p>
-              <p className="text-gray-500 text-xs mt-1">Start one above and invite someone to join.</p>
+              <p className="text-slate-400 text-sm">No past huddles yet.</p>
+              <p className="text-slate-500 text-xs mt-1">Start one above and invite someone to join.</p>
             </div>
           ) : (
             <div className="space-y-3">

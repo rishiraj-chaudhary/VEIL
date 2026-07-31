@@ -58,7 +58,7 @@ const Timer = ({ startedAt }) => {
   }, [startedAt]);
   const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const s = String(elapsed % 60).padStart(2, '0');
-  return <span className="font-mono text-sm text-gray-400">{m}:{s}</span>;
+  return <span className="font-mono text-sm text-slate-400">{m}:{s}</span>;
 };
 
 const VideoTile = ({ stream, label, muted = false, noVideo = false }) => {
@@ -75,7 +75,7 @@ const VideoTile = ({ stream, label, muted = false, noVideo = false }) => {
       ) : (
         <div className="flex flex-col items-center gap-2">
           <div className="w-16 h-16 rounded-full bg-veil-purple/30 flex items-center justify-center text-2xl">👤</div>
-          <span className="text-xs text-gray-500">Camera off</span>
+          <span className="text-xs text-slate-500">Camera off</span>
         </div>
       )}
       <div className="absolute bottom-2 left-3 text-xs text-white bg-black/50 px-2 py-0.5 rounded">{label}</div>
@@ -410,14 +410,14 @@ const HuddleRoom = () => {
           <div className="text-center mb-8">
             <div className="text-5xl mb-3">🎙️</div>
             <h1 className="text-2xl font-bold text-white mb-1">Huddle Ended</h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-slate-400 text-sm">
               {huddle?.duration ? `${Math.round(huddle.duration / 60)}m ${huddle.duration % 60}s` : 'Session complete'}
             </p>
           </div>
           {!summary ? (
             <div className="text-center py-12">
               <div className="animate-spin h-8 w-8 border-t-2 border-veil-purple rounded-full mx-auto mb-4" />
-              <p className="text-gray-400 text-sm">AI is analysing your conversation…</p>
+              <p className="text-slate-400 text-sm">AI is analysing your conversation…</p>
             </div>
           ) : (
             <div className="space-y-5">
@@ -427,7 +427,7 @@ const HuddleRoom = () => {
                     <span className="text-veil-purple">✦</span>
                     <h2 className="text-sm font-semibold text-veil-purple uppercase tracking-wider">AI Summary</h2>
                   </div>
-                  <p className="text-gray-200 text-sm leading-relaxed">{summary.summary.summary}</p>
+                  <p className="text-slate-200 text-sm leading-relaxed">{summary.summary.summary}</p>
                 </div>
               )}
               {summary.summary?.keyMoments?.length > 0 && (
@@ -435,7 +435,7 @@ const HuddleRoom = () => {
                   <h2 className="text-sm font-semibold text-white mb-3">💬 Key Moments</h2>
                   <div className="space-y-2">
                     {summary.summary.keyMoments.map((m, i) => (
-                      <p key={i} className="text-xs text-gray-300 border-l-2 border-veil-purple/40 pl-3">{m}</p>
+                      <p key={i} className="text-xs text-slate-300 border-l-2 border-veil-purple/40 pl-3">{m}</p>
                     ))}
                   </div>
                 </div>
@@ -448,9 +448,9 @@ const HuddleRoom = () => {
                       <div key={i} className="flex items-start gap-2 text-xs">
                         <span className="text-veil-purple shrink-0 mt-0.5">•</span>
                         <div>
-                          <span className="text-gray-400 font-medium">{c.speaker}: </span>
-                          <span className="text-gray-300">{c.claim}</span>
-                          <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${c.strength === 'strong' ? 'bg-green-900/30 text-green-400' : c.strength === 'moderate' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-slate-700 text-gray-400'}`}>{c.strength}</span>
+                          <span className="text-slate-400 font-medium">{c.speaker}: </span>
+                          <span className="text-slate-300">{c.claim}</span>
+                          <span className={`ml-2 px-1.5 py-0.5 rounded text-xs ${c.strength === 'strong' ? 'bg-green-900/30 text-green-400' : c.strength === 'moderate' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-slate-700 text-slate-400'}`}>{c.strength}</span>
                         </div>
                       </div>
                     ))}
@@ -460,16 +460,16 @@ const HuddleRoom = () => {
               {summary.summary?.generatedPost && !published && (
                 <div className="bg-slate-800 border border-veil-purple/30 rounded-xl p-5">
                   <h2 className="text-sm font-semibold text-white mb-1">📝 Generated Post</h2>
-                  <p className="text-xs text-gray-400 mb-3">AI wrote a community post from your conversation.</p>
+                  <p className="text-xs text-slate-400 mb-3">AI wrote a community post from your conversation.</p>
                   <div className="bg-slate-900 rounded-lg p-3 mb-4">
                     <p className="text-sm font-semibold text-white mb-1">{summary.summary.generatedPost.title}</p>
-                    <p className="text-xs text-gray-400 line-clamp-3">{summary.summary.generatedPost.content}</p>
+                    <p className="text-xs text-slate-400 line-clamp-3">{summary.summary.generatedPost.content}</p>
                   </div>
                   <div className="flex gap-2">
                     <input type="text" placeholder="Community name (e.g. aitesting)" value={communityName} onChange={e => setCommunityName(e.target.value)}
                       className="flex-1 bg-slate-900 border border-slate-600 text-white text-sm px-3 py-2 rounded-lg focus:outline-none focus:border-veil-purple" />
                     <button onClick={handlePublish} disabled={publishing || !communityName.trim()}
-                      className="px-4 py-2 bg-veil-purple hover:bg-veil-indigo text-white text-sm rounded-lg disabled:opacity-50 transition-colors">
+                      className="px-4 py-2 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent text-sm rounded-lg disabled:opacity-50 transition-colors">
                       {publishing ? 'Publishing…' : 'Publish'}
                     </button>
                   </div>
@@ -478,10 +478,10 @@ const HuddleRoom = () => {
               {published && (
                 <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-4 text-center">
                   <p className="text-green-400 font-semibold text-sm">✓ Post published successfully</p>
-                  <button onClick={() => navigate(`/post/${published._id}`)} className="text-xs text-gray-400 hover:text-white mt-1 underline">View post →</button>
+                  <button onClick={() => navigate(`/post/${published._id}`)} className="text-xs text-slate-400 hover:text-white mt-1 underline">View post →</button>
                 </div>
               )}
-              <button onClick={() => navigate('/huddles')} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-gray-300 text-sm rounded-xl transition-colors">
+              <button onClick={() => navigate('/huddles')} className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-xl transition-colors">
                 Back to Huddles
               </button>
             </div>
@@ -496,7 +496,7 @@ const HuddleRoom = () => {
       <div className="min-h-screen bg-veil-dark flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-10 w-10 border-t-2 border-veil-purple rounded-full mx-auto mb-4" />
-          <p className="text-gray-400">Connecting to huddle…</p>
+          <p className="text-slate-400">Connecting to huddle…</p>
         </div>
       </div>
     );
@@ -508,8 +508,8 @@ const HuddleRoom = () => {
         <div className="text-center max-w-sm">
           <div className="text-4xl mb-4">⚠️</div>
           <p className="text-white font-semibold mb-2">Could not join huddle</p>
-          <p className="text-gray-400 text-sm mb-6">{error}</p>
-          <button onClick={() => navigate('/huddles')} className="px-6 py-2 bg-veil-purple text-white rounded-lg text-sm">Back to Huddles</button>
+          <p className="text-slate-400 text-sm mb-6">{error}</p>
+          <button onClick={() => navigate('/huddles')} className="px-6 py-2 bg-veil-purple text-veil-on-accent rounded-lg text-sm">Back to Huddles</button>
         </div>
       </div>
     );
@@ -528,7 +528,7 @@ const HuddleRoom = () => {
           <span className={`text-xs px-2 py-1 rounded-full ${peerConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
             {peerConnected ? '● Connected' : '◌ Waiting for peer…'}
           </span>
-          <span className="text-xs text-gray-500 bg-slate-800 px-3 py-1 rounded-full font-mono">{huddle?.joinCode}</span>
+          <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full font-mono">{huddle?.joinCode}</span>
         </div>
       </div>
 
@@ -542,7 +542,7 @@ const HuddleRoom = () => {
             {captions.map(c => (
               <div key={c.id} className="flex items-start gap-2 text-xs">
                 <span className="text-veil-purple font-medium shrink-0">{c.username}:</span>
-                <span className="text-gray-300">{c.text}</span>
+                <span className="text-slate-300">{c.text}</span>
               </div>
             ))}
           </div>

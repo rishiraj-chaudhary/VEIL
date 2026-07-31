@@ -19,10 +19,10 @@ const DebateCard = ({ debate }) => {
     const colors = {
       pending: 'bg-yellow-900/20 text-yellow-400 border-yellow-700',
       active: 'bg-green-900/20 text-green-400 border-green-700',
-      completed: 'bg-blue-900/20 text-blue-400 border-blue-700',
+      completed: 'bg-slate-900/20 text-slate-400 border-slate-700',
       cancelled: 'bg-red-900/20 text-red-400 border-red-700'
     };
-    return colors[status] || 'bg-gray-900/20 text-gray-400 border-gray-700';
+    return colors[status] || 'bg-slate-900/20 text-slate-400 border-slate-700';
   };
 
   const getTypeIcon = (type) => {
@@ -44,13 +44,13 @@ const DebateCard = ({ debate }) => {
               {debate.status}
             </span>
             <span className="text-xl">{getTypeIcon(debate.type)}</span>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-slate-400">
               {formatTime(debate.createdAt)}
             </span>
           </div>
           
           {debate.viewCount > 0 && (
-            <div className="flex items-center space-x-1 text-xs text-gray-400">
+            <div className="flex items-center space-x-1 text-xs text-slate-400">
               <span>👁️</span>
               <span>{debate.viewCount}</span>
             </div>
@@ -64,7 +64,7 @@ const DebateCard = ({ debate }) => {
 
         {/* Description */}
         {debate.description && (
-          <p className="text-sm text-gray-400 mb-4 line-clamp-2">
+          <p className="text-sm text-slate-400 mb-4 line-clamp-2">
             {debate.description}
           </p>
         )}
@@ -74,7 +74,7 @@ const DebateCard = ({ debate }) => {
           <div className="flex items-center space-x-4 text-sm">
             <div className="flex items-center space-x-1">
               <span className="text-green-400">✓</span>
-              <span className="text-gray-300">For:</span>
+              <span className="text-slate-300">For:</span>
               <span className="text-white font-medium">
                 {debate.participants?.find(p => p.side === 'for')?.user?.username || 'Open'}
               </span>
@@ -82,7 +82,7 @@ const DebateCard = ({ debate }) => {
             
             <div className="flex items-center space-x-1">
               <span className="text-red-400">✗</span>
-              <span className="text-gray-300">Against:</span>
+              <span className="text-slate-300">Against:</span>
               <span className="text-white font-medium">
                 {debate.participants?.find(p => p.side === 'against')?.user?.username || 'Open'}
               </span>
@@ -101,12 +101,12 @@ const DebateCard = ({ debate }) => {
         {debate.status === 'completed' && debate.winner && (
           <div className="mt-3 pt-3 border-t border-slate-700">
             <div className="flex items-center space-x-2 text-sm">
-              <span className="text-gray-400">Winner:</span>
+              <span className="text-slate-400">Winner:</span>
               <span className="text-veil-purple font-semibold">
                 {debate.winner === 'draw' ? 'Draw' : debate.winner.toUpperCase()}
               </span>
               {debate.finalScores && (
-                <span className="text-gray-500">
+                <span className="text-slate-500">
                   ({debate.finalScores.for} - {debate.finalScores.against})
                 </span>
               )}
