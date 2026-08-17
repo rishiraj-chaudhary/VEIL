@@ -1,7 +1,16 @@
-import User from '../models/user.js';
+/**
+ * DEBATE CONTROLLER
+ *
+ * This file also carried its own `submitTurn` and `completeDebate` — a second,
+ * divergent copy of the turn pipeline that no route ever mounted (the real one
+ * is debateTurnController → debateTurnService). The copy had drifted badly:
+ * it called `refutationDetectionService` without importing it, which would have
+ * thrown inside a `setImmediate` and taken the process down had it ever run.
+ * Both are gone; debate completion, scoring and summarisation now happen in the
+ * SCORE_DEBATE job, which is the one path that actually executes.
+ */
+
 import aiOpponentService from '../services/aiOpponentService.js';
-import { respondAsAIIfNeeded } from '../services/aiTurnOrchestrator.js';
-import debateAIService from '../services/debateAIService.js';
 import debateScoringService from '../services/debateScoringService.js';
 import debateService from '../services/debateService.js';
 import { JOB_TYPES } from '../services/jobHandlers.js';
@@ -79,7 +88,10 @@ export const getDebates = asyncHandler(async (req, res) => {
     visibility,
     originType,
     originId,
-    userId: myDebates === 'true' ? req.user._id : undefined,
+    // `req.user` is only present when the caller sent a valid token — this
+    // route is public. Reading `req.user._id` unconditionally threw a
+    // TypeError for any anonymous request that passed ?myDebates=true.
+    userId: myDebates === 'true' ? req.user?._id : undefined,
     limit,
     page,
     sort
@@ -290,147 +302,3 @@ export const createAIDebate = asyncHandler(async (req, res) => {
 export const getAIOpponentProfiles = async (req, res) => {
   res.json({ success: true, data: aiOpponentService.listProfiles() });
 };
-
-/* =====================================================
-   ✅ NEW: SUBMIT TURN (with AI cost tracking)
-===================================================== */
-export const submitTurn = asyncHandler(async (req, res) => {
-  const { id: debateId } = req.params;
-  const { content } = req.body;
-  const userId = req.user._id;
-
-  // Validation
-  if (!content || content.trim().length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Turn content is required'
-    });
-  }
-
-  // Submit turn through debate service
-  const result = await debateService.submitTurn(debateId, userId, content);
-
-  if (!result.success) {
-    return res.status(400).json(result);
-  }
-
-  // ✅ Get user tier for AI cost tracking
-  const user = await User.findById(userId);
-  const userTier = user?.subscription?.tier || 'free';
-
-  // ✅ Analyze turn with AI (with cost tracking)
-  const aiAnalysis = await debateAIService.analyzeTurn(
-    content,
-    result.turn.side,
-    result.previousTurns || [],
-    userId,      // ✅ Track who made the request
-    debateId,    // ✅ Track which debate
-    userTier     // ✅ User's subscription tier
-  );
-
-  // Update turn with AI analysis
-  result.turn.aiAnalysis = aiAnalysis;
-  await result.turn.save();
-
-  // Process claims for knowledge graph — userId attributes each claim to its
-  // author, which is what the argument track record is built from.
-  if (aiAnalysis.claims && aiAnalysis.claims.length > 0) {
-    await debateAIService.processClaimsForGraph(
-      aiAnalysis.claims,
-      result.turn,
-      result.debate,
-      aiAnalysis.overallQuality,
-      userId
-    );
-  }
-
-  // Detect which of the opponent's claims this turn refutes. Runs after claim
-  // ingestion so this turn's own claims are already recorded, and detached
-  // from the response since it involves an LLM call.
-  setImmediate(() => {
-    refutationDetectionService.processTurn({
-      debateId,
-      authorSide: result.turn.side,
-      rebuttalText: content,
-      rebuttalQuality: aiAnalysis.overallQuality ?? 50,
-    }).catch(err => console.error('Refutation detection error:', err.message));
-  });
-
-  // Store turn in debate memory (RAG)
-  await debateAIService.storeInMemory(result.turn, result.debate);
-
-  // ✨ EMIT SOCKET EVENTS
-  const io = getIO();
-  if (io) {
-    io.to(`debate-${debateId}`).emit('turn-submitted', {
-      turn: result.turn
-    });
-
-    // Emit analysis complete
-    setTimeout(() => {
-      io.to(`debate-${debateId}`).emit('analysis-complete', {
-        turnId: result.turn._id
-      });
-    }, 500);
-  }
-
-  // If the opponent is the AI, produce its reply after responding to the user
-  // so the client isn't held open for a second model call.
-  await jobQueue.enqueue(JOB_TYPES.AI_OPPONENT_TURN, { debateId },
-    { dedupeKey: `ai-turn:${debateId}` });
-
-  res.json({
-    success: true,
-    message: 'Turn submitted successfully',
-    data: result.turn
-  });
-});
-
-/* =====================================================
-   ✅ NEW: COMPLETE DEBATE (with AI cost tracking)
-===================================================== */
-export const completeDebate = asyncHandler(async (req, res) => {
-  const { id: debateId } = req.params;
-  const userId = req.user?._id;
-
-  const result = await debateService.completeDebate(debateId);
-
-  if (!result.success) {
-    return res.status(400).json(result);
-  }
-
-  // ✅ Get user tier for AI summary generation
-  const user = await User.findById(userId);
-  const userTier = user?.subscription?.tier || 'free';
-
-  // ✅ Generate AI summary with cost tracking
-  const aiSummary = await debateAIService.generateDebateSummary(
-    debateId,
-    result.forTurns || [],
-    result.againstTurns || [],
-    userId,      // ✅ Track summary generation
-    userTier     // ✅ User tier
-  );
-
-  // Update debate with summary
-  result.debate.aiSummary = aiSummary;
-  await result.debate.save();
-
-  // ✨ EMIT SOCKET EVENT
-  const io = getIO();
-  if (io) {
-    io.to(`debate-${debateId}`).emit('debate-completed', {
-      winner: result.winner,
-      finalScores: result.finalScores
-    });
-  }
-
-  res.json({
-    success: true,
-    message: 'Debate completed',
-    data: {
-      debate: result.debate,
-      score: result.score
-    }
-  });
-});

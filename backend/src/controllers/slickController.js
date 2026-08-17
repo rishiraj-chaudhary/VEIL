@@ -1,8 +1,10 @@
 import Slick from '../models/slick.js';
 import User from '../models/user.js';
 import UserCurrency from '../models/userCurrency.js';
+import perceptionGraph from '../services/graph/perceptionGraph.js';
 import slickAIService from '../services/slickAIService.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { notFound } from '../utils/AppError.js';
 
 export const createSlick = asyncHandler(async (req, res) => {
   const { content, targetUserId, tone, visibility = 'public' } = req.body;
@@ -194,9 +196,66 @@ export const getSlickSuggestions = asyncHandler(async (req, res) => {
   res.json({ success: true, data: suggestions });
 });
 
+/**
+ * How a user is perceived by others, from the anonymous feedback they received.
+ *
+ * Lived inline in slickRoutes.js with `await import()` for its models on every
+ * request and a catch that returned `error.message` straight to the client —
+ * the one thing the central error handler exists to prevent, since driver and
+ * validation errors carry connection strings and query fragments.
+ */
+export const getPerception = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  const user = await User.findById(userId)
+    .select('perceptionTraits perceptionTrend perceptionSummary perceptionUpdatedAt')
+    .lean();
+
+  if (!user) throw notFound('User not found');
+
+  // Every slick received, not just the analysis window, because this is a
+  // displayed count rather than an input to the graph.
+  const slickCount = await Slick.countDocuments({
+    targetUser: userId,
+    isActive: true,
+    isFlagged: false,
+  });
+
+  if (user.perceptionTraits) {
+    return res.json({
+      success: true,
+      data: {
+        perceptionTraits: user.perceptionTraits,
+        trend:            user.perceptionTrend || 'stable',
+        summary:          user.perceptionSummary || '',
+        updatedAt:        user.perceptionUpdatedAt || null,
+        slickCount,
+        coachingInsights: [], // cached — run the graph for fresh insights
+      },
+    });
+  }
+
+  // Nothing cached: run the graph now, with a wider lookback so a user whose
+  // feedback is older than the default window is not reported as unanalysed.
+  const result = await perceptionGraph.run(userId, { lookbackDays: 90, persist: true });
+
+  res.json({
+    success: true,
+    data: {
+      perceptionTraits: result.perceptionTraits,
+      trend:            result.trend,
+      summary:          result.summary,
+      updatedAt:        result.updatedAt,
+      slickCount:       result.slickCount || slickCount,
+      coachingInsights: result.coachingInsights || [],
+      toneBreakdown:    result.toneBreakdown,
+    },
+  });
+});
+
 export const getUserCurrency = asyncHandler(async (req, res) => {
   let currency = await UserCurrency.findOne({ user: req.user._id });
   if (!currency) { currency = new UserCurrency({ user: req.user._id }); await currency.save(); }
-  const dailyBonus = currency.claimDailyBonus();
+  const dailyBonus = await currency.claimDailyBonus();
   res.json({ success: true, data: { balance: currency.veilCoins, dailyBonus, recentTransactions: currency.transactions.slice(-10), earnings: currency.earnings } });
 });

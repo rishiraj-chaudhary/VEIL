@@ -27,11 +27,10 @@ router.get('/my-stats', authenticate, validate(usageValidators.range), async (re
       }
     });
   } catch (error) {
-    console.error('Error fetching AI usage stats:', error);
+    req.log?.error('failed to fetch AI usage stats', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch usage stats',
-      error: error.message
     });
   }
 });
@@ -49,11 +48,10 @@ router.get('/daily', authenticate, validate(usageValidators.range), async (req, 
       data: dailyUsage
     });
   } catch (error) {
-    console.error('Error fetching daily usage:', error);
+    req.log?.error('failed to fetch daily usage', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch daily usage',
-      error: error.message
     });
   }
 });
@@ -71,11 +69,10 @@ router.get('/operations', authenticate, async (req, res) => {
       data: breakdown
     });
   } catch (error) {
-    console.error('Error fetching operation breakdown:', error);
+    req.log?.error('failed to fetch operation breakdown', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch operation breakdown',
-      error: error.message
     });
   }
 });
@@ -93,11 +90,10 @@ router.get('/check-budget', authenticate, async (req, res) => {
       data: { allowed, budget, tier: userTier }
     });
   } catch (error) {
-    console.error('Error checking budget:', error);
+    req.log?.error('failed to check budget', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Failed to check budget',
-      error: error.message
     });
   }
 });

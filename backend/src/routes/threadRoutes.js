@@ -16,8 +16,13 @@ import { threadValidators } from '../validators/index.js';
 
 const router = express.Router();
 
-// GET /api/thread/:postId/analysis — get thread analysis (public)
-router.get('/:postId/analysis', validate(threadValidators.byPost), getThreadAnalysis);
+// GET /api/thread/:postId/analysis
+//
+// Authenticated, despite being a read. On a cache miss this runs the thread
+// evolution graph — sentiment arc, topic drift, turning points — which is a
+// series of model calls. Left open, anyone could force that work by requesting
+// a different post id repeatedly, at no cost to themselves and real cost here.
+router.get('/:postId/analysis', authenticate, validate(threadValidators.byPost), getThreadAnalysis);
 
 // POST /api/thread/:postId/analyse — force re-analysis (auth required)
 router.post('/:postId/analyse', authenticate, validate(threadValidators.byPost), forceThreadAnalysis);

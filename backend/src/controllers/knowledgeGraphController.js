@@ -72,9 +72,13 @@ export const getMostSuccessful = asyncHandler(async (req, res) => {
    SEARCH CLAIMS
 ===================================================== */
 export const searchClaims = asyncHandler(async (req, res) => {
-  const { query, limit } = req.query;
+  // The validator bounds `q`, the frontend sends `query`, and this only read
+  // `query` — so the length limit was never applied to the parameter actually in
+  // use. Both names are accepted and both are validated.
+  const term = req.query.q || req.query.query;
+  const { limit } = req.query;
 
-  if (!query) {
+  if (!term) {
     return res.status(400).json({
       success: false,
       message: 'Search query required'
@@ -82,8 +86,8 @@ export const searchClaims = asyncHandler(async (req, res) => {
   }
 
   const results = await knowledgeGraphService.searchClaims(
-    query,
-    parseInt(limit) || 10
+    term,
+    Math.min(100, Math.max(1, parseInt(limit, 10) || 10))
   );
 
   res.status(200).json({

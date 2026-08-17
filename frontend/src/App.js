@@ -35,10 +35,17 @@ function App() {
         {/* Public replay — deliberately outside ProtectedRoute so a finished
             debate can be read by someone who has no account. */}
         <Route path="/d/:id"           element={<PublicDebate />} />
-        <Route path="/knowledge-graph" element={<KnowledgeGraphDashboard />} />
-        <Route path="/coach"           element={<CoachDashboard />} />
-        <Route path="/leaderboard"     element={<Leaderboard />} />
-        <Route path="/ai-usage"        element={<AIUsageDashboard />} />
+
+        {/* These four sat outside ProtectedRoute while every endpoint they call
+            requires a token. A signed-out visitor following the nav reached the
+            page, fired requests that 401'd, and was bounced to /login by the
+            axios interceptor — a redirect that looked like a broken link rather
+            than a sign-in prompt. Guarding them sends the visitor to /login
+            directly, which is what was intended. */}
+        <Route path="/knowledge-graph" element={<ProtectedRoute><KnowledgeGraphDashboard /></ProtectedRoute>} />
+        <Route path="/coach"           element={<ProtectedRoute><CoachDashboard /></ProtectedRoute>} />
+        <Route path="/leaderboard"     element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+        <Route path="/ai-usage"        element={<ProtectedRoute><AIUsageDashboard /></ProtectedRoute>} />
         <Route path="/persona"         element={<ProtectedRoute><PersonaDriftDashboard /></ProtectedRoute>} />
         <Route path="/welcome"         element={<ProtectedRoute><Welcome /></ProtectedRoute>} />
         <Route path="/drill"           element={<ProtectedRoute><DailyDrill /></ProtectedRoute>} />

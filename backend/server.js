@@ -5,8 +5,9 @@ import dotenv from 'dotenv';
 import express from 'express';
 import helmet from 'helmet';
 import { createServer } from 'http';
+import mongoose from 'mongoose';
 import morgan from 'morgan';
-import connectDB from './src/config/database.js';
+import connectDB, { disconnectDB } from './src/config/database.js';
 import { corsOptions } from './src/config/cors.js';
 import { errorHandler, notFoundHandler } from './src/middleware/errorHandler.js';
 import { requestLogger } from './src/utils/logger.js';
@@ -65,13 +66,21 @@ initSocket(server);
 
 // RAG shares the Mongoose connection pool, so it must wait for the connection
 // rather than racing it — otherwise the vector store initialises against null.
+//
+// A failed connection now ends the process. It previously logged and returned,
+// leaving a server that accepted requests and failed every one of them at the
+// database call — which reads to a platform's health check as "up".
+let databaseReady = false;
+
 (async () => {
   try {
     await connectDB();
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
-    return;
+    process.exit(1);
   }
+
+  databaseReady = true;
 
   try {
     console.log('\n📊 Initializing RAG System...');
@@ -97,11 +106,21 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // this every request would share the proxy's IP and rate limits would be global.
 app.set('trust proxy', 1);
 
+/**
+ * Health check.
+ *
+ * Reports 503 until the database is connected. It previously answered a flat
+ * "OK" from the moment the HTTP listener was up, so a deployment whose database
+ * never connected was rolled out as healthy and then failed every request.
+ */
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
+  const healthy = databaseReady && mongoose.connection.readyState === 1;
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'OK' : 'DEGRADED',
     message: 'VEIL Backend is running',
     timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     personaScheduler: personaScheduler.getStatus(),
     feedScheduler: feedScheduler.getStatus(),
     jobWorker: jobQueue.getStatus(),
@@ -173,18 +192,58 @@ server.listen(PORT, () => {
   }
 });
 
-const shutdown = (signal) => {
+/**
+ * Ordered shutdown: stop taking work, then stop producing it, then let go of
+ * the database.
+ *
+ * The forced exit is a backstop, not the normal path — without it a hung
+ * keep-alive connection can hold the process open past the orchestrator's grace
+ * period, at which point it is killed mid-write instead of closing cleanly.
+ */
+let shuttingDown = false;
+
+const shutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
   console.log(`${signal} received, shutting down gracefully...`);
+
+  const forced = setTimeout(() => {
+    console.error('Shutdown timed out after 10s — exiting immediately');
+    process.exit(1);
+  }, 10_000);
+  forced.unref();
+
   personaScheduler.stop();
   feedScheduler.stop();
   jobQueue.stop();
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
+
+  await new Promise(resolve => server.close(resolve));
+
+  try {
+    await disconnectDB();
+  } catch (error) {
+    console.error('Error closing database connection:', error.message);
+  }
+
+  clearTimeout(forced);
+  console.log('Server closed');
+  process.exit(0);
 };
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => { shutdown('SIGTERM'); });
+process.on('SIGINT', () => { shutdown('SIGINT'); });
+
+// An unhandled rejection leaves the process in an unknown state; Node's default
+// is to terminate on it. Logging it here means the reason reaches the logs
+// before that happens, instead of a bare stack on stderr.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  shutdown('uncaughtException');
+});
 
 export default app;

@@ -7,7 +7,10 @@ import usePersonaStore from '../store/personaStore';
 const fetchPerception = async (userId) => {
   try {
     const res = await api.get(`/slicks/perception/${userId}`);
-    return res.data;
+    // This endpoint was the only one on the API returning a bare object rather
+    // than the `{ success, data }` envelope every other route uses. It now
+    // matches; the fallback keeps an older deployed backend working.
+    return res.data?.data ?? res.data;
   } catch (error) {
     console.error('Failed to load perception data:', error);
     return null;

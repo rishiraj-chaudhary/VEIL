@@ -75,6 +75,6 @@ commentSchema.index({ post: 1, createdAt: -1 });
 commentSchema.index({ parent: 1 });
 commentSchema.index({ author: 1 });
 
-const Comment = mongoose.model('Comment', commentSchema);
+const Comment = mongoose.models.Comment || mongoose.model('Comment', commentSchema);
 
 export default Comment;

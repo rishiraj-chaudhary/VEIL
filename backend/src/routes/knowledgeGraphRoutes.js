@@ -1,5 +1,6 @@
 import express from 'express';
 import * as knowledgeGraphController from '../controllers/knowledgeGraphController.js';
+import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { knowledgeGraphValidators } from '../validators/index.js';
 
@@ -7,10 +8,16 @@ const router = express.Router();
 
 /**
  * KNOWLEDGE GRAPH ROUTES
- * 
- * All routes for querying the argument knowledge graph
- * Temporarily public for testing
+ *
+ * Queries over the argument claim graph.
+ *
+ * These were marked "temporarily public for testing" and shipped that way. The
+ * graph holds every claim every user has advanced, attributed to them by id,
+ * along with how each one fared — so the search and topic endpoints amounted to
+ * an unauthenticated dump of the platform's argument history, and
+ * `claims/stats` embeds the caller's text and runs a semantic search per call.
  */
+router.use(authenticate);
 
 // Get statistics for a specific claim
 router.post('/claims/stats', validate(knowledgeGraphValidators.claimStats), knowledgeGraphController.getClaimStats);

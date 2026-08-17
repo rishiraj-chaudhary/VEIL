@@ -7,23 +7,31 @@ import { asyncHandler } from '../middleware/errorHandler.js';
  * API endpoints for user performance tracking and coaching
  */
 
+/**
+ * Whose coaching data this request is for.
+ *
+ * Every handler here used to resolve `req.query.userId || req.params.userId ||
+ * req.user._id`, in that order — a caller-supplied id took priority over the
+ * verified one. Since all of these routes are authenticated, that did not open
+ * them to anonymous users; it did let any logged-in user read any other user's
+ * performance summary, blind-spot analysis, coaching tips, achievements and
+ * peer comparison by appending `?userId=<their id>`.
+ *
+ * This is private coaching material — it is written to the user about their own
+ * weaknesses. Identity comes from the token and nowhere else.
+ */
+const subjectOf = req => req.user?._id || req.user?.id || null;
+
 /* =====================================================
    GET USER PERFORMANCE SUMMARY
 ===================================================== */
 export const getPerformanceSummary = asyncHandler(async (req, res) => {
-  // ✅ FIX: Check query params FIRST, then authenticated user
-  const userId = req.query.userId || req.params.userId || req.user?._id || req.user?.id;
-
-  console.log('🔍 DEBUG Controller: Query userId:', req.query.userId);
-  console.log('🔍 DEBUG Controller: Params userId:', req.params.userId);
-  console.log('🔍 DEBUG Controller: Auth user:', req.user?._id || req.user?.id);
-  console.log('🔍 DEBUG Controller: Final userId:', userId);
+  const userId = subjectOf(req);
 
   if (!userId) {
-    console.log('❌ No userId provided');
-    return res.status(400).json({
+    return res.status(401).json({
       success: false,
-      message: 'User ID is required'
+      message: 'Authentication required'
     });
   }
 
@@ -49,12 +57,12 @@ export const getPerformanceSummary = asyncHandler(async (req, res) => {
    GET DETAILED ANALYSIS
 ===================================================== */
 export const getDetailedAnalysis = asyncHandler(async (req, res) => {
-  const userId = req.query.userId || req.params.userId || req.user?._id || req.user?.id;
+  const userId = subjectOf(req);
 
   if (!userId) {
-    return res.status(400).json({
+    return res.status(401).json({
       success: false,
-      message: 'User ID is required'
+      message: 'Authentication required'
     });
   }
 
@@ -70,13 +78,13 @@ export const getDetailedAnalysis = asyncHandler(async (req, res) => {
    GET PROGRESS OVER TIME
 ===================================================== */
 export const getProgressOverTime = asyncHandler(async (req, res) => {
-  const userId = req.query.userId || req.params.userId || req.user?._id || req.user?.id;
+  const userId = subjectOf(req);
   const { period = 'all' } = req.query; // 'week', 'month', 'all'
 
   if (!userId) {
-    return res.status(400).json({
+    return res.status(401).json({
       success: false,
-      message: 'User ID is required'
+      message: 'Authentication required'
     });
   }
 
@@ -125,12 +133,12 @@ export const getProgressOverTime = asyncHandler(async (req, res) => {
    GET COACHING TIPS
 ===================================================== */
 export const getCoachingTips = asyncHandler(async (req, res) => {
-  const userId = req.query.userId || req.params.userId || req.user?._id || req.user?.id;
+  const userId = subjectOf(req);
 
   if (!userId) {
-    return res.status(400).json({
+    return res.status(401).json({
       success: false,
-      message: 'User ID is required'
+      message: 'Authentication required'
     });
   }
 
@@ -195,12 +203,12 @@ export const dismissCoachingTip = asyncHandler(async (req, res) => {
    GET ACHIEVEMENTS
 ===================================================== */
 export const getAchievements = asyncHandler(async (req, res) => {
-  const userId = req.query.userId || req.params.userId || req.user?._id || req.user?.id;
+  const userId = subjectOf(req);
 
   if (!userId) {
-    return res.status(400).json({
+    return res.status(401).json({
       success: false,
-      message: 'User ID is required'
+      message: 'Authentication required'
     });
   }
 
@@ -232,12 +240,12 @@ export const getAchievements = asyncHandler(async (req, res) => {
    GET COMPARISON WITH AVERAGE
 ===================================================== */
 export const getComparison = asyncHandler(async (req, res) => {
-  const userId = req.query.userId || req.params.userId || req.user?._id || req.user?.id;
+  const userId = subjectOf(req);
 
   if (!userId) {
-    return res.status(400).json({
+    return res.status(401).json({
       success: false,
-      message: 'User ID is required'
+      message: 'Authentication required'
     });
   }
 
@@ -250,32 +258,33 @@ export const getComparison = asyncHandler(async (req, res) => {
     });
   }
 
-  // Calculate platform averages
-  const allPerformances = await UserPerformance.find({
-    'stats.totalDebates': { $gte: 3 }
-  });
+  // Platform averages, computed in the database.
+  //
+  // This used to load every qualifying UserPerformance document into memory and
+  // sum them in a loop. Each of those documents carries up to 52 snapshots, 15
+  // coaching tips and a full achievement list, so the request grew with the size
+  // of the platform and transferred megabytes to add up five numbers.
+  const [platform] = await UserPerformance.aggregate([
+    { $match: { 'stats.totalDebates': { $gte: 3 } } },
+    {
+      $group: {
+        _id: null,
+        avgToneScore:     { $avg: '$qualityMetrics.avgToneScore' },
+        avgClarityScore:  { $avg: '$qualityMetrics.avgClarityScore' },
+        avgEvidenceScore: { $avg: '$qualityMetrics.avgEvidenceScore' },
+        fallacyRate:      { $avg: '$fallacyStats.fallacyRate' },
+        winRate:          { $avg: '$stats.winRate' },
+      },
+    },
+  ]);
 
   const avgMetrics = {
-    avgToneScore: 0,
-    avgClarityScore: 0,
-    avgEvidenceScore: 0,
-    fallacyRate: 0,
-    winRate: 0
+    avgToneScore:     platform?.avgToneScore     || 0,
+    avgClarityScore:  platform?.avgClarityScore  || 0,
+    avgEvidenceScore: platform?.avgEvidenceScore || 0,
+    fallacyRate:      platform?.fallacyRate      || 0,
+    winRate:          platform?.winRate          || 0,
   };
-
-  if (allPerformances.length > 0) {
-    allPerformances.forEach(p => {
-      avgMetrics.avgToneScore += p.qualityMetrics.avgToneScore;
-      avgMetrics.avgClarityScore += p.qualityMetrics.avgClarityScore;
-      avgMetrics.avgEvidenceScore += p.qualityMetrics.avgEvidenceScore;
-      avgMetrics.fallacyRate += p.fallacyStats.fallacyRate;
-      avgMetrics.winRate += p.stats.winRate;
-    });
-
-    Object.keys(avgMetrics).forEach(key => {
-      avgMetrics[key] = avgMetrics[key] / allPerformances.length;
-    });
-  }
 
   res.status(200).json({
     success: true,

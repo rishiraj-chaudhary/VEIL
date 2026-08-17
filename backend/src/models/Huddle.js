@@ -81,7 +81,8 @@ const huddleSchema = new mongoose.Schema({
 });
 
 huddleSchema.index({ host: 1, status: 1 });
-huddleSchema.index({ joinCode: 1 });
+// joinCode's `unique: true` already creates its index; the duplicate declaration
+// that was here built a second one on the same key.
 huddleSchema.index({ createdAt: -1 });
 
 const Huddle = mongoose.models.Huddle || mongoose.model('Huddle', huddleSchema);

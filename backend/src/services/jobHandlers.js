@@ -59,7 +59,9 @@ export const registerJobHandlers = () => {
    */
   jobQueue.register(JOB_TYPES.SCORE_DEBATE, async ({ debateId }) => {
     const Debate = (await import('../models/debate.js')).default;
+    const DebateTurn = (await import('../models/debateTurn.js')).default;
     const debateScoringService = (await import('./debateScoringService.js')).default;
+    const debateAIService = (await import('./debateAIService.js')).default;
 
     const score = await debateScoringService.calculateFinalScore(debateId);
 
@@ -71,6 +73,30 @@ export const registerJobHandlers = () => {
       for:     score.scores?.for?.total ?? 0,
       against: score.scores?.against?.total ?? 0,
     };
+
+    // The written summary of the debate.
+    //
+    // This was previously produced by a `completeDebate` controller action that
+    // no route mounted, so it never ran for any debate. Generating it here ties
+    // it to the event it describes, and puts it behind the queue's retries —
+    // a summary is worth one more attempt, but never worth failing the scoring
+    // that participants are waiting on, hence the catch.
+    if (!debate.aiSummary) {
+      try {
+        const turns = await DebateTurn.find({ debate: debateId }).sort({ turnNumber: 1 }).lean();
+
+        debate.aiSummary = await debateAIService.generateDebateSummary(
+          debateId,
+          turns.filter(t => t.side === 'for'),
+          turns.filter(t => t.side === 'against'),
+          null,
+          'free',
+        );
+      } catch (error) {
+        logger.warn('debate summary generation failed', { debateId, error: error.message });
+      }
+    }
+
     await debate.save();
 
     logger.info('debate scored', {

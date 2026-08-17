@@ -171,6 +171,37 @@ const AIUsageDashboard = () => {
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">💰 AI Usage Dashboard</h1>
             <p className="text-slate-400 text-sm">Track your AI costs and optimize your budget</p>
+            {/* The page fetched today's budget alongside usage and then never
+                rendered it, so a user could read the tip telling them the system
+                downgrades models "when approaching budget limits" with no way to
+                see where they stood against that limit. */}
+            {budget && (
+              <div className="mt-3 max-w-sm">
+                <div className="flex items-baseline justify-between text-xs mb-1">
+                  <span className="text-slate-400">
+                    Today · <span className="capitalize text-slate-300">{budget.tier}</span> tier
+                  </span>
+                  <span className={budget.exceeded ? 'text-rose-400' : 'text-slate-300'}>
+                    ${Number(budget.spent || 0).toFixed(4)} / ${Number(budget.daily || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      budget.exceeded ? 'bg-rose-500'
+                        : budget.percentUsed > 80 ? 'bg-amber-400'
+                        : 'bg-emerald-400'
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(1, budget.percentUsed || 0))}%` }}
+                  />
+                </div>
+                {budget.exceeded && (
+                  <p className="text-rose-400 text-xs mt-1">
+                    Daily limit reached — resets at midnight UTC.
+                  </p>
+                )}
+              </div>
+            )}
             {lastRefreshed && (
               <p className="text-slate-600 text-xs mt-1">
                 Last updated: {lastRefreshed.toLocaleTimeString()}

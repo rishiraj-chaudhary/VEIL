@@ -1,76 +1,91 @@
 import debateAssistantService from '../services/debateAssistantService.js';
+import logger from '../utils/logger.js';
+import { authenticateSocket, socketRateLimiter } from './socketAuth.js';
 
 /**
- * Live Debate Assistant Socket Handler (Phase 2)
- * 
- * Provides real-time suggestions while users type
+ * Live Debate Assistant Socket Handler
+ *
+ * Provides real-time suggestions while users type.
+ *
+ * Every `analyze-draft` runs fallacy detection, rebuttal matching and strength
+ * scoring — several model calls. The namespace previously took no token, so
+ * those calls were reachable by anyone who could open a socket, and the `userId`
+ * used for throttling came from the message body, meaning a caller could vary it
+ * to defeat the service's own per-user throttle. Both now come from the verified
+ * handshake, with a connection-level ceiling on top.
  */
+
+// The service already throttles to one analysis every 2s per user; this is the
+// backstop against a client that reconnects or spins to get around it.
+const withinRateLimit = socketRateLimiter({ max: 40, windowMs: 60_000 });
+
 export const initLiveAssistant = (io) => {
   const assistantNamespace = io.of('/assistant');
 
+  assistantNamespace.use(authenticateSocket);
+
   assistantNamespace.on('connection', (socket) => {
-    console.log('🤖 Assistant connected:', socket.id);
+    logger.debug('assistant socket connected', { socketId: socket.id, userId: socket.userId });
 
     // Join debate assistant room
-    socket.on('join-debate-assistant', ({ debateId }) => {
+    socket.on('join-debate-assistant', ({ debateId } = {}) => {
+      if (!debateId) return;
       socket.join(`debate-assistant-${debateId}`);
-      console.log(`🤖 Socket ${socket.id} joined assistant for debate ${debateId}`);
     });
 
     // Leave debate assistant room
-    socket.on('leave-debate-assistant', ({ debateId }) => {
+    socket.on('leave-debate-assistant', ({ debateId } = {}) => {
+      if (!debateId) return;
       socket.leave(`debate-assistant-${debateId}`);
-      console.log(`🤖 Socket ${socket.id} left assistant for debate ${debateId}`);
     });
 
     // Analyze draft in real-time
-    socket.on('analyze-draft', async (data) => {
-      console.log('🔥 RECEIVED analyze-draft event:', data);
-      
+    socket.on('analyze-draft', async (data = {}) => {
       try {
-        const { debateId, userId, currentDraft, side } = data;
-        
-        // Validate input
-        if (!currentDraft || currentDraft.length < 20) {
-          console.log('⚠️ Draft too short, skipping analysis');
+        const { debateId, currentDraft, side } = data;
+
+        if (!currentDraft || currentDraft.length < 20) return;
+
+        if (!withinRateLimit(socket)) {
+          socket.emit('draft-insights-error', {
+            message: 'Slow down a moment — too many analyses in a short window.',
+          });
           return;
         }
 
-        console.log('📊 Calling debateAssistantService.getLiveDebateInsights...');
-        
-        // Call the service
         const insights = await debateAssistantService.getLiveDebateInsights({
           debateId,
-          userId,
+          // Identity comes from the handshake, never from the payload.
+          userId: socket.userId,
           currentDraft,
-          side
+          side,
         });
 
-        console.log('✅ Generated insights:', JSON.stringify(insights, null, 2));
-
-        // Send back to client
         socket.emit('draft-insights', insights);
-        
-        console.log('📤 Sent insights back to client');
 
       } catch (error) {
-        console.error('❌ Live assistant error:', error);
-        
-        // Send empty insights on error
+        // The draft content itself is never logged — it is a user's unsent
+        // argument, and this used to print the whole insight payload per call.
+        logger.error('live assistant failed', {
+          userId: socket.userId,
+          error: error.message,
+        });
+
         socket.emit('draft-insights', {
           warnings: [],
           opportunities: [],
           suggestions: [],
-          stats: {
-            wordCount: 0,
-            evidenceCount: 0
-          }
+          stats: { wordCount: 0, evidenceCount: 0 },
         });
       }
     });
 
     socket.on('disconnect', () => {
-      console.log('🤖 Assistant disconnected:', socket.id);
+      logger.debug('assistant socket disconnected', { socketId: socket.id });
     });
   });
+
+  return assistantNamespace;
 };
+
+export default initLiveAssistant;

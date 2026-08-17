@@ -1,6 +1,6 @@
-import axios from 'axios';
 import * as d3 from 'd3';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import api from '../../services/api';
 
 /**
  * CLAIM NETWORK VISUALIZATION
@@ -18,28 +18,13 @@ const ClaimNetworkVisualization = ({ claimId, width = 800, height = 600 }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-  const token = localStorage.getItem('token');
-
-  useEffect(() => {
-    if (claimId) {
-      fetchNetworkData();
-    }
-  }, [claimId]);
-
-  useEffect(() => {
-    if (data && svgRef.current) {
-      renderNetwork();
-    }
-  }, [data]);
-
-  const fetchNetworkData = async () => {
+  // Same `localStorage.token` mistake as ClaimStats — the app stores the access
+  // token under `veil_token`, so this sent `Bearer null`. The shared client
+  // attaches the right token and refreshes it when it expires.
+  const fetchNetworkData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${API_URL}/api/knowledge-graph/claims/${claimId}/relationships`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.get(`/knowledge-graph/claims/${claimId}/relationships`);
 
       const networkData = buildNetworkData(response.data.data);
       setData(networkData);
@@ -50,7 +35,19 @@ const ClaimNetworkVisualization = ({ claimId, width = 800, height = 600 }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [claimId]);
+
+  useEffect(() => {
+    if (claimId) fetchNetworkData();
+  }, [claimId, fetchNetworkData]);
+
+  useEffect(() => {
+    if (data && svgRef.current) renderNetwork();
+    // renderNetwork is defined below and closes over `data`; it is intentionally
+    // not a dependency, as including it would re-run the D3 simulation on every
+    // render and restart the force layout mid-animation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const buildNetworkData = (rawData) => {
     const nodes = [];

@@ -1,7 +1,6 @@
-import axios from 'axios';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import Navbar from '../components/common/Navbar';
+import api from '../services/api';
 
 /**
  * POPULAR CLAIMS DASHBOARD
@@ -14,7 +13,6 @@ import Navbar from '../components/common/Navbar';
  */
 
 const KnowledgeGraphDashboard = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('popular'); // popular, successful, topics
   const [selectedTopic, setSelectedTopic] = useState(null);
@@ -25,27 +23,15 @@ const KnowledgeGraphDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-  const token = localStorage.getItem('token');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
       const [popularRes, successfulRes, statsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/knowledge-graph/claims/popular?limit=20`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/api/knowledge-graph/claims/successful?limit=20`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/api/knowledge-graph/stats`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        api.get(`/knowledge-graph/claims/popular?limit=20`),
+        api.get(`/knowledge-graph/claims/successful?limit=20`),
+        api.get(`/knowledge-graph/stats`)
       ]);
 
       setPopularClaims(popularRes.data.data.claims);
@@ -56,16 +42,15 @@ const KnowledgeGraphDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
     try {
-      const response = await axios.get(
-        `${API_URL}/api/knowledge-graph/claims/search?query=${encodeURIComponent(searchQuery)}&limit=10`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.get(`/knowledge-graph/claims/search?query=${encodeURIComponent(searchQuery)}&limit=10`);
       setSearchResults(response.data.data.results);
     } catch (error) {
       console.error('Search error:', error);
@@ -75,10 +60,7 @@ const KnowledgeGraphDashboard = () => {
   const filterByTopic = async (topic) => {
     setSelectedTopic(topic);
     try {
-      const response = await axios.get(
-        `${API_URL}/api/knowledge-graph/claims/topic/${topic}?sort=popular&limit=20`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.get(`/knowledge-graph/claims/topic/${topic}?sort=popular&limit=20`);
       setPopularClaims(response.data.data.claims);
     } catch (error) {
       console.error('Filter error:', error);

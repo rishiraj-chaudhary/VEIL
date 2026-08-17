@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LiveAssistantPanel from '../components/debate/LiveAssistantPanel';
 import ScoreBreakdownModal from '../components/debate/ScoreBreakdownModal';
@@ -6,7 +6,7 @@ import SparringPanel from '../components/debate/SparringPanel';
 import VerdictExplainer from '../components/debate/VerdictExplainer';
 import { useLiveAssistant } from '../hooks/useLiveAssistant';
 import debateService from '../services/debateService';
-import { disconnectDebateSocket, initDebateSocket, joinDebateRoom, onDebateCompleted, onTurnSubmitted } from '../services/debateSocket';
+import { disconnectDebateSocket, initDebateSocket, joinDebateRoom, leaveDebateRoom, onDebateCompleted, onTurnSubmitted, onViewerCount } from '../services/debateSocket';
 
 // Score Bar Component
 const ScoreBar = ({ label, score, maxScore, color }) => {
@@ -44,7 +44,6 @@ const DebateRoom = () => {
   const [error, setError] = useState(null);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [selectedRound, setSelectedRound] = useState(null);
   const [viewerCount, setViewerCount] = useState(0);
   const [detailedScore, setDetailedScore] = useState(null);
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
@@ -59,80 +58,7 @@ const DebateRoom = () => {
 
   const { insights, isAnalyzing, analyzeDraft } = useLiveAssistant(id, userSide);
 
-  useEffect(() => {
-    if (id) {
-      loadDebate();
-      loadTurns();
-      
-      // Initialize sockets first
-      const socket = initDebateSocket();
-      
-      // Wait for socket connection before setting up listeners
-      if (socket) {
-        // Join room immediately
-        joinDebateRoom(id);
-        
-        // Set up listeners
-        const unsubTurn = onTurnSubmitted((data) => {
-          console.log('🔔 New turn submitted:', data);
-          loadTurns();
-        });
-  
-        const unsubCompleted = onDebateCompleted((data) => {
-          console.log('🎉 Debate completed:', data);
-          loadDebate();
-          loadTurns();
-          fetchDetailedScore();
-        });
-  
-        // Cleanup function
-        return () => {
-          if (typeof unsubTurn === 'function') {
-            unsubTurn();
-          }
-          if (typeof unsubCompleted === 'function') {
-            unsubCompleted();
-          }
-          disconnectDebateSocket();
-        };
-      }
-    }
-    
-    // If no socket, just clean up
-    return () => {
-      disconnectDebateSocket();
-    };
-  }, [id]);
-
-  // Auto-fetch score when debate completes
-  useEffect(() => {
-    if (debate?.status === 'completed' && !detailedScore) {
-      fetchDetailedScore();
-    }
-  }, [debate?.status]);
-
-  // While the AI is composing, poll as a safety net. The socket broadcast is the
-  // primary signal, but a dropped connection would otherwise leave the user
-  // staring at a spinner for a turn that has already been written.
-  useEffect(() => {
-    if (debate?.status !== 'active') return undefined;
-
-    const opponentIsAI = debate.participants?.some(p => p.isAI);
-    const myTurn = debate.currentTurn && (
-      debate.currentTurn._id === currentUser?.id || debate.currentTurn === currentUser?.id
-    );
-
-    if (!opponentIsAI || myTurn) return undefined;
-
-    const poll = setInterval(() => {
-      loadDebate();
-      loadTurns();
-    }, 4000);
-
-    return () => clearInterval(poll);
-  }, [debate?.status, debate?.currentTurn, debate?.participants, currentUser?.id]); // eslint-disable-line
-
-  const loadDebate = async () => {
+  const loadDebate = useCallback(async () => {
     try {
       setLoading(true);
       const response = await debateService.getDebate(id);
@@ -153,9 +79,9 @@ const DebateRoom = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const loadTurns = async () => {
+  const loadTurns = useCallback(async () => {
     try {
       const response = await debateService.getDebateTurns(id);
       
@@ -174,9 +100,9 @@ const DebateRoom = () => {
       console.error('Failed to load turns:', error);
       setTurns([]);
     }
-  };
+  }, [id]);
 
-  const fetchDetailedScore = async () => {
+  const fetchDetailedScore = useCallback(async () => {
     try {
       const response = await debateService.getDebateScore(id);
       if (response.success && response.data) {
@@ -185,7 +111,83 @@ const DebateRoom = () => {
     } catch (error) {
       console.error('Failed to fetch detailed score:', error);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      loadDebate();
+      loadTurns();
+      
+      // Initialize sockets first
+      const socket = initDebateSocket();
+      
+      // Wait for socket connection before setting up listeners
+      if (socket) {
+        // Join room immediately
+        joinDebateRoom(id);
+        
+        // Set up listeners
+        const unsubTurn = onTurnSubmitted(() => {
+          loadTurns();
+        });
+  
+        const unsubCompleted = onDebateCompleted(() => {
+          loadDebate();
+          loadTurns();
+          fetchDetailedScore();
+        });
+
+        // The server has always broadcast viewer-count and the client has always
+        // held state for it — nothing ever connected the two, so the count sat
+        // at 0 and the value was dropped on the floor.
+        const unsubViewers = onViewerCount((count) => {
+          setViewerCount(typeof count === 'number' ? count : 0);
+        });
+
+        // Cleanup function
+        return () => {
+          if (typeof unsubTurn === 'function') unsubTurn();
+          if (typeof unsubCompleted === 'function') unsubCompleted();
+          if (typeof unsubViewers === 'function') unsubViewers();
+          leaveDebateRoom(id);
+          disconnectDebateSocket();
+        };
+      }
+    }
+    
+    // If no socket, just clean up
+    return () => {
+      disconnectDebateSocket();
+    };
+  }, [id, loadDebate, loadTurns, fetchDetailedScore]);
+
+  // Auto-fetch score when debate completes
+  useEffect(() => {
+    if (debate?.status === 'completed' && !detailedScore) {
+      fetchDetailedScore();
+    }
+  }, [debate?.status, detailedScore, fetchDetailedScore]);
+
+  // While the AI is composing, poll as a safety net. The socket broadcast is the
+  // primary signal, but a dropped connection would otherwise leave the user
+  // staring at a spinner for a turn that has already been written.
+  useEffect(() => {
+    if (debate?.status !== 'active') return undefined;
+
+    const opponentIsAI = debate.participants?.some(p => p.isAI);
+    const myTurn = debate.currentTurn && (
+      debate.currentTurn._id === currentUser?.id || debate.currentTurn === currentUser?.id
+    );
+
+    if (!opponentIsAI || myTurn) return undefined;
+
+    const poll = setInterval(() => {
+      loadDebate();
+      loadTurns();
+    }, 4000);
+
+    return () => clearInterval(poll);
+  }, [debate?.status, debate?.currentTurn, debate?.participants, currentUser?.id, loadDebate, loadTurns]);
 
   const handleSubmitTurn = async (e) => {
     e.preventDefault();
@@ -344,9 +346,21 @@ const DebateRoom = () => {
                 {debate.description || 'No description'}
               </p>
             </div>
-            <span className={`px-3 py-1 rounded text-sm font-semibold ${getStatusColor(debate.status)}`}>
-              {debate.status?.toUpperCase()}
-            </span>
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Live audience size, from the socket's viewer-count broadcast. */}
+              {viewerCount > 0 && debate.status === 'active' && (
+                <span
+                  className="flex items-center gap-1.5 text-xs text-slate-400"
+                  title={`${viewerCount} ${viewerCount === 1 ? 'person is' : 'people are'} watching`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                  {viewerCount} watching
+                </span>
+              )}
+              <span className={`px-3 py-1 rounded text-sm font-semibold ${getStatusColor(debate.status)}`}>
+                {debate.status?.toUpperCase()}
+              </span>
+            </div>
           </div>
         </div>
 

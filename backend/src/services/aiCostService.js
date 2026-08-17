@@ -172,6 +172,48 @@ class AICostService {
   }
 
   /**
+   * Pick a model for this user given how much of today's budget is left.
+   *
+   * `grokService.generateWithBudget` has always called this, but it was never
+   * defined on the class — so every debate summary threw
+   * "AICostService.getRecommendedModel is not a function" at the point of
+   * generation. Failing open matters here: a budget lookup problem should
+   * degrade the model choice, never block the feature.
+   */
+  static async getRecommendedModel(userId, userTier = 'free', preferredModel = 'llama-3.3-70b-versatile') {
+    const fallback = {
+      model: preferredModel,
+      reason: 'budget unavailable, using preferred model',
+      budget: null,
+    };
+
+    if (!userId) return { ...fallback, reason: 'unattributed call, using preferred model' };
+
+    try {
+      const { budget } = await this.canUserMakeRequest(userId, userTier);
+      if (!budget) return fallback;
+
+      const model = this.selectModelForBudget(userTier, budget);
+
+      const reason = budget.exceeded
+        ? 'daily budget exceeded, downgraded to the cheapest model'
+        : budget.percentUsed > 80
+          ? `${Math.round(budget.percentUsed)}% of daily budget used, using a cheaper model`
+          : 'within budget';
+
+      // Never upgrade past what the caller asked for — a caller that requested
+      // the fast model wants the fast model's cost, not the budget's ceiling.
+      const resolved = preferredModel === 'llama-3.1-8b-instant' ? preferredModel : model;
+
+      return { model: resolved, reason, budget };
+
+    } catch (error) {
+      console.error('❌ Failed to recommend model:', error.message);
+      return fallback;
+    }
+  }
+
+  /**
    * Select appropriate model based on budget
    */
   static selectModelForBudget(userTier, budgetStatus) {

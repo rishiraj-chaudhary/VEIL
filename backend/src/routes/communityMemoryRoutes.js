@@ -20,7 +20,8 @@ import { communityAnalysisValidators } from '../validators/index.js';
 
 const router = express.Router();
 
-router.get('/:name/memory', validate(communityAnalysisValidators.byName), getCommunityMemory);
+// Authenticated: a stale cache turns this read into a full memory-graph run.
+router.get('/:name/memory', authenticate, validate(communityAnalysisValidators.byName), getCommunityMemory);
 router.post('/:name/memory/analyse', authenticate, validate(communityAnalysisValidators.byName), analyseCommunityMemory);
 
 export default router;

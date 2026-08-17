@@ -1,6 +1,6 @@
-import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import {
   CartesianGrid, Legend, Line, LineChart,
   PolarAngleAxis, PolarGrid, PolarRadiusAxis,
@@ -83,38 +83,58 @@ const CoachDashboard = () => {
   const [tips, setTips]         = useState([]);
   const [achievements, setAchievements] = useState([]);
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-  const token   = localStorage.getItem('veil_token');
-  const user    = JSON.parse(localStorage.getItem('veil_user') || '{}');
+  const [error, setError] = useState(null);
 
-  useEffect(() => { fetchCoachData(); }, []); // eslint-disable-line
-
-  const fetchCoachData = async () => {
+  /**
+   * All four reads go through the shared `api` client.
+   *
+   * They previously used bare axios with a hand-attached Authorization header
+   * read once at render. That skipped the response interceptor, so when the
+   * short-lived access token expired the page did not refresh it — it just
+   * stopped loading, silently, until a full reload. They also passed
+   * `?userId=<me>`, which the server no longer honours: identity comes from the
+   * token, and sending it invited exactly the substitution that made this data
+   * readable across accounts.
+   */
+  const fetchCoachData = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const [summaryRes, progressRes, tipsRes, achievementsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/coach/summary?userId=${user.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/api/coach/progress?userId=${user.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/api/coach/tips?userId=${user.id}`,    { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/api/coach/achievements?userId=${user.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        api.get('/coach/summary'),
+        api.get('/coach/progress'),
+        api.get('/coach/tips'),
+        api.get('/coach/achievements'),
       ]);
+
       setSummary(summaryRes.data.data);
       setProgress(progressRes.data.data);
       setTips(tipsRes.data.data.tips || []);
       setAchievements(achievementsRes.data.data.achievements || []);
     } catch (err) {
       console.error('Failed to fetch coach data:', err);
+      // A failure used to leave the page on its empty state, indistinguishable
+      // from "you have no data yet".
+      setError('Could not load your coaching data. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchCoachData(); }, [fetchCoachData]);
 
   const dismissTip = async (tipId) => {
+    // Optimistic, with a rollback — the tip vanished from the list even when the
+    // request failed, so it reappeared on the next load with no explanation.
+    const previous = tips;
+    setTips(tips.filter(t => t._id !== tipId));
+
     try {
-      await axios.post(`${API_URL}/api/coach/tips/${tipId}/dismiss`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      setTips(tips.filter(t => t._id !== tipId));
+      await api.post(`/coach/tips/${tipId}/dismiss`);
     } catch (err) {
       console.error('Failed to dismiss tip:', err);
+      setTips(previous);
     }
   };
 
@@ -124,6 +144,25 @@ const CoachDashboard = () => {
         <Navbar />
         <div className="flex items-center justify-center h-96">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-veil-purple" />
+        </div>
+      </div>
+    );
+  }
+
+  // A failed load is not the same as an empty one, and must not be shown as
+  // "start debating" to someone who has been debating for weeks.
+  if (error) {
+    return (
+      <div className="min-h-screen bg-veil-dark">
+        <Navbar />
+        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-white mb-3">Couldn’t load your coaching data</h1>
+          <p className="text-slate-400 mb-8">{error}</p>
+          <button onClick={fetchCoachData}
+            className="px-6 py-3 bg-veil-purple hover:bg-veil-indigo text-veil-on-accent rounded-lg font-semibold transition-colors">
+            Try again
+          </button>
         </div>
       </div>
     );

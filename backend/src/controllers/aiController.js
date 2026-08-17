@@ -9,13 +9,17 @@ import grokService from '../services/grokService.js';
 // @access  Private
 export const oracleReply = async (req, res) => {
     try {
-      const { prompt, postId, parentId, replyingTo, options = {} } = req.body;
-  
+      // The validator accepts either `prompt` or `message`, but this only ever
+      // read `prompt` — a client following the validated contract with `message`
+      // got a 400 saying the field it had sent was required.
+      const { postId, parentId, replyingTo, options = {} } = req.body;
+      const prompt = req.body.prompt || req.body.message;
+
       // Validation
       if (!prompt) {
         return res.status(400).json({
           success: false,
-          message: 'Prompt is required',
+          message: 'A prompt is required',
         });
       }
   
@@ -94,10 +98,17 @@ export const oracleReply = async (req, res) => {
         },
       });
     } catch (error) {
-      console.error('Oracle reply error:', error);
-      res.status(500).json({
+      req.log?.error('oracle generation failed', { error: error.message });
+
+      // The provider's own messages are safe and actionable ("Daily AI token
+      // budget exhausted", "Rate limit exceeded"); anything else is an internal
+      // failure whose text must not reach the client. This used to forward
+      // `error.message` unconditionally.
+      const isUserFacing = /rate limit|budget|timeout|not configured/i.test(error.message || '');
+
+      res.status(isUserFacing ? 503 : 500).json({
         success: false,
-        message: error.message || 'AI generation failed',
+        message: isUserFacing ? error.message : 'AI generation failed',
       });
     }
   };
@@ -122,69 +133,6 @@ export const getAIStatus = asyncHandler(async (req, res) => {
       },
     });
 });
-
-/**
- * Get category leaders (Tone, Clarity, Evidence, Logic)
- */
-/**
- * Get user's rank position
- */
-/**
- * Get all leaderboards (combined view)
- */
-export const getAllLeaderboards = asyncHandler(async (req, res) => {
-    const [overall, improvers, tone, clarity, evidence, logic] = await Promise.all([
-      UserPerformance.getLeaderboard(10, 'winRate'),
-      UserPerformance.getTopImprovers(10),
-      UserPerformance.getCategoryLeaders('tone', 5),
-      UserPerformance.getCategoryLeaders('clarity', 5),
-      UserPerformance.getCategoryLeaders('evidence', 5),
-      UserPerformance.getCategoryLeaders('logic', 5)
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        overall: overall.map((p, i) => ({
-          rank: i + 1,
-          username: p.user?.username,
-          winRate: Math.round(p.stats.winRate),
-          totalDebates: p.stats.totalDebates,
-          tier: p.rank
-        })),
-        improvers: improvers.map((p, i) => ({
-          rank: i + 1,
-          username: p.user?.username,
-          growth: p.improvement.overallGrowth,
-          velocity: p.improvement.velocity
-        })),
-        categoryLeaders: {
-          tone: tone.map((p, i) => ({
-            rank: i + 1,
-            username: p.user?.username,
-            score: Math.round(p.qualityMetrics.avgToneScore)
-          })),
-          clarity: clarity.map((p, i) => ({
-            rank: i + 1,
-            username: p.user?.username,
-            score: Math.round(p.qualityMetrics.avgClarityScore)
-          })),
-          evidence: evidence.map((p, i) => ({
-            rank: i + 1,
-            username: p.user?.username,
-            score: Math.round(p.qualityMetrics.avgEvidenceScore)
-          })),
-          logic: logic.map((p, i) => ({
-            rank: i + 1,
-            username: p.user?.username,
-            score: Math.round((1 - p.fallacyStats.fallacyRate) * 100)
-          }))
-        }
-      }
-    });
-
-});
-
 
 /**
  * Build context for Oracle AI

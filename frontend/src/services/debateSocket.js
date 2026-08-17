@@ -1,31 +1,28 @@
 import io from 'socket.io-client';
+import { authToken } from './socket';
 
 const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 let debateSocket = null;
 
 export const initDebateSocket = () => {
-  if (debateSocket?.connected) {
-    return debateSocket;
-  }
+  // Was `debateSocket?.connected`, which is false during the reconnect window —
+  // so a call made mid-reconnect opened a second socket and orphaned the first,
+  // leaving duplicate listeners and duplicated turn events in the debate room.
+  if (debateSocket) return debateSocket;
 
   debateSocket = io(SOCKET_URL, {
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5
+    reconnectionAttempts: 5,
+    // The default namespace is authenticated; without this the handshake is
+    // rejected and no debate events arrive.
+    auth: (cb) => cb({ token: authToken() }),
   });
 
-  debateSocket.on('connect', () => {
-    console.log('✅ Debate socket connected:', debateSocket.id);
-  });
-
-  debateSocket.on('disconnect', (reason) => {
-    console.log('❌ Debate socket disconnected:', reason);
-  });
-
-  debateSocket.on('error', (error) => {
-    console.error('Debate socket error:', error);
+  debateSocket.on('connect_error', (error) => {
+    console.error('Debate socket connection error:', error.message);
   });
 
   return debateSocket;

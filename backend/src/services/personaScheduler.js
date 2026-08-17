@@ -26,10 +26,14 @@ class PersonaScheduler {
 
     // Then run every 24 hours
     this.interval = setInterval(() => {
-      this.runScheduledSnapshots().catch(err => 
+      this.runScheduledSnapshots().catch(err =>
         console.error('Scheduled snapshot error:', err)
       );
     }, 24 * 60 * 60 * 1000); // 24 hours
+
+    // Matches feedScheduler: a background timer should not by itself keep the
+    // process alive through a shutdown.
+    this.interval.unref?.();
 
     console.log('✅ Persona scheduler started (runs daily)');
   }
@@ -100,16 +104,28 @@ class PersonaScheduler {
   /**
    * Get active users who should be considered for snapshots
    */
+  /**
+   * Users worth taking a persona snapshot of.
+   *
+   * The filter was `createdAt: { $lte: sixtyDaysAgo }` — accounts *registered*
+   * more than 60 days ago — while the comment above it described users active in
+   * the last 60 days. Those are opposite populations, and the query excluded
+   * exactly the people the feature is for: on a platform younger than 60 days it
+   * matched nobody at all, and after that it snapshotted dormant old accounts
+   * while ignoring everyone who had just joined and started debating.
+   */
   async getActiveUsers() {
     try {
-      // Find users who have activity in the last 60 days
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      const activeSince = new Date();
+      activeSince.setDate(activeSince.getDate() - 60);
 
-      // Get users with recent debate activity (you can expand this query)
       const users = await User.find({
-        createdAt: { $lte: sixtyDaysAgo }, // Only users who've been around for 60+ days
-        isSystem: { $ne: true },          // the AI opponent has no persona to track
+        isActive: true,
+        isSystem: { $ne: true },   // the AI opponent has no persona to track
+        $or: [
+          { lastLogin: { $gte: activeSince } },
+          { updatedAt: { $gte: activeSince } },
+        ],
       })
       .select('_id')
       .limit(100) // Process max 100 users per run

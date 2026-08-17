@@ -5,9 +5,11 @@ const CurrencyBadge = () => {
   const { currency, fetchCurrency } = useSlickStore();
   const [showDetails, setShowDetails] = useState(false);
 
+  // `fetchCurrency` comes from a Zustand store, so its identity is stable across
+  // renders and listing it does not cause a refetch loop.
   useEffect(() => {
     fetchCurrency();
-  }, []);
+  }, [fetchCurrency]);
 
   return (
     <div className="relative">

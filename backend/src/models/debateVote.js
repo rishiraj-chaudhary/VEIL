@@ -48,12 +48,18 @@ debateVoteSchema.index(
 // Index for efficient vote counting
 debateVoteSchema.index({ debate: 1, round: 1, vote: 1 });
 
+// Mongoose 6+ made ObjectId a real class, so calling it without `new` throws
+// "Class constructor ObjectId cannot be invoked without 'new'". Both aggregates
+// below did exactly that, which meant every vote-reading endpoint 500'd.
+const toObjectId = value =>
+  value instanceof mongoose.Types.ObjectId ? value : new mongoose.Types.ObjectId(String(value));
+
 // Static method to get vote counts for a round
 debateVoteSchema.statics.getRoundVotes = async function(debateId, round) {
   return this.aggregate([
     {
       $match: {
-        debate: mongoose.Types.ObjectId(debateId),
+        debate: toObjectId(debateId),
         round: round
       }
     },
@@ -70,7 +76,7 @@ debateVoteSchema.statics.getRoundVotes = async function(debateId, round) {
 // Static method to get all votes for a debate
 debateVoteSchema.statics.getDebateVotes = async function(debateId) {
   return this.aggregate([
-    { $match: { debate: mongoose.Types.ObjectId(debateId) } },
+    { $match: { debate: toObjectId(debateId) } },
     {
       $group: {
         _id: {
@@ -136,6 +142,6 @@ debateVoteSchema.statics.hasUserVoted = async function(debateId, round, userId) 
   return !!vote;
 };
 
-const debateVote = mongoose.model('debateVote', debateVoteSchema);
+const debateVote = mongoose.models.debateVote || mongoose.model('debateVote', debateVoteSchema);
 
 export default debateVote;

@@ -1,17 +1,14 @@
 import { useEffect } from 'react';
 import { getSocket } from '../services/socket';
 
-export const useSocket = () => {
-  useEffect(() => {
-    const socket = getSocket();
-
-    return () => {
-      // Don't disconnect on unmount, keep connection alive
-    };
-  }, []);
-
-  return getSocket();
-};
+/**
+ * The shared socket connection.
+ *
+ * Deliberately not disconnected on unmount: the connection is process-wide and
+ * other mounted components depend on it. `disconnectSocket` in services/socket
+ * is the explicit teardown, used on logout.
+ */
+export const useSocket = () => getSocket();
 
 export const useSocketEvent = (event, callback) => {
   useEffect(() => {
@@ -23,3 +20,5 @@ export const useSocketEvent = (event, callback) => {
     };
   }, [event, callback]);
 };
+
+export default useSocket;

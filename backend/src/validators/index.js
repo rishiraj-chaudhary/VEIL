@@ -199,6 +199,8 @@ export const knowledgeGraphValidators = {
   byTopic: [param('topic').trim().notEmpty().withMessage('is required')],
   search: [
     query('q').optional().trim().isLength({ max: 300 }).withMessage('is too long'),
+    // The frontend sends `query`; it was unbounded because only `q` was checked.
+    query('query').optional().trim().isLength({ max: 300 }).withMessage('is too long'),
     query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('must be between 1 and 100'),
   ],
   claimStats: [
@@ -207,6 +209,51 @@ export const knowledgeGraphValidators = {
 };
 
 export const debateValidators = {
+  list: [
+    query('status').optional().isIn(['pending', 'active', 'completed', 'cancelled'])
+      .withMessage('is not a recognised status'),
+    query('type').optional().isIn(['text', 'voice', 'video']).withMessage('is not a recognised type'),
+    query('visibility').optional().isIn(['public', 'private']).withMessage("must be 'public' or 'private'"),
+    query('myDebates').optional().isIn(['true', 'false']).withMessage("must be 'true' or 'false'"),
+    query('page').optional().isInt({ min: 1 }).withMessage('must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('must be between 1 and 100'),
+  ],
+
+  create: [
+    body('topic').trim().isLength({ min: 3, max: 300 }).withMessage('must be 3-300 characters'),
+    body('description').optional({ values: 'falsy' }).trim().isLength({ max: 1000 }).withMessage('is too long'),
+    body('type').optional().isIn(['text', 'voice', 'video']).withMessage('is not a recognised type'),
+    body('format').optional().isIn(['1v1', 'team']).withMessage('is not a recognised format'),
+    body('visibility').optional().isIn(['public', 'private']).withMessage("must be 'public' or 'private'"),
+    body('initiatorSide').optional().isIn(['for', 'against']).withMessage("must be 'for' or 'against'"),
+    body('originType').optional({ values: 'falsy' })
+      .isIn(['post', 'comment', 'slick', 'community', 'standalone']).withMessage('is not a recognised origin'),
+    objectId(body('originId').optional({ values: 'null' })),
+  ],
+
+  join: [
+    objectId(param('id')),
+    body('side').isIn(['for', 'against']).withMessage("must be 'for' or 'against'"),
+  ],
+
+  submitTurn: [
+    objectId(param('debateId')),
+    body('content').trim().isLength({ min: 10, max: 20000 }).withMessage('must be 10-20000 characters'),
+  ],
+
+  vote: [
+    objectId(param('debateId')),
+    param('round').isInt({ min: 1 }).withMessage('must be a positive integer'),
+    body('vote').isIn(['for', 'against']).withMessage("must be 'for' or 'against'"),
+    body('confidence').optional().isInt({ min: 1, max: 5 }).withMessage('must be between 1 and 5'),
+  ],
+
+  liveInsights: [
+    objectId(param('debateId')),
+    body('currentDraft').trim().isLength({ min: 1, max: 20000 }).withMessage('is required'),
+    body('side').optional().isIn(['for', 'against']).withMessage("must be 'for' or 'against'"),
+  ],
+
   createVsAI: [
     body('topic').trim().isLength({ min: 3, max: 300 }).withMessage('must be 3-300 characters'),
     body('side').optional().isIn(['for', 'against']).withMessage("must be 'for' or 'against'"),
@@ -214,6 +261,19 @@ export const debateValidators = {
       .withMessage("must be 'easy', 'balanced', 'hard' or 'brutal'"),
     body('style').optional().isIn(['socratic', 'evidence', 'aggressive', 'empathetic'])
       .withMessage('is not a recognised opponent style'),
+  ],
+};
+
+export const turnValidators = {
+  byId:        [objectId(param('turnId'))],
+  byDebate:    [objectId(param('debateId'))],
+  byRound:     [
+    objectId(param('debateId')),
+    query('round').optional().isInt({ min: 1 }).withMessage('must be a positive integer'),
+  ],
+  byRoundParam: [
+    objectId(param('debateId')),
+    param('round').isInt({ min: 1 }).withMessage('must be a positive integer'),
   ],
 };
 

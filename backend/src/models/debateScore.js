@@ -94,19 +94,39 @@ const debateScoreSchema = new mongoose.Schema({
   }],
 
   // AI Insights
+  //
+  // This block previously declared `strongestArgumentFor`, `missedRebuttals` and
+  // `overallAnalysis`, none of which the scoring service writes — it produces
+  // `strongestArguments`, `missedOpportunities`, `keyMoments` and `summary`.
+  // Under strict mode every one of those keys was silently discarded on write,
+  // so the LLM call that generates the debate summary was paid for on every
+  // completed debate and its output never stored. The shape now matches the
+  // producer.
   insights: {
-    strongestArgumentFor: String,
-    strongestArgumentAgainst: String,
-    missedRebuttals: [String],
-    keyMoments: [{
-      turn: Number,
-      description: String,
-      impact: {
-        type: String,
-        enum: ['high', 'medium', 'low'],
+    strongestArguments: {
+      for: {
+        content: String,
+        quality: Number,
+        round:   Number,
       },
+      against: {
+        content: String,
+        quality: Number,
+        round:   Number,
+      },
+    },
+    missedOpportunities: [{
+      side:        { type: String, enum: ['for', 'against'] },
+      missedClaim: String,
+      round:       Number,
     }],
-    overallAnalysis: String,
+    keyMoments: [{
+      round:       Number,
+      side:        { type: String, enum: ['for', 'against'] },
+      type:        { type: String, enum: ['strong_response', 'weak_response'] },
+      description: String,
+    }],
+    summary: String,
   },
 
   // Winner determination
@@ -122,7 +142,12 @@ const debateScoreSchema = new mongoose.Schema({
   },
   reasoning: String,
 
-  // Weights used for calculation
+  // Weights used for calculation.
+  //
+  // These must match debateScoringService.weightedTotal, which is what actually
+  // computes the stored totals. They previously read 40/25/15/20 while the
+  // service used 40/30/15/15, so the record of "how this was scored" contradicted
+  // the score sitting next to it.
   weights: {
     argumentQuality: {
       type: Number,
@@ -130,7 +155,7 @@ const debateScoreSchema = new mongoose.Schema({
     },
     rebuttalEffectiveness: {
       type: Number,
-      default: 25,
+      default: 30,
     },
     conductClarity: {
       type: Number,
@@ -138,7 +163,7 @@ const debateScoreSchema = new mongoose.Schema({
     },
     audienceSupport: {
       type: Number,
-      default: 20,
+      default: 15,
     },
   },
 
@@ -151,40 +176,23 @@ const debateScoreSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Calculate total scores before saving
+/**
+ * Confidence is derived here; totals and winner are not.
+ *
+ * This hook used to recompute both totals from its own weight set and then
+ * overwrite `winner` with its own draw rule. That is a second, disagreeing
+ * implementation of the verdict: the service weights reasoning at 40/30/15/15
+ * and declares any margin a win, while this declared a draw under five points
+ * using 40/25/15/20. It only ever stayed invisible because the service writes
+ * through `findOneAndUpdate`, which does not run document middleware — so the
+ * two would have diverged the moment anyone called `.save()`.
+ *
+ * The service owns the verdict. This fills in the margin-derived confidence,
+ * which nothing else computes.
+ */
 debateScoreSchema.pre('save', function(next) {
-  const weights = this.weights;
-  
-  // Calculate total for 'for' side
-  this.scores.for.total = (
-    (this.scores.for.argumentQuality * weights.argumentQuality / 100) +
-    (this.scores.for.rebuttalEffectiveness * weights.rebuttalEffectiveness / 100) +
-    (this.scores.for.conductClarity * weights.conductClarity / 100) +
-    (this.scores.for.audienceSupport * weights.audienceSupport / 100)
-  );
-
-  // Calculate total for 'against' side
-  this.scores.against.total = (
-    (this.scores.against.argumentQuality * weights.argumentQuality / 100) +
-    (this.scores.against.rebuttalEffectiveness * weights.rebuttalEffectiveness / 100) +
-    (this.scores.against.conductClarity * weights.conductClarity / 100) +
-    (this.scores.against.audienceSupport * weights.audienceSupport / 100)
-  );
-
-  // Determine winner based on total scores
-  const diff = Math.abs(this.scores.for.total - this.scores.against.total);
-  
-  if (diff < 5) { // If within 5 points, it's a draw
-    this.winner = 'draw';
-    this.confidence = 50;
-  } else if (this.scores.for.total > this.scores.against.total) {
-    this.winner = 'for';
-    this.confidence = Math.min(50 + diff, 100);
-  } else {
-    this.winner = 'against';
-    this.confidence = Math.min(50 + diff, 100);
-  }
-
+  const diff = Math.abs((this.scores?.for?.total ?? 0) - (this.scores?.against?.total ?? 0));
+  this.confidence = this.winner === 'draw' ? 50 : Math.min(50 + diff, 100);
   next();
 });
 
@@ -199,6 +207,6 @@ debateScoreSchema.methods.getWinningMargin = function() {
   return this.getScoreDifference();
 };
 
-const debateScore = mongoose.model('debateScore', debateScoreSchema);
+const debateScore = mongoose.models.debateScore || mongoose.model('debateScore', debateScoreSchema);
 
 export default debateScore;

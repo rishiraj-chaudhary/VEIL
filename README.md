@@ -65,8 +65,16 @@ npm start                              # :3000
 ### Verify the install
 
 ```bash
-npm test     # 49 unit tests, no network required
+npm test       # 149 tests — unit plus in-memory-Mongo integration, no network
 npm run smoke  # 18 integration checks against your database + live models
+```
+
+The frontend has its own:
+
+```bash
+cd frontend
+npm test              # routing/auth-gating tests
+CI=true npm run build # warnings are errors
 ```
 
 ---
@@ -198,10 +206,17 @@ frontend/src/
 
 - **Atlas required.** `$vectorSearch` has no local-MongoDB equivalent; RAG degrades to
   disabled (the app still runs, and says so at boot).
-- **No job queue.** Background AI work uses `setImmediate` — it is lost on restart and
-  has no retries. BullMQ is the intended fix.
-- **JWT in `localStorage`**, long-lived, no rotation.
+- **Single-process job worker.** Background AI work runs through a MongoDB-backed queue
+  (`services/jobQueue.js`) with atomic claims, retries and exponential backoff, so it
+  survives restarts. It polls rather than subscribes, so a job waits up to
+  `JOB_POLL_INTERVAL_MS` before starting.
+- **Access token in `localStorage`.** It is short-lived and the refresh token lives in
+  an httpOnly cookie with rotation and reuse detection, but the access token itself is
+  still readable by script on the page.
 - **Slicks** (anonymous feedback about a user) are authorization-gated but remain a
   design with real harassment potential.
 - Scores come from language models and vary slightly between runs; borderline cases
   will not be identical every time.
+- **Rank and scoring are recomputed, never backfilled.** Debates completed before the
+  scoring fixes have no `UserPerformance` record; only debates finished afterwards
+  contribute to the coach dashboard and leaderboards.

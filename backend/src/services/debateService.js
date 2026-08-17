@@ -182,7 +182,7 @@ class DebateService {
   async getDebates({
     status,
     type,
-    visibility = 'public',
+    visibility,
     userId,
     originType,
     originId,
@@ -195,22 +195,35 @@ class DebateService {
 
       if (status) filter.status = status;
       if (type) filter.type = type;
-      if (visibility) filter.visibility = visibility;
       if (originType) filter.originType = originType;
       if (originId) filter.originId = originId;
-      
-      // User's debates (as initiator or participant)
+
       if (userId) {
+        // "My debates": everything this user is in, whatever its visibility.
+        //
+        // `visibility` used to default to 'public', and it was applied here too —
+        // so a user's own practice debates against the AI, which are created
+        // private by design, were filtered out of the one list meant to show
+        // them. The feature appeared to do nothing: you could start a practice
+        // debate and never find it again.
         filter.$or = [
           { initiator: userId },
           { 'participants.user': userId }
         ];
+        if (visibility) filter.visibility = visibility;
+      } else {
+        // Browsing: only public debates, and never someone else's private one
+        // just because they asked for `?visibility=private`.
+        filter.visibility = 'public';
       }
+
+      const clampedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const clampedPage  = Math.max(1, parseInt(page, 10) || 1);
 
       const debates = await Debate.find(filter)
         .sort(sort)
-        .limit(parseInt(limit))
-        .skip((parseInt(page) - 1) * parseInt(limit))
+        .limit(clampedLimit)
+        .skip((clampedPage - 1) * clampedLimit)
         .populate('initiator', 'username karma')
         .populate('participants.user', 'username karma');
 
@@ -220,10 +233,10 @@ class DebateService {
         success: true,
         debates,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page: clampedPage,
+          limit: clampedLimit,
           total,
-          pages: Math.ceil(total / parseInt(limit))
+          pages: Math.ceil(total / clampedLimit)
         }
       };
     } catch (error) {

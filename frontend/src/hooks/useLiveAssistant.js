@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { authToken } from '../services/socket';
 
 /**
- * LIVE DEBATE ASSISTANT HOOK (GUARANTEED WORKING VERSION)
+ * LIVE DEBATE ASSISTANT HOOK
+ *
+ * Streams draft analysis over the /assistant namespace. That namespace is now
+ * authenticated — each analysis costs several model calls, so it cannot be
+ * reachable without a token — and it derives the user from the handshake, so
+ * nothing here needs to send a userId.
  */
 export const useLiveAssistant = (debateId, side) => {
   const [insights, setInsights] = useState(null);
@@ -15,12 +21,7 @@ export const useLiveAssistant = (debateId, side) => {
 
   // Initialize socket connection
   useEffect(() => {
-    if (!debateId) {
-      console.log('❌ No debateId, skipping socket setup');
-      return;
-    }
-
-    console.log('🔌 Setting up assistant socket for debate:', debateId);
+    if (!debateId) return undefined;
 
     // Create socket
     const assistantSocket = io(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/assistant`, {
@@ -28,7 +29,8 @@ export const useLiveAssistant = (debateId, side) => {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
+      auth: (cb) => cb({ token: authToken() }),
     });
 
     // 🔥 CRITICAL: Set up ALL listeners BEFORE connecting
@@ -36,44 +38,35 @@ export const useLiveAssistant = (debateId, side) => {
 
     // Draft insights listener
     assistantSocket.on('draft-insights', (data) => {
-      console.log('📥📥📥 RECEIVED INSIGHTS!');
-      console.log('📥 Data:', data);
-      console.log('📥 Warnings:', data?.warnings?.length);
-      console.log('📥 Suggestions:', data?.suggestions?.length);
-      console.log('📥 Opportunities:', data?.opportunities?.length);
-      
       setInsights(data);
+      setIsAnalyzing(false);
+    });
+
+    // The server emits this when the per-connection ceiling is hit. Without
+    // handling it the spinner span forever, because no insights ever arrive.
+    assistantSocket.on('draft-insights-error', () => {
       setIsAnalyzing(false);
     });
 
     // Connection events
     assistantSocket.on('connect', () => {
-      console.log('✅ Assistant connected:', assistantSocket.id);
       setIsConnected(true);
-      
-      // Join room after connection
-      console.log('🔌 Joining debate assistant room');
       assistantSocket.emit('join-debate-assistant', { debateId });
     });
 
     assistantSocket.on('connect_error', (error) => {
-      console.error('❌ Connection error:', error.message);
+      console.error('Assistant connection error:', error.message);
       setIsConnected(false);
+      setIsAnalyzing(false);
     });
 
-    assistantSocket.on('disconnect', (reason) => {
-      console.log('❌ Disconnected:', reason);
+    assistantSocket.on('disconnect', () => {
       setIsConnected(false);
+      setIsAnalyzing(false);
     });
 
-    assistantSocket.on('reconnect', (attemptNumber) => {
-      console.log('🔄 Reconnected after', attemptNumber, 'attempts');
+    assistantSocket.on('reconnect', () => {
       setIsConnected(true);
-    });
-
-    // Error handler
-    assistantSocket.on('error', (error) => {
-      console.error('❌ Socket error:', error);
     });
 
     // Set socket in state
@@ -81,7 +74,6 @@ export const useLiveAssistant = (debateId, side) => {
 
     // Cleanup
     return () => {
-      console.log('🧹 Cleaning up socket');
       if (assistantSocket.connected) {
         assistantSocket.emit('leave-debate-assistant', { debateId });
       }
@@ -95,21 +87,9 @@ export const useLiveAssistant = (debateId, side) => {
   /**
    * Analyze draft (throttled)
    */
-  const analyzeDraft = useCallback((currentDraft, userId) => {
-    if (!socket) {
-      console.log('⏭️ No socket available');
-      return;
-    }
-
-    if (!isConnected) {
-      console.log('⏭️ Socket not connected');
-      return;
-    }
-
-    if (!currentDraft || currentDraft.length < 20) {
-      console.log('⏭️ Draft too short:', currentDraft?.length);
-      return;
-    }
+  const analyzeDraft = useCallback((currentDraft) => {
+    if (!socket || !isConnected) return;
+    if (!currentDraft || currentDraft.length < 20) return;
 
     // Clear existing timer
     if (throttleTimer.current) {
@@ -118,25 +98,15 @@ export const useLiveAssistant = (debateId, side) => {
 
     // Set new timer
     throttleTimer.current = setTimeout(() => {
-      console.log('=== EMITTING ANALYZE-DRAFT ===');
-      console.log('Socket ID:', socket.id);
-      console.log('Connected:', socket.connected);
-      console.log('Debate ID:', debateId);
-      console.log('User ID:', userId);
-      console.log('Draft:', currentDraft.substring(0, 50));
-      console.log('Side:', side);
-      
       setIsAnalyzing(true);
-      
+
+      // No userId: the server reads it from the authenticated handshake, and
+      // sending one here would be a value the server has no reason to trust.
       socket.emit('analyze-draft', {
         debateId,
-        userId,
         currentDraft,
         side
       });
-
-      console.log('✅ Event emitted successfully');
-      console.log('============================');
     }, THROTTLE_DELAY);
 
   }, [socket, isConnected, debateId, side]);

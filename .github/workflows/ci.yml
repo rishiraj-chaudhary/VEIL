@@ -52,12 +52,24 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # The allowance was 40 warnings, which is enough room for the build to be
+      # failing on lint locally while CI stays green. The tree is clean, so the
+      # gate is zero.
       - name: Lint
         working-directory: frontend
-        run: npx eslint src --max-warnings 40
+        run: npx eslint src --max-warnings 0
 
+      - name: Tests
+        working-directory: frontend
+        run: npm test -- --watchAll=false
+        env:
+          CI: true
+
+      # CI was set to false here specifically so that warnings would not fail the
+      # build — which meant `npm run build` passed in CI while failing for anyone
+      # running it with CI set, the default on every CI provider.
       - name: Build
         working-directory: frontend
         run: npm run build
         env:
-          CI: false # warnings are not build failures here; lint gates them above
+          CI: true

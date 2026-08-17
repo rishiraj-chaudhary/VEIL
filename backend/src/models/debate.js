@@ -140,6 +140,15 @@ const debateSchema = new mongoose.Schema({
     against: Number,
   },
 
+  // Narrative summary of the finished debate, written once by the scoring job.
+  // The completion path always assigned this and saved — but it was never
+  // declared here, so strict mode dropped it on every write and the summary the
+  // model was paid to produce was discarded each time.
+  aiSummary: {
+    type: String,
+    default: null,
+  },
+
   // Metadata
   turns: [{
     type: mongoose.Schema.Types.ObjectId,

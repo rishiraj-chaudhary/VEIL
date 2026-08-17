@@ -184,11 +184,10 @@ class GrokService {
           responseTime,
           cached: false,
           debateId: context.debateId || null,
-          turnId: context.turnId || null,
-          error: null
+          success: true,
         });
       }
-      
+
       return aiResponse;
       
     } catch (error) {
@@ -198,6 +197,11 @@ class GrokService {
       
       // Failed calls are still billed for the prompt, and a spike in failures
       // is exactly what an operator needs to see.
+      //
+      // This passed `error:`, which trackUsage does not accept — it takes
+      // `errorMessage` — and never set `success: false`. Every failure was
+      // therefore recorded as a successful call with no error attached, so the
+      // `failures` count on the platform usage dashboard could only ever be zero.
       {
         await AICostService.trackUsage({
           userId: context.userId || null,
@@ -208,8 +212,8 @@ class GrokService {
           responseTime,
           cached: false,
           debateId: context.debateId || null,
-          turnId: context.turnId || null,
-          error: error.response?.data?.error?.message || error.message
+          success: false,
+          errorMessage: error.response?.data?.error?.message || error.message,
         });
       }
       

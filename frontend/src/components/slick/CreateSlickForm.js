@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import useSlickStore from '../../store/slickStore.js';
 
 const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
@@ -26,37 +26,30 @@ const CreateSlickForm = ({ targetUserId, targetUsername, onClose }) => {
     { value: 'observation', label: '👁️ Observation', desc: 'Neutral comment' },
   ];
 
-  /* ================= FIXED: Load AI suggestions on mount ================= */
-  useEffect(() => {
-    loadSuggestions();
-  }, [targetUserId]);
-
-  const loadSuggestions = async () => {
+  /* ================= Load AI suggestions on mount ================= */
+  const loadSuggestions = useCallback(async () => {
     if (!targetUserId) return;
 
-    console.log('🔄 Loading AI suggestions for user:', targetUserId);
     setLoadingSuggestions(true);
 
     try {
       const result = await getSuggestions(targetUserId, '');
-      console.log('✅ Suggestions loaded:', result);
-      
+
       if (result?.success && result.data) {
         // Handle different response structures
-        const suggestionsArray = result.data.suggestions || result.data || [];
-        console.log('📋 Setting suggestions:', suggestionsArray);
-        setSuggestions(suggestionsArray);
+        setSuggestions(result.data.suggestions || result.data || []);
       } else {
-        console.warn('⚠️ No suggestions in response:', result);
         setSuggestions([]);
       }
     } catch (error) {
-      console.error('❌ Failed to load suggestions:', error);
+      console.error('Failed to load suggestions:', error);
       setSuggestions([]);
     } finally {
       setLoadingSuggestions(false);
     }
-  };
+  }, [targetUserId, getSuggestions]);
+
+  useEffect(() => { loadSuggestions(); }, [loadSuggestions]);
 
   /* ================= SUBMIT ================= */
   const handleSubmit = async (e) => {

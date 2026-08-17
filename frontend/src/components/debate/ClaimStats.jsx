@@ -1,5 +1,5 @@
-import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import api from '../../services/api';
 
 /**
  * CLAIM STATS COMPONENT
@@ -18,20 +18,19 @@ const ClaimStats = ({ claimText, compact = false }) => {
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(!compact);
 
-  useEffect(() => {
-    if (claimText && claimText.trim().length > 10) {
-      fetchClaimStats();
-    }
-  }, [claimText]);
-
-  const fetchClaimStats = async () => {
+  /**
+   * Goes through the shared client.
+   *
+   * This built its own request and read the token from `localStorage.token` —
+   * but the app stores it under `veil_token`, so the header was literally
+   * `Bearer null` on every call. It happened to work only because the knowledge
+   * graph routes were left unauthenticated; the moment they were closed, this
+   * component would have 401'd on every claim.
+   */
+  const fetchClaimStats = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/knowledge-graph/claims/stats`,
-        { claimText },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );
+      const response = await api.post('/knowledge-graph/claims/stats', { claimText });
 
       setStats(response.data.data);
       setError(null);
@@ -44,7 +43,18 @@ const ClaimStats = ({ claimText, compact = false }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [claimText]);
+
+  useEffect(() => {
+    if (claimText && claimText.trim().length > 10) {
+      fetchClaimStats();
+    } else {
+      // Without this the panel kept showing the previous claim's stats when it
+      // was re-rendered with a claim too short to look up.
+      setStats(null);
+      setLoading(false);
+    }
+  }, [claimText, fetchClaimStats]);
 
   if (loading) {
     return (

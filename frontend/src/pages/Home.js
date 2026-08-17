@@ -1,10 +1,7 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
-import useAuthStore from '../store/authStore';
 
 const Home = () => {
-  const { user } = useAuthStore();
-
   return (
     <div className="min-h-screen bg-veil-dark">
       <Navbar />

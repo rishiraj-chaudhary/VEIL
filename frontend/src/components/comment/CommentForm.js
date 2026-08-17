@@ -13,7 +13,6 @@ const CommentForm = ({
 }) => {
   const [content, setContent] = useState('');
   const [showAIModal, setShowAIModal] = useState(false);
-  const [lastPrompt, setLastPrompt] = useState('');
 
   const { createComment } = useCommentStore();
   const {
@@ -61,7 +60,6 @@ const CommentForm = ({
       prompt = `Improve this reply to @${replyingToUsername}: "${prompt}"`;
     }
 
-    setLastPrompt(prompt);
     setShowAIModal(true);
 
     await generateReply(prompt, {

@@ -16,8 +16,11 @@ import { communityAnalysisValidators } from '../validators/index.js';
 
 const router = express.Router();
 
-router.get('/:name/insights',         validate(communityAnalysisValidators.byName), getCommunityInsights);
-router.get('/:name/health',           validate(communityAnalysisValidators.byName), getCommunityHealth);
+// Both of these run the health/memory graphs when their cache is stale, so they
+// are authenticated for the same reason the analyse endpoints below are: an
+// uncached GET is an LLM pass over the community's posts and comments.
+router.get('/:name/insights',         authenticate, validate(communityAnalysisValidators.byName), getCommunityInsights);
+router.get('/:name/health',           authenticate, validate(communityAnalysisValidators.byName), getCommunityHealth);
 router.post('/:name/health/analyse',  authenticate, validate(communityAnalysisValidators.byName), analyseCommunityHealth);
 
 export default router;

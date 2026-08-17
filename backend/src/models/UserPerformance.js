@@ -176,7 +176,9 @@ const userPerformanceSchema = new mongoose.Schema({
 });
 
 // ── Indexes ────────────────────────────────────────────────────────────────
-userPerformanceSchema.index({ user: 1 });
+// `user` already declares `unique: true`, which creates the index. Declaring it
+// again here built a second, redundant index on the same key and made Mongoose
+// warn on every boot.
 userPerformanceSchema.index({ 'stats.winRate': -1 });
 userPerformanceSchema.index({ 'qualityMetrics.avgOverallQuality': -1 });
 userPerformanceSchema.index({ lastUpdated: -1 });
@@ -189,15 +191,48 @@ userPerformanceSchema.pre('save', function (next) {
   next();
 });
 
-// ── Virtual: rank ──────────────────────────────────────────────────────────
-userPerformanceSchema.virtual('rank').get(function () {
-  if (this.stats.totalDebates < 5) return 'Novice';
-  if (this.stats.winRate >= 70) return 'Master';
-  if (this.stats.winRate >= 60) return 'Expert';
-  if (this.stats.winRate >= 50) return 'Skilled';
-  if (this.stats.winRate >= 40) return 'Intermediate';
+// ── Rank ───────────────────────────────────────────────────────────────────
+//
+// There were two disagreeing definitions of a user's rank in this file. The
+// virtual graded on win rate alone and returned Novice/Master/Expert/Skilled/
+// Intermediate/Beginner; `updateRankTier` graded on a composite of win rate,
+// quality and fallacy rate and returned novice/apprentice/expert/master/legend.
+// Which one a user saw depended on which code path rendered them, and the two
+// could disagree outright — a careful debater with a losing record is "Beginner"
+// by one and "expert" by the other.
+//
+// Win rate alone is also the wrong measure on a platform whose whole premise is
+// that reasoning quality is what counts, so the composite definition wins and is
+// now the only one.
+const rankFor = ({ totalDebates, winRate, avgQuality, fallacyRate }) => {
+  if (totalDebates < 5) return 'Novice';
+
+  const composite =
+    winRate * 0.3 +
+    avgQuality * 0.4 +
+    (1 - fallacyRate) * 100 * 0.3;
+
+  if (totalDebates >= 50 && composite >= 85) return 'Legend';
+  if (totalDebates >= 30 && composite >= 75) return 'Master';
+  if (totalDebates >= 15 && composite >= 65) return 'Expert';
+  if (composite >= 50)                       return 'Apprentice';
   return 'Beginner';
+};
+
+userPerformanceSchema.virtual('rank').get(function () {
+  return rankFor({
+    totalDebates: this.stats?.totalDebates || 0,
+    winRate:      this.stats?.winRate || 0,
+    avgQuality:   this.qualityMetrics?.avgOverallQuality || 0,
+    fallacyRate:  this.fallacyStats?.fallacyRate || 0,
+  });
 });
+
+// Virtuals are not serialised by default, so `rank` vanished from every
+// `.toJSON()` response — the dashboard and leaderboards read `undefined` and
+// rendered a blank tier.
+userPerformanceSchema.set('toJSON',   { virtuals: true });
+userPerformanceSchema.set('toObject', { virtuals: true });
 
 // ── Methods ────────────────────────────────────────────────────────────────
 
@@ -247,23 +282,16 @@ userPerformanceSchema.methods.addCoachingTip = async function (tip) {
   return this;
 };
 
+/**
+ * The user's current rank.
+ *
+ * This used to assign `this.rank = …`. `rank` is a virtual with a getter and no
+ * setter, so Mongoose accepted each assignment and discarded it — the method
+ * computed a tier, wrote it nowhere, and returned the getter's unrelated answer.
+ * Rank is derived, not stored, so there is nothing to update: reading the
+ * virtual is the whole operation.
+ */
 userPerformanceSchema.methods.updateRankTier = function () {
-  const { totalDebates, winRate } = this.stats;
-  const avgQuality = this.qualityMetrics.avgOverallQuality || 0;
-  const { fallacyRate } = this.fallacyStats;
-
-  const compositeScore =
-    winRate * 0.3 +
-    avgQuality * 0.4 +
-    (1 - fallacyRate) * 100 * 0.3;
-
-  if (totalDebates < 5)                              this.rank = 'novice';
-  else if (totalDebates >= 50 && compositeScore >= 85) this.rank = 'legend';
-  else if (totalDebates >= 30 && compositeScore >= 75) this.rank = 'master';
-  else if (totalDebates >= 15 && compositeScore >= 65) this.rank = 'expert';
-  else if (totalDebates >= 5  && compositeScore >= 50) this.rank = 'apprentice';
-  else                                               this.rank = 'novice';
-
   return this.rank;
 };
 
@@ -317,5 +345,6 @@ userPerformanceSchema.statics.getUserRankPosition = async function (userId) {
   };
 };
 
-const UserPerformance = mongoose.model('UserPerformance', userPerformanceSchema);
+const UserPerformance = mongoose.models.UserPerformance
+  || mongoose.model('UserPerformance', userPerformanceSchema);
 export default UserPerformance;

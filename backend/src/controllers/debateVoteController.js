@@ -1,7 +1,6 @@
 import Debate from '../models/debate.js';
-import DebateTurn from '../models/debateTurn.js';
 import DebateVote from '../models/debateVote.js';
-import { emitReactionAdded, emitVoteCast, getIO } from '../sockets/index.js';
+import { emitVoteCast, getIO } from '../sockets/index.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 /* =====================================================
@@ -135,6 +134,7 @@ export const getDebateVotes = asyncHandler(async (req, res) => {
   });
 });
 
-/* =====================================================
-   REACT TO TURN
-===================================================== */
+// A "REACT TO TURN" section header sat here with no handler beneath it, and the
+// DebateTurn model and emitReactionAdded helper were imported solely to serve
+// it. No route referenced any of it and the frontend has no reaction control on
+// a turn, so the header, the imports and the unused socket emitter went with it.
